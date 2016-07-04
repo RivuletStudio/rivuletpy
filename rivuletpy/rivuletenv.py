@@ -5,104 +5,13 @@ from .utils.io import *
 from .utils import rendering3
 from .utils.backtrack import *
 from .utils.preprocessing import rivulet_preprocessing
+from .stalkers import RotStalker
 
 import os
 from matplotlib import pyplot as plt
 import numpy
 from numpy import pi
 from euclid import * 
-import random
-
-class Stalker(object):
-
-    def __init__(self, pos=Point3(0.0, 0.0, 0.0),
-                 face=None, initial_speed=0.0,
-                 nsonar=30,
-                 raylength=10,
-                 raydecay=0.7, ax=None):
-        self.pos = pos # Position
-        if face is None:
-            face = np.random.rand(3,) 
-            face -= 0.5
-            face *= 2
-            face /= np.linalg.norm(face)
-            self._face = Vector3(face[0], face[1], face[2]) # The directional vector this stalker is facing
-
-        # Initialise the sonars
-        while True:
-            sonarpts = self._fibonacci_sphere(nsonar*2)
-            self._sonars = [Vector3(p.x, p.y, p.z) for p in sonarpts if p.x > 0]
-            if len(self._sonars) is nsonar:
-                break
-
-        self.raylength = raylength
-        self._raydecay = raydecay
-        self.path = [] # Save the path of this stalker
-
-
-    def step(self, action, rewardmap):
-        # Rotate the face angles
-        vel = Vector3(action[0], action[1], action[2]) 
-        R  = Quaternion.new_rotate_axis(vel.x, Vector3(1, 0, 0))
-        R *= Quaternion.new_rotate_axis(vel.y, Vector3(0, 1, 0))
-        R *= Quaternion.new_rotate_axis(vel.z, Vector3(0, 0, 1))
-        self._face = R * self._face
-
-        # Rotate sonar rays to new direction
-        self._sonars = [R * s for s in self._sonars]
-
-        # Move to new position
-        pos = self.pos.copy()
-        pos += self._face * np.asscalar(action[-1])
-
-        if inbound(pos.xyz, rewardmap.shape):
-            self.pos = pos
-        self.path.append(self.pos)
-
-        return self.sample(rewardmap), self.pos
-
-
-    def sample(self, rewardmap):
-        ob = np.array([0.0] * len(self._sonars))
-        for i,s in enumerate(self._sonars):
-            for j in range(self.raylength):
-                rx = np.floor(self.pos.x + j * s.x)
-                ry = np.floor(self.pos.y + j * s.y)
-                rz = np.floor(self.pos.z + j * s.z)
-                if not inbound((rx, ry, rz), rewardmap.shape): # Sampling on this ray stops when it reaches out of bound
-                    break;
-                ob[i] += self._raydecay ** j * rewardmap[rx, ry, rz] # TODO: Maybe change the ray sampling to interpolation
-        return ob
-
-
-    def render(self, viewer):
-        cy = rendering3.Cylinder3(self.pos, 4, self._face*180/np.pi)
-        cy.set_color(0,0,1)
-        viewer.add_onetime(cy)
-
-
-    def _fibonacci_sphere(self, samples=1, randomize=True):
-        rnd = 1.
-        if randomize:
-            rnd = random.random() * samples
-
-        points = []
-        offset = 2./samples
-        increment = math.pi * (3. - math.sqrt(5.));
-
-        for i in range(samples):
-            y = ((i * offset) - 1) + (offset / 2);
-            r = math.sqrt(1 - pow(y,2))
-
-            phi = ((i + rnd) % samples) * increment
-
-            x = math.cos(phi) * r
-            z = math.sin(phi) * r
-
-            points.append(Point3(x, y, z))
-
-        return points
-
 
 class RivuletEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -113,8 +22,6 @@ class RivuletEnv(gym.Env):
                        'render': False, 'cached': True, 'nsonar': 30, 'gap': 8,
                        'raylength': 8}
         self.config.update(userconfig)
-
-
         self.viewer = None
         dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(self.config['imgpath'], self.config)
 
@@ -151,7 +58,7 @@ class RivuletEnv(gym.Env):
         self._tt[self._bimg<=0] = -2
 
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
-        self._stalker = Stalker(Point3(maxtpt[0], maxtpt[1], maxtpt[2]), nsonar=self.config['nsonar'], raylength=self.config['raylength'])
+        self._stalker = RotStalker(Point3(maxtpt[0], maxtpt[1], maxtpt[2]), nsonar=self.config['nsonar'], raylength=self.config['raylength'])
         return self._stalker.sample(self._bimg)
 
 
@@ -191,7 +98,7 @@ class RivuletEnv(gym.Env):
         if self.viewer is None:
             bounds = self._swc[:, 2:5].max(axis=0) * 4
             bounds = np.floor(bounds).astype('int16')
-            self.viewer = rendering3.Viewer3(400,400,400)
+            self.viewer = rendering3.Viewer3(800, 800, 800)
             self.viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
 
             ids = [node[0] for node in self._swc]

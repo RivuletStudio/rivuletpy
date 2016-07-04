@@ -25,8 +25,8 @@ ball.set_color(0, 0, 1)
 viewer.add_geom(ball)
 
 # Draw a cylinder
-centremass + 20
-cy = Cylinder3(centremass, 3, (20,20,20))
+centremass += 20
+cy = Cylinder3((100,100,100), 3, (30, 30, 0))
 cy.set_color(0, 1, 1)
 viewer.add_geom(cy)
 

@@ -1,4 +1,7 @@
 import numpy as np
+import random
+import math
+from euclid import Point3
 
 def gd(srcpt, ginterp, t, stepsize):
 	gvec = np.asarray([g(srcpt)[0] for g in ginterp])
@@ -69,3 +72,26 @@ def getradius(bimg, x, y, z):
 
 def inbound(pt, shape):
 	return all([True if 0 <= p < s else False for p,s in zip(pt, shape)])
+
+
+def fibonacci_sphere(samples=1, randomize=True):
+    rnd = 1.
+    if randomize:
+        rnd = random.random() * samples
+
+    points = []
+    offset = 2./samples
+    increment = math.pi * (3. - math.sqrt(5.));
+
+    for i in range(samples):
+        y = ((i * offset) - 1) + (offset / 2);
+        r = math.sqrt(1 - pow(y,2))
+
+        phi = ((i + rnd) % samples) * increment
+
+        x = math.cos(phi) * r
+        z = math.sin(phi) * r
+
+        points.append(Point3(x, y, z))
+
+    return points

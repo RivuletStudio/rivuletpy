@@ -21,19 +21,36 @@ def _add_attrs(geom, attrs):
         geom.set_linewidth(attrs["linewidth"])
 
 class Cylinder3(Geom):
-    def __init__(self, centre=(0.0, 0.0, 0.0), radius=2, rotation=(0,0,0)):
+    def __init__(self, centre=(0.0, 0.0, 0.0), radius=2, face=(1,0,0)):
         Geom.__init__(self)
         self._centre = centre 
         self._radius = radius
-        self._rotation = rotation
+        self._face = face/np.linalg.norm(face)
 
     def render1(self):
+        # http://stackoverflow.com/questions/6992541/opengl-rotation-in-given-direction
         glPushMatrix()
         glTranslatef(*self._centre)
-        glRotatef(-90, 0, 1, 0)
-        glRotatef(self._rotation[0], 1, 0, 0)
-        glRotatef(self._rotation[1], 0, 1, 0)
-        glRotatef(self._rotation[2], 0, 0, 1)
+        # glRotatef(-90, 0, 1, 0) # Rotate to face (1,0,0)
+        # print('== Rotate to face', self._face)
+        # glRotatef(-np.arcsin(self._face[2]) * 180 / np.pi, 0, 1, 0)
+        # glRotatef(np.arctan2(self._face[1], self._face[0]) * 180 / np.pi, 0, 0, 1)
+        T = np.array((0., 0., 1.)) # TODO: Need to be face vector
+        Y = np.array((0., 1., 0.)) # TODO: need to be up vector
+        U = (T - np.dot(T, Y))
+        U /= np.linalg.norm(U)
+        L = np.cross(U, T)
+        M = np.zeros(shape=(4, 4))
+        M[0:3, 0] = L
+        M[0:3, 1] = U
+        M[0:3, 2] = T
+        M[0:3, 3] = np.array(self._centre)
+        M[-1, -1] = 1
+        print('M:', M)
+        M = M.flatten('F')
+        M = (GLfloat*len(M))(*M)
+        # M = glGetFloatv(GL_MODELVIEW_MATRIX, M)
+        glMultMatrixf(M)
         gluCylinder(gluNewQuadric(), self._radius, 0, 4*self._radius, 100, 100) 
         glPopMatrix()
 
