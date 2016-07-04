@@ -53,9 +53,9 @@ def rk4(srcpt, ginterp, t, stepsize):
 
 def getradius(bimg, x, y, z):
 	r = 0
-	x = np.floor(x)	
-	y = np.floor(y)	
-	z = np.floor(z)	
+	x = math.floor(x)	
+	y = math.floor(y)	
+	z = math.floor(z)	
 
 	while True:
 		r += 1

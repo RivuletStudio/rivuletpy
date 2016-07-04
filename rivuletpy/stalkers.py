@@ -3,6 +3,7 @@ from euclid import *
 from .utils.backtrack import fibonacci_sphere, inbound
 from .utils.rendering3 import Line3, Ball3
 import numpy as np
+import math
 
 class Stalker(ABC):
     def __init__(self, pos=Point3(0.0, 0.0, 0.0), face=None):
@@ -27,12 +28,15 @@ class Stalker(ABC):
         pass
 
     def render(self, viewer):
+        normface = self._face.copy() 
+        normface = normface.normalize() * 3
+
         # self._face*180/np.pi
-        cy = Ball3(self.pos, 3)
+        cy = Ball3(self.pos, 1)
         cy.set_color(0,0,1)
         viewer.add_onetime(cy)
 
-        ln = Line3(self.pos, self.pos+self._face *3)
+        ln = Line3(self.pos, self.pos+normface)
         ln.set_color(0,0,1)
         viewer.add_onetime(ln)
 
@@ -53,9 +57,9 @@ class SonarStalker(Stalker, ABC):
         ob = np.array([0.0] * len(self._sonars))
         for i,s in enumerate(self._sonars):
             for j in range(self.raylength):
-                rx = np.floor(self.pos.x + j * s.x)
-                ry = np.floor(self.pos.y + j * s.y)
-                rz = np.floor(self.pos.z + j * s.z)
+                rx = math.floor(self.pos.x + j * s.x)
+                ry = math.floor(self.pos.y + j * s.y)
+                rz = math.floor(self.pos.z + j * s.z)
                 if not inbound((rx, ry, rz), rewardmap.shape): # Sampling on this ray stops when it reaches out of bound
                     break;
                 ob[i] += self._raydecay ** j * rewardmap[rx, ry, rz] # TODO: Maybe change the ray sampling to interpolation
@@ -103,7 +107,7 @@ class RotStalker(SonarStalker):
 class DandelionStalker(SonarStalker):
     def __init__(self, pos=Point3(0.0, 0.0, 0.0),
              face=None, nsonar=30, raylength=10, raydecay=0.7):
-        super(DandelionStalker, self).__init__(pos, face, nsonar*2, raylength, raydecay) 
+        super(DandelionStalker, self).__init__(pos, face, nsonar, raylength, raydecay) 
 
 
     def step(self, action, rewardmap):
