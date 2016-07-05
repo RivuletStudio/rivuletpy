@@ -15,14 +15,20 @@ from rivuletpy.lib.modular_rl import *
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     update_argument_parser(parser, GENERAL_OPTIONS)    
-    parser.add_argument("--agent",required=True)
-    parser.add_argument("--plot",action="store_true")
+    parser.add_argument("--agent", required=True)
+    parser.add_argument("--plot", action="store_true")
+    parser.add_argument('--gap', type=int)
+    parser.add_argument('--debug', type=bool)
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     agent_ctor = get_agent_cls(args.agent)
     update_argument_parser(parser, agent_ctor.options)
     args = parser.parse_args()
     cfg = args.__dict__
-    env = RivuletEnv(imgpath='tests/data/test-small.tif', swcpath='tests/data/test-small.swc', cached=False, nsonar=60, raylength=12, gap=cfg['gap'] if 'gap' in cfg else 8)
+    env = RivuletEnv(imgpath='tests/data/test-small.tif', 
+                     swcpath='tests/data/test-small.swc',
+                     cached=False, nsonar=60, raylength=12, 
+                     gap=cfg['gap'] if 'gap' in cfg else 8,
+                     debug=cfg['debug'] if 'gap' in cfg else False)
     # env_spec = env.spec
     mondir = args.outfile + ".dir"
     if os.path.exists(mondir): shutil.rmtree(mondir)

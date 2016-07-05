@@ -40,9 +40,9 @@ def rivulet_preprocessing(filepath, config):
     img = loadtiff3d(filepath) # Load the image file
     img, cropregion = crop(img, config['threshold']) # Crop it
     bimg = (img > config['threshold']).astype(int)
+    bimg = bimg.astype('int')
 
     # Distance transform from the background
-    print('Distance Transform...')
     dt = skfmm.distance(bimg, dx=5e-2)
     dt[bimg<=0] = 0
     dtmax = dt.max()
@@ -51,7 +51,6 @@ def rivulet_preprocessing(filepath, config):
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
     # Fast marching from the position with the largest distance
-    print('Fast Marching...')
     F = dt ** 4
     F[F == 0] = 1e-10
     t = skfmm.travel_time(marchmap, F, dx=0.01)
@@ -60,10 +59,8 @@ def rivulet_preprocessing(filepath, config):
     gshape = list(t.shape)
     gshape.append(3)
     g = np.zeros(gshape)
-    print('Calculate gradient vectors...')
     standard_grid = (np.arange(t.shape[0]), np.arange(t.shape[1]), np.arange(t.shape[2]))
     dx, dy, dz = distgradient(t.astype('float64'))
-    # dx, dy, dz = np.gradient(t.astype('float64'))
     ginterp = (RegularGridInterpolator(standard_grid, dx),
                RegularGridInterpolator(standard_grid, dy),
                RegularGridInterpolator(standard_grid, dz))

@@ -5,7 +5,6 @@ from libtiff import TIFF
 
 def loadtiff3d(filepath):
     """Load a tiff file into 3D numpy array"""
-    print('Loading image', filepath, '...')
     tiff = TIFF.open(filepath, mode='r')
     stack = []
     for sample in tiff.iter_images():

@@ -92,6 +92,6 @@ def fibonacci_sphere(samples=1, randomize=True):
         x = math.cos(phi) * r
         z = math.sin(phi) * r
 
-        points.append(Point3(x, y, z))
+        points.append(np.array([x, y, z]))
 
     return points

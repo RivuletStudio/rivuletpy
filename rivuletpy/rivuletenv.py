@@ -12,10 +12,17 @@ import os
 from matplotlib import pyplot as plt
 import numpy
 from numpy import pi
-from euclid import * 
+
 
 class RivuletEnv(gym.Env):
+    # Shared members among all copies 
     metadata = {'render.modes': ['human', 'rgb_array']}
+    _dt = None
+    _t = None
+    _ginterp = None
+    _bimg = None
+    _swc = None
+    obs_dim = None
 
 
     def __init__(self, **userconfig):
@@ -25,10 +32,11 @@ class RivuletEnv(gym.Env):
                        'raylength': 8}
         self.config.update(userconfig)
         self.viewer = None
+        self._debug = userconfig['debug']
         self._dt, self._t, self._ginterp, self._bimg, cropregion = rivulet_preprocessing(self.config['imgpath'], self.config)
 
         spt = np.asarray(np.unravel_index(self._dt.argmax(), self._dt.shape))
-        self._somapt = Point3(spt[0], spt[1], spt[2])
+        self._somapt = np.asarray([spt[0], spt[1], spt[2]])
 
         swc = loadswc(self.config['swcpath'])
         for n in swc: # cropswc
@@ -38,16 +46,17 @@ class RivuletEnv(gym.Env):
         self._swc = swc
 
         # Action Space 
-        # low = np.array([-2*pi, -2*pi, -2*pi, 0]) # For RotStalker
-        # high = np.array([2*pi, 2*pi, 2*pi, 3])
-        low = np.array([-1, -1, -1, 0]) # For DandelionStalker 
-        high = np.array([1, 1, 1, 0.5])
-        self.action_space = spaces.Box(low, high)
+        act_low = np.array([-1, -1, -1, 0]) # For DandelionStalker 
+        act_high = np.array([1, 1, 1, 0.5])
+        self.action_space = spaces.Box(act_low, act_high)
 
+        # Observation Space
         self.obs_dim = self.config['nsonar'] + 4
-        high = np.array([1.0] * self.obs_dim)
-        low = np.array([-self.config['raylength']] * self.obs_dim)
-        self.observation_space = spaces.Box(low, high)
+        ob_high = np.array([1.0] * (self.obs_dim - 4))
+        ob_high = np.append(ob_high, act_high)
+        ob_low = np.array([-self.config['raylength']] * (self.obs_dim - 4))
+        ob_low = np.append(ob_low, act_low)
+        self.observation_space = spaces.Box(ob_low, ob_high)
 
 
     def _reset(self):
@@ -55,15 +64,17 @@ class RivuletEnv(gym.Env):
         self._rewardmap = self._dt.copy()
         self._tt = self._t.copy() # For selecting the furthest foreground point
         self._tt[self._bimg==0] = -2
-        maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
-        self._stalker = DandelionStalker(Point3(maxtpt[0], maxtpt[1], maxtpt[2]), nsonar=self.config['nsonar'], raylength=self.config['raylength'])
+        maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
+        self._stalker = DandelionStalker(maxtpt,
+                                         nsonar=self.config['nsonar'],
+                                         raylength=self.config['raylength'])
         self._erase(self._stalker.pos)
         return np.append(self._stalker.sample(self._bimg), [0.,0.,0.,0.])
 
 
     def _erase(self, pos):
-        posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos.xyz)]
-        r = getradius(self._bimg, posx, posy, posz)
+        posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
+        r = getradius(self._bimg, posx, posy, posz) + 1
         self._rewardmap[max(posx-r, 0) : min(posx+r+1, self._tt.shape[0]),
                         max(posy-r, 0) : min(posy+r+1, self._tt.shape[1]), 
                         max(posz-r, 0) : min(posz+r+1, self._tt.shape[2])] = -1
@@ -74,8 +85,8 @@ class RivuletEnv(gym.Env):
 
     def _step(self, action):
         done = False
-        ob, pos = self._stalker.step(action, self._rewardmap)
-        posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(pos.xyz)]
+        ob = self._stalker.step(action, self._rewardmap)
+        posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
         reward = self._rewardmap[posx, posy, posz]
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
@@ -83,24 +94,40 @@ class RivuletEnv(gym.Env):
         self._erase(self._stalker.pos)
 
         # Check a few crieria to see if reinitialise stalker
-        notmoving = len(self._stalker.path) >= 30 and np.linalg.norm(self._stalker.path[-30] - self._stalker.pos) <= 1 
-        close2soma = self._stalker.pos.distance(self._somapt) < self._dt.max()
+        notmoving = len(self._stalker.path) >= 15 and \
+                    np.linalg.norm(self._stalker.path[-15] - self._stalker.pos) <= 1 
+        close2soma = np.linalg.norm(self._stalker.pos - self._somapt) < self._dt.max()
         largegap = len(self._stalker.path) > self.config['gap'] 
-        pathvoxsum = np.array([self._bimg[math.floor(p.x), 
-                               math.floor(p.y), 
-                               math.floor(p.z)] for p in self._stalker.path[-self.config['gap']:] ]).sum()
+        pathvoxsum = np.array([self._bimg[math.floor(p[0]), 
+                               math.floor(p[1]), 
+                               math.floor(p[2])] for p in self._stalker.path[-self.config['gap']:] ]).sum()
         largegap = largegap and pathvoxsum == 0
-        outofbound = not inbound(pos.xyz, self._rewardmap.shape)
+        outofbound = not inbound(self._stalker.pos, self._rewardmap.shape)
+        coverage = np.logical_and(self._tt == -1, self._bimg == 1).astype('float').sum() \
+                   / self._bimg.astype('float').sum()
+        covered = coverage >= .98
 
-        # Place stalker at the current geodesic furthest point
-        if notmoving or largegap or outofbound or repeat:
+        # Respawn if any criterion is met
+        if notmoving or largegap or outofbound or close2soma:
+            if largegap:
+                reward -= 10
             maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
-            self._stalker.pos.x, self._stalker.pos.y, self._stalker.pos.z = maxtpt
+            self._stalker.pos = maxtpt.astype('float64')
+            if self._debug:
+                print('*************************')
+                print('==Respawn at ', self._stalker.pos, 'with matxtpt:',
+                 maxtpt, 'maxtt:', self._tt.max(), '\tpathlen:', len(self._stalker.path))
+                print('%.2f%%' % np.asscalar(coverage * 100.0), 
+                      '\tnotmoving:', notmoving, '\tlargegap', largegap, '\toutofbound:',
+                      outofbound, '\trepeat', repeat, '\tclose2soma:', close2soma)
             self._erase(self._stalker.pos)
             self._stalker.path = []
 
-        if close2soma:
-            # print('close2soma:\t', close2soma)
+        # End episode if all the foreground has been covered
+        if covered:
+            if self._debug:
+                print('*************************')
+                print('All the foreground has been covered in this episode')
             done = True
 
         assert ob.size == self.obs_dim
@@ -120,7 +147,7 @@ class RivuletEnv(gym.Env):
                 # draw a line between this node and its parents when its parent exists 
                 if node[6] in ids:
                     parent = next(parent for parent in self._swc if node[6] == parent[0])
-                    line = rendering3.Line3((node[2], node[3], node[4]), (parent[2], parent[3], parent[4]))
+                    line = rendering3.Line3((node[3], node[2], node[4]), (parent[3], parent[    2], parent[4]))
                     line.set_color(1,0,0)
                     line.set_line_width(2)
                     self.viewer.add_geom(line)
@@ -130,15 +157,19 @@ class RivuletEnv(gym.Env):
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
+
     def _close(self):
         pass
 
+
     def _configure(self):
         pass
+
 
     def _seed(self, seed):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
 
-
+    def deepcopy(self):
+        return RivuletEnv(**self.config)
