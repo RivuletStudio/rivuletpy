@@ -18,18 +18,16 @@ if __name__ == "__main__":
     parser.add_argument("--agent",required=True)
     parser.add_argument("--plot",action="store_true")
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
-    env = RivuletEnv(imgpath='tests/data/test-small.tif', swcpath='tests/data/test-small.swc', cached=False, nsonar=60, raylength=12)
+    agent_ctor = get_agent_cls(args.agent)
+    update_argument_parser(parser, agent_ctor.options)
+    args = parser.parse_args()
+    cfg = args.__dict__
+    env = RivuletEnv(imgpath='tests/data/test-small.tif', swcpath='tests/data/test-small.swc', cached=False, nsonar=60, raylength=12, gap=cfg['gap'] if 'gap' in cfg else 8)
     # env_spec = env.spec
     mondir = args.outfile + ".dir"
     if os.path.exists(mondir): shutil.rmtree(mondir)
     os.mkdir(mondir)
     env.monitor.start(mondir, video_callable=None if args.video else VIDEO_NEVER)
-    agent_ctor = get_agent_cls(args.agent)
-    update_argument_parser(parser, agent_ctor.options)
-    args = parser.parse_args()
-    # if args.timestep_limit == 0: 
-    #     args.timestep_limit = env_spec.timestep_limit    
-    cfg = args.__dict__
     np.random.seed(args.seed)
     agent = agent_ctor(env.observation_space, env.action_space, cfg)
     if args.use_hdf:

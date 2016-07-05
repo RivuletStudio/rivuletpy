@@ -17,7 +17,7 @@ class Stalker(ABC):
         else:
             self._face = face
 
-        self.path = []
+        self.path = [self.pos]
 
     @abstractmethod
     def step(self, action, rewardmap):
@@ -43,14 +43,13 @@ class Stalker(ABC):
 
 class SonarStalker(Stalker, ABC):
     def __init__(self, pos=Point3(0.0, 0.0, 0.0), face=None, nsonar=30, raylength=10, raydecay=0.7):
-        super(SonarStalker, self).__init__(Point3(0.0, 0.0, 0.0), None)
+        super(SonarStalker, self).__init__(pos, face)
 
         # Initialise the sonars
         sonarpts = fibonacci_sphere(nsonar)
         self._sonars = [Vector3(p.x, p.y, p.z) for p in sonarpts]
         self.raylength = raylength
         self._raydecay = raydecay
-        self.path = [] # Save the path of this stalker
 
 
     def sample(self, rewardmap):
@@ -95,12 +94,10 @@ class RotStalker(SonarStalker):
         # Move to new position
         pos = self.pos.copy()
         pos += self._face * np.asscalar(dt)
-        # print('==face:',self._face)
 
         if inbound(pos.xyz, rewardmap.shape):
             self.pos = pos
         self.path.append(self.pos)
-        
         ob = np.append(self.sample(rewardmap), action)
 
         return ob, self.pos

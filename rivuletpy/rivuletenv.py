@@ -58,11 +58,21 @@ class RivuletEnv(gym.Env):
         # Reinit dt map
         self._rewardmap = self._dt.copy()
         self._tt = self._t.copy() # For selecting the furthest foreground point
-        self._tt[self._bimg<=0] = -2
-
+        self._tt[self._bimg==0] = -2
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
         self._stalker = DandelionStalker(Point3(maxtpt[0], maxtpt[1], maxtpt[2]), nsonar=self.config['nsonar'], raylength=self.config['raylength'])
+        self._erase(self._stalker.pos)
         return np.append(self._stalker.sample(self._bimg), [0.,0.,0.,0.])
+
+    def _erase(self, pos):
+        posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos.xyz)]
+        r = getradius(self._bimg, posx, posy, posz)
+        self._rewardmap[max(posx-r, 0) : min(posx+r+1, self._tt.shape[0]),
+                        max(posy-r, 0) : min(posy+r+1, self._tt.shape[1]), 
+                        max(posz-r, 0) : min(posz+r+1, self._tt.shape[2])] = -1
+        self._tt[max(posx-r, 0) : min(posx+r+1, self._tt.shape[0]),
+                 max(posy-r, 0) : min(posy+r+1, self._tt.shape[1]), 
+                 max(posz-r, 0) : min(posz+r+1, self._tt.shape[2])] = -1
 
 
     def _step(self, action):
@@ -72,38 +82,37 @@ class RivuletEnv(gym.Env):
         reward = self._rewardmap[posx, posy, posz]
 
         # Erase the current block stalker stays from reward map with the radius estimated from bimg
-        r = getradius(self._bimg, posx, posy, posz)
-        r -= 1
-        self._rewardmap[max(posx-r, 0) : min(posx+r+1, self._tt.shape[0]),
-                       max(posy-r, 0) : min(posy+r+1, self._tt.shape[1]), 
-                       max(posz-r, 0) : min(posz+r+1, self._tt.shape[2])] = -1
-        self._tt[max(posx-r, 0) : min(posx+r+1, self._tt.shape[0]),
-                max(posy-r, 0) : min(posy+r+1, self._tt.shape[1]), 
-                max(posz-r, 0) : min(posz+r+1, self._tt.shape[2])] = -1
+        self._erase(self._stalker.pos)
 
         # Check a few crieria to see whether the stalker should be reinitialised to the current furthest point 
         notmoving = len(self._stalker.path) >= 30 and np.linalg.norm(self._stalker.path[-30] - self._stalker.pos) <= 1
         close2soma = self._stalker.pos.distance(self._somapt) < self._dt.max()
         largegap = len(self._stalker.path) > self.config['gap'] 
-        largegap = largegap and np.array([self._bimg[math.floor(p.x), math.floor(p.y), math.floor(p.z)] for p in self._stalker.path[-self.config['gap']:] ]).sum() is 0
+        pathvoxsum = np.array([self._bimg[math.floor(p.x), math.floor(p.y), math.floor(p.z)] for p in self._stalker.path[-self.config['gap']:] ]).sum()
+        # print('pathvoxsum:', pathvoxsum)
+        largegap = largegap and pathvoxsum == 0
         outofbound = not inbound(pos.xyz, self._rewardmap.shape)
 
-        # if notmoving or close2soma or largegap or outofbound:
-        if close2soma or largegap or outofbound: # Not moving remove for now
-            print('===Iteration ends')
-            print('path len:\t', len(self._stalker.path))
-            print('notmoving:\t', notmoving)
-            print('close2soma:\t', close2soma)
-            print('largegap:\t', largegap)
-            print('outofbound:\t', outofbound)
+        # Place stalker at the current geodesic furthest point
+        if notmoving or largegap or outofbound:
+            maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
+            self._stalker.pos.x, self._stalker.pos.y, self._stalker.pos.z = maxtpt
+            # print(' *** Reborn stalker at (%.2f, %.2f, %.2f)' % (maxtpt[0], maxtpt[1], maxtpt[2]))
+            # print('path len:\t', len(self._stalker.path))
+            # print('notmoving:\t', notmoving)
+            # print('largegap:\t', largegap)
+            # print('outofbound:\t', outofbound)
+            self._erase(self._stalker.pos)
+            self._stalker.path = []
+
+        if close2soma:
+            # print('close2soma:\t', close2soma)
             done = True
 
-            # maxpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
-            # pos = Point3(maxpt[0], maxpt[1], maxpt[2]) # Put it at current furthest point
-            # self._stalker = Stalker(pos, nsonar=self.config['nsonar'])
         assert ob.size == self.obs_dim
 
         return ob, reward, done, {}
+
 
     def _render(self, mode='human', close=False):
         if self.viewer is None:
