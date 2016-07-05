@@ -7,6 +7,7 @@ viewer = rendering3.Viewer3(400, 400, 400)
 viewer.set_bounds(0, 400, 0, 400, 0, 400)
 reward = np.random.rand(200, 200, 200)
 
+
 stalker = RotStalker(pos=Point3(200, 200, 100), face=None, nsonar=30, raylength=10, raydecay=0.7)
 for i in range(200):
     print('frame %d' % i, end='\r')

@@ -9,7 +9,7 @@ import argparse, sys, pickle
 from tabulate import tabulate
 import shutil, os, logging
 
-from rivuletpy.rivuletenv import RivuletEnv, RandomAgent 
+from rivuletpy.rivuletenv import RivuletEnv
 from rivuletpy.lib.modular_rl import *
 
 if __name__ == "__main__":

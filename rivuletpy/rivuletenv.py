@@ -17,6 +17,7 @@ from euclid import *
 class RivuletEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
 
+
     def __init__(self, **userconfig):
         self.config = {'imgpath': 'test-small.tif', 'swcpath':'test-small.swc','length': 5,
                        'coverage': 0.98, 'threshold': 0,
@@ -24,14 +25,9 @@ class RivuletEnv(gym.Env):
                        'raylength': 8}
         self.config.update(userconfig)
         self.viewer = None
-        dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(self.config['imgpath'], self.config)
+        self._dt, self._t, self._ginterp, self._bimg, cropregion = rivulet_preprocessing(self.config['imgpath'], self.config)
 
-        self._dt = dt
-        self._t = t
-        self._ginterp = ginterp
-        self._bimg = bimg
-
-        spt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+        spt = np.asarray(np.unravel_index(self._dt.argmax(), self._dt.shape))
         self._somapt = Point3(spt[0], spt[1], spt[2])
 
         swc = loadswc(self.config['swcpath'])
@@ -64,6 +60,7 @@ class RivuletEnv(gym.Env):
         self._erase(self._stalker.pos)
         return np.append(self._stalker.sample(self._bimg), [0.,0.,0.,0.])
 
+
     def _erase(self, pos):
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos.xyz)]
         r = getradius(self._bimg, posx, posy, posz)
@@ -80,28 +77,25 @@ class RivuletEnv(gym.Env):
         ob, pos = self._stalker.step(action, self._rewardmap)
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(pos.xyz)]
         reward = self._rewardmap[posx, posy, posz]
+        repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
         # Erase the current block stalker stays from reward map with the radius estimated from bimg
         self._erase(self._stalker.pos)
 
-        # Check a few crieria to see whether the stalker should be reinitialised to the current furthest point 
-        notmoving = len(self._stalker.path) >= 30 and np.linalg.norm(self._stalker.path[-30] - self._stalker.pos) <= 1
+        # Check a few crieria to see if reinitialise stalker
+        notmoving = len(self._stalker.path) >= 30 and np.linalg.norm(self._stalker.path[-30] - self._stalker.pos) <= 1 
         close2soma = self._stalker.pos.distance(self._somapt) < self._dt.max()
         largegap = len(self._stalker.path) > self.config['gap'] 
-        pathvoxsum = np.array([self._bimg[math.floor(p.x), math.floor(p.y), math.floor(p.z)] for p in self._stalker.path[-self.config['gap']:] ]).sum()
-        # print('pathvoxsum:', pathvoxsum)
+        pathvoxsum = np.array([self._bimg[math.floor(p.x), 
+                               math.floor(p.y), 
+                               math.floor(p.z)] for p in self._stalker.path[-self.config['gap']:] ]).sum()
         largegap = largegap and pathvoxsum == 0
         outofbound = not inbound(pos.xyz, self._rewardmap.shape)
 
         # Place stalker at the current geodesic furthest point
-        if notmoving or largegap or outofbound:
+        if notmoving or largegap or outofbound or repeat:
             maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
             self._stalker.pos.x, self._stalker.pos.y, self._stalker.pos.z = maxtpt
-            # print(' *** Reborn stalker at (%.2f, %.2f, %.2f)' % (maxtpt[0], maxtpt[1], maxtpt[2]))
-            # print('path len:\t', len(self._stalker.path))
-            # print('notmoving:\t', notmoving)
-            # print('largegap:\t', largegap)
-            # print('outofbound:\t', outofbound)
             self._erase(self._stalker.pos)
             self._stalker.path = []
 
@@ -146,11 +140,5 @@ class RivuletEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-# The world's simplest agent for testing environment
-class RandomAgent(object):
-    def __init__(self, action_space):
-        self.action_space = action_space
 
-    def act(self, observation, reward, done):
-        return self.action_space.sample()
 
