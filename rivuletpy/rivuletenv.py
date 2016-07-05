@@ -48,7 +48,7 @@ class RivuletEnv(gym.Env):
         high = np.array([1, 1, 1, 0.5])
         self.action_space = spaces.Box(low, high)
 
-        self.obs_dim = self.config['nsonar'] # TODO
+        self.obs_dim = self.config['nsonar'] + 4
         high = np.array([1.0] * self.obs_dim)
         low = np.array([-self.config['raylength']] * self.obs_dim)
         self.observation_space = spaces.Box(low, high)
@@ -61,8 +61,8 @@ class RivuletEnv(gym.Env):
         self._tt[self._bimg<=0] = -2
 
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
-        self._stalker = DandelionStalker(Point3(maxtpt[0], maxtpt[1], maxtpt[2]), nsonar=self.obs_dim, raylength=self.config['raylength'])
-        return self._stalker.sample(self._bimg)
+        self._stalker = DandelionStalker(Point3(maxtpt[0], maxtpt[1], maxtpt[2]), nsonar=self.config['nsonar'], raylength=self.config['raylength'])
+        return np.append(self._stalker.sample(self._bimg), [0.,0.,0.,0.])
 
 
     def _step(self, action):

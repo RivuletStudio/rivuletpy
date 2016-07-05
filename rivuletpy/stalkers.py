@@ -100,8 +100,10 @@ class RotStalker(SonarStalker):
         if inbound(pos.xyz, rewardmap.shape):
             self.pos = pos
         self.path.append(self.pos)
+        
+        ob = np.append(self.sample(rewardmap), action)
 
-        return self.sample(rewardmap), self.pos
+        return ob, self.pos
 
 
 class DandelionStalker(SonarStalker):
@@ -122,5 +124,7 @@ class DandelionStalker(SonarStalker):
         if inbound(pos.xyz, rewardmap.shape):
             self.pos = pos
         self.path.append(self.pos)
+        ob = self.sample(rewardmap)
+        ob = np.append(self.sample(rewardmap), action)
 
-        return self.sample(rewardmap), self.pos
+        return ob, self.pos

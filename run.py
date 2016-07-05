@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("--agent",required=True)
     parser.add_argument("--plot",action="store_true")
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
-    env = RivuletEnv(imgpath='tests/data/test-small.tif', swcpath='tests/data/test-small.swc', cached=False, nsonar=60)
+    env = RivuletEnv(imgpath='tests/data/test-small.tif', swcpath='tests/data/test-small.swc', cached=False, nsonar=60, raylength=12)
     # env_spec = env.spec
     mondir = args.outfile + ".dir"
     if os.path.exists(mondir): shutil.rmtree(mondir)
