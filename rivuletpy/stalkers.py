@@ -18,6 +18,7 @@ class Stalker(ABC):
         else:
             self._face = face
 
+        self._colour = (0., 0., 1.)
         self.path = [self.pos]
 
     @abstractmethod
@@ -25,6 +26,7 @@ class Stalker(ABC):
         pass
 
     @abstractmethod
+    # def sample(self, rewardinterp, rewardshape):
     def sample(self, rewardmap):
         pass
 
@@ -33,16 +35,16 @@ class Stalker(ABC):
         normface = (normface / np.linalg.norm(normface)) * 3
 
         cy = Ball3(self.pos, 1)
-        cy.set_color(0,0,1)
+        cy.set_color(*self._colour)
         viewer.add_onetime(cy)
 
         ln = Line3(self.pos, self.pos+normface)
-        ln.set_color(0,0,1)
+        ln.set_color(*self._colour)
         viewer.add_onetime(ln)
 
 
 class SonarStalker(Stalker, ABC):
-    def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]), face=None, nsonar=30, raylength=10, raydecay=0.7):
+    def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]), face=None, nsonar=30, raylength=10, raydecay=0.5):
         super(SonarStalker, self).__init__(pos, face)
 
         # Initialise the sonars
@@ -51,16 +53,18 @@ class SonarStalker(Stalker, ABC):
         self._raydecay = raydecay
 
 
+    # def sample(self, rewardinterp, rewardshape):
     def sample(self, rewardmap):
         ob = np.asarray([0.0] * len(self._sonars))
-        for i,s in enumerate(self._sonars):
+        for i, s in enumerate(self._sonars):
             for j in range(self.raylength):
-                rx = math.floor(self.pos[0] + j * s[0])
-                ry = math.floor(self.pos[1] + j * s[1])
-                rz = math.floor(self.pos[2] + j * s[2])
-                if not inbound((rx, ry, rz), rewardmap.shape): # Sampling on this ray stops when it reaches out of bound
-                    break;
-                ob[i] += self._raydecay ** j * rewardmap[rx, ry, rz] # TODO: Maybe change the ray sampling to interpolation
+                samplepos = self.pos + j * s
+                if inbound(samplepos, rewardmap.shape): # Sampling on this ray stops when it reaches out of bound
+                    ob[i] += self._raydecay ** j * rewardmap[math.floor(samplepos[0]),
+                                                             math.floor(samplepos[1]),
+                                                             math.floor(samplepos[2])]
+                else:
+                    ob[i] -= 1
         return ob
 
 
@@ -71,10 +75,11 @@ class DandelionStalker(SonarStalker):
 
 
     def step(self, action, rewardmap):
-        vel = action[0:3]
-        dt = action[-1]
+        # action = np.clip(action, -1, 1)
+        vel = action / np.linalg.norm(action)
+        dt = 1 
+        # dt = action[-1]
         self._face = vel / np.linalg.norm(vel)
-        if dt > 2: dt = 2
 
         # Move to new position
         pos = self.pos.copy()
@@ -83,10 +88,14 @@ class DandelionStalker(SonarStalker):
         if inbound(pos, rewardmap.shape):
             self.pos = pos
         self.path.append(self.pos)
-        ob = self.sample(rewardmap)
         ob = np.append(self.sample(rewardmap), action)
-
-        return ob
+        reward = ob.mean()
+    
+        # rewardnorm = (reward - reward.min()) / (reward.max() - reward.min())
+        self._colour = (1. if reward < 0 else 0.,
+                     0.,
+                     1. if reward > 0 else 0.)
+        return ob, reward
 
 
 # Note: if reactivated, need to reimplement with numpy rather than euclid.* since euclid causes problems in deepcopy()

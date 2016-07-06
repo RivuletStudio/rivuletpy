@@ -44,7 +44,7 @@ def rivulet_preprocessing(filepath, config):
 
     # Distance transform from the background
     dt = skfmm.distance(bimg, dx=5e-2)
-    dt[bimg<=0] = 0
+    dt[bimg==0] = 0
     dtmax = dt.max()
     marchmap = np.ones(bimg.shape)
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))

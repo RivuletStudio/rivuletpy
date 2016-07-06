@@ -71,7 +71,7 @@ def getradius(bimg, x, y, z):
 
 
 def inbound(pt, shape):
-	return all([True if 0 <= p < s else False for p,s in zip(pt, shape)])
+	return all([True if 0 <= p <= s-1 else False for p,s in zip(pt, shape)])
 
 
 def fibonacci_sphere(samples=1, randomize=True):

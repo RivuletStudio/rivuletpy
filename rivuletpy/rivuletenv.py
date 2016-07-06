@@ -12,6 +12,7 @@ import os
 from matplotlib import pyplot as plt
 import numpy
 from numpy import pi
+from scipy.interpolate import RegularGridInterpolator
 
 
 class RivuletEnv(gym.Env):
@@ -29,7 +30,7 @@ class RivuletEnv(gym.Env):
         self.config = {'imgpath': 'test-small.tif', 'swcpath':'test-small.swc','length': 5,
                        'coverage': 0.98, 'threshold': 0,
                        'render': False, 'cached': True, 'nsonar': 30, 'gap': 8,
-                       'raylength': 8}
+                       'raylength': 4}
         self.config.update(userconfig)
         self.viewer = None
         self._debug = userconfig['debug']
@@ -46,15 +47,16 @@ class RivuletEnv(gym.Env):
         self._swc = swc
 
         # Action Space 
-        act_low = np.array([-1, -1, -1, 0]) # For DandelionStalker 
-        act_high = np.array([1, 1, 1, 0.5])
+        act_low = np.array([-10, -10, -10]) # For DandelionStalker 
+        act_high = np.array([10, 10, 10])
         self.action_space = spaces.Box(act_low, act_high)
+        nact = self.action_space.shape[0]
 
         # Observation Space
-        self.obs_dim = self.config['nsonar'] + 4
-        ob_high = np.array([1.0] * (self.obs_dim - 4))
+        self.obs_dim = self.config['nsonar'] + nact
+        ob_high = np.array([self._dt.max() * 1000 * self.config['raylength']] * (self.obs_dim - nact))
         ob_high = np.append(ob_high, act_high)
-        ob_low = np.array([-self.config['raylength']] * (self.obs_dim - 4))
+        ob_low = np.array([-self.config['raylength']] * (self.obs_dim - nact))
         ob_low = np.append(ob_low, act_low)
         self.observation_space = spaces.Box(ob_low, ob_high)
 
@@ -62,6 +64,10 @@ class RivuletEnv(gym.Env):
     def _reset(self):
         # Reinit dt map
         self._rewardmap = self._dt.copy()
+        self._rewardmap *= 1000
+        self._rewardmap[self._rewardmap==0] = -1
+        # rewardshape = self._rewardmap.shape
+        # self._standard_grid = (np.arange(rewardshape[0]), np.arange(rewardshape[1]), np.arange(rewardshape[2]))
         self._tt = self._t.copy() # For selecting the furthest foreground point
         self._tt[self._bimg==0] = -2
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
@@ -69,7 +75,8 @@ class RivuletEnv(gym.Env):
                                          nsonar=self.config['nsonar'],
                                          raylength=self.config['raylength'])
         self._erase(self._stalker.pos)
-        return np.append(self._stalker.sample(self._bimg), [0.,0.,0.,0.])
+        # rewardinterp = RegularGridInterpolator(self._standard_grid, self._rewardmap)
+        return np.append(self._stalker.sample(self._rewardmap), [0.] * self.action_space.shape[0])
 
 
     def _erase(self, pos):
@@ -85,9 +92,17 @@ class RivuletEnv(gym.Env):
 
     def _step(self, action):
         done = False
-        ob = self._stalker.step(action, self._rewardmap)
+        # rewardinterp = RegularGridInterpolator(self._standard_grid, self._rewardmap)
+        ob, reward = self._stalker.step(action, self._rewardmap)
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
-        reward = self._rewardmap[posx, posy, posz]
+        # try:
+        #     rewardblock = self._rewardmap[posx-2:posx+3, posy-2:posy+3, posz-2:posz+3]
+        #     reward = rewardblock.mean() if rewardblock.size > 0 else -1.
+        #     # if reward > -1:
+        #     #     print('==step reward:', reward, '\tpos:', posx, posy, posz, '\tblocksize:', rewardblock.size)
+        # except IndexError:
+        #     reward = -1.
+
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
         # Erase the current block stalker stays from reward map with the radius estimated from bimg
@@ -109,8 +124,6 @@ class RivuletEnv(gym.Env):
 
         # Respawn if any criterion is met
         if notmoving or largegap or outofbound or close2soma:
-            if largegap:
-                reward -= 10
             maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
             self._stalker.pos = maxtpt.astype('float64')
             if self._debug:
@@ -147,8 +160,8 @@ class RivuletEnv(gym.Env):
                 # draw a line between this node and its parents when its parent exists 
                 if node[6] in ids:
                     parent = next(parent for parent in self._swc if node[6] == parent[0])
-                    line = rendering3.Line3((node[3], node[2], node[4]), (parent[3], parent[    2], parent[4]))
-                    line.set_color(1,0,0)
+                    line = rendering3.Line3((node[3], node[2], node[4]), (parent[3], parent[2], parent[4]))
+                    line.set_color(229./256., 231./256., 233./256.)
                     line.set_line_width(2)
                     self.viewer.add_geom(line)
 
