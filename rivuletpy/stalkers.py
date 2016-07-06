@@ -27,7 +27,7 @@ class Stalker(ABC):
 
     @abstractmethod
     # def sample(self, rewardinterp, rewardshape):
-    def sample(self, rewardmap):
+    def sample(self, feats):
         pass
 
     def render(self, viewer):
@@ -53,32 +53,32 @@ class SonarStalker(Stalker, ABC):
         self._raydecay = raydecay
 
 
-    # def sample(self, rewardinterp, rewardshape):
-    def sample(self, rewardmap):
-        ob = np.asarray([0.0] * len(self._sonars))
-        for i, s in enumerate(self._sonars):
-            for j in range(self.raylength):
-                samplepos = self.pos + j * s
-                if inbound(samplepos, rewardmap.shape): # Sampling on this ray stops when it reaches out of bound
-                    ob[i] += self._raydecay ** j * rewardmap[math.floor(samplepos[0]),
-                                                             math.floor(samplepos[1]),
-                                                             math.floor(samplepos[2])]
-                else:
-                    ob[i] -= 1
+    def sample(self, feats):
+        nsonar = len(self._sonars)
+        ob = np.zeros(shape=(len(feats), nsonar)) 
+
+        for i, f in enumerate(feats):
+            for j, s in enumerate(self._sonars):
+                for k in range(self.raylength):
+                    samplepos = self.pos + k * s
+                    if inbound(samplepos, f.shape): # Sampling on this ray stops when it reaches out of bound
+                        ob[i, j] += (self._raydecay ** k) * f[math.floor(samplepos[0]),
+                                                              math.floor(samplepos[1]),
+                                                              math.floor(samplepos[2])]
+                    else:
+                        ob[i, j] -= 1
         return ob
 
 
 class DandelionStalker(SonarStalker):
     def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
-                       face=None, nsonar=30, raylength=10, raydecay=0.7):
+                       face=None, nsonar=30, raylength=10, raydecay=0.5):
         super(DandelionStalker, self).__init__(pos, face, nsonar, raylength, raydecay) 
 
 
-    def step(self, action, rewardmap):
-        # action = np.clip(action, -1, 1)
+    def step(self, action, rewardmap, feats=[]):
         vel = action / np.linalg.norm(action)
-        dt = 1 
-        # dt = action[-1]
+        dt = 0.5
         self._face = vel / np.linalg.norm(vel)
 
         # Move to new position
@@ -88,13 +88,18 @@ class DandelionStalker(SonarStalker):
         if inbound(pos, rewardmap.shape):
             self.pos = pos
         self.path.append(self.pos)
-        ob = np.append(self.sample(rewardmap), action)
-        reward = ob.mean()
-    
-        # rewardnorm = (reward - reward.min()) / (reward.max() - reward.min())
+        ob = self.sample(feats)
+        # The last one in ob is reward
+        reward = ob[-1].mean()
+
+        # Flatten ob
+        ob = ob.flatten()
+        ob = np.append(ob, vel)
+        
         self._colour = (1. if reward < 0 else 0.,
-                     0.,
-                     1. if reward > 0 else 0.)
+                         0.,
+                         1. if reward > 0 else 0.)
+
         return ob, reward
 
 

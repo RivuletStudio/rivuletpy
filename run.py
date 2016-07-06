@@ -19,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--plot", action="store_true")
     parser.add_argument('--gap', type=int)
     parser.add_argument('--nsonar', type=int)
+    parser.add_argument('--raylength', type=int)
     parser.add_argument('--debug', type=bool)
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     agent_ctor = get_agent_cls(args.agent)
@@ -29,7 +30,7 @@ if __name__ == "__main__":
                      swcpath='tests/data/test-small.swc',
                      cached=False, 
                      nsonar=cfg['nsonar'] if 'nsonar' in cfg else 60, 
-                     raylength=12, 
+                     raylength=cfg['raylength'] if 'nsonar' in cfg else 8, 
                      gap=cfg['gap'] if 'gap' in cfg else 8,
                      debug=cfg['debug'] if 'gap' in cfg else False)
     # env_spec = env.spec

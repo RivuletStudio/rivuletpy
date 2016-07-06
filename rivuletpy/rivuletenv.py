@@ -27,7 +27,7 @@ class RivuletEnv(gym.Env):
 
 
     def __init__(self, **userconfig):
-        self.config = {'imgpath': 'test-small.tif', 'swcpath':'test-small.swc','length': 5,
+        self.config = {'imgpath': 'test-small.tif', 'swcpath':'test-small.swc',
                        'coverage': 0.98, 'threshold': 0,
                        'render': False, 'cached': True, 'nsonar': 30, 'gap': 8,
                        'raylength': 4}
@@ -53,11 +53,17 @@ class RivuletEnv(gym.Env):
         nact = self.action_space.shape[0]
 
         # Observation Space
-        self.obs_dim = self.config['nsonar'] + nact
-        ob_high = np.array([self._dt.max() * 1000 * self.config['raylength']] * (self.obs_dim - nact))
+        self.obs_dim = self.config['nsonar']*3 + nact
+        ob_high = np.asarray([self._t.max() * self.config['raylength']] * self.config['nsonar'])
+        ob_high = np.append(ob_high, np.asarray([self._bimg.max() * self.config['raylength']] * self.config['nsonar']))
+        ob_high = np.append(ob_high, np.asarray([self._dt.max() * 1000 * self.config['raylength']] * self.config['nsonar']))
         ob_high = np.append(ob_high, act_high)
-        ob_low = np.array([-self.config['raylength']] * (self.obs_dim - nact))
+
+        ob_low = np.asarray([-1 * self.config['raylength']] * self.config['nsonar'])
+        ob_low = np.append(ob_low, np.asarray([-1 * self.config['raylength']] * self.config['nsonar']))
+        ob_low = np.append(ob_low, np.asarray([-1 * self.config['raylength']] * self.config['nsonar']))
         ob_low = np.append(ob_low, act_low)
+
         self.observation_space = spaces.Box(ob_low, ob_high)
 
 
@@ -66,8 +72,6 @@ class RivuletEnv(gym.Env):
         self._rewardmap = self._dt.copy()
         self._rewardmap *= 1000
         self._rewardmap[self._rewardmap==0] = -1
-        # rewardshape = self._rewardmap.shape
-        # self._standard_grid = (np.arange(rewardshape[0]), np.arange(rewardshape[1]), np.arange(rewardshape[2]))
         self._tt = self._t.copy() # For selecting the furthest foreground point
         self._tt[self._bimg==0] = -2
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
@@ -76,7 +80,7 @@ class RivuletEnv(gym.Env):
                                          raylength=self.config['raylength'])
         self._erase(self._stalker.pos)
         # rewardinterp = RegularGridInterpolator(self._standard_grid, self._rewardmap)
-        return np.append(self._stalker.sample(self._rewardmap), [0.] * self.action_space.shape[0])
+        return np.append(self._stalker.sample([self._t, self._bimg, self._rewardmap]), [0.] * self.action_space.shape[0])
 
 
     def _erase(self, pos):
@@ -92,17 +96,8 @@ class RivuletEnv(gym.Env):
 
     def _step(self, action):
         done = False
-        # rewardinterp = RegularGridInterpolator(self._standard_grid, self._rewardmap)
-        ob, reward = self._stalker.step(action, self._rewardmap)
+        ob, reward = self._stalker.step(action, self._rewardmap, [self._t, self._bimg, self._rewardmap])
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
-        # try:
-        #     rewardblock = self._rewardmap[posx-2:posx+3, posy-2:posy+3, posz-2:posz+3]
-        #     reward = rewardblock.mean() if rewardblock.size > 0 else -1.
-        #     # if reward > -1:
-        #     #     print('==step reward:', reward, '\tpos:', posx, posy, posz, '\tblocksize:', rewardblock.size)
-        # except IndexError:
-        #     reward = -1.
-
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
         # Erase the current block stalker stays from reward map with the radius estimated from bimg
