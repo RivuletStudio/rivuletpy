@@ -53,16 +53,18 @@ class RivuletEnv(gym.Env):
         nact = self.action_space.shape[0]
 
         # Observation Space
-        self.obs_dim = self.config['nsonar']*3 + nact
+        self.obs_dim = self.config['nsonar'] * 3 + nact + 3
         ob_high = np.asarray([self._t.max() * self.config['raylength']] * self.config['nsonar'])
         ob_high = np.append(ob_high, np.asarray([self._bimg.max() * self.config['raylength']] * self.config['nsonar']))
         ob_high = np.append(ob_high, np.asarray([self._dt.max() * 1000 * self.config['raylength']] * self.config['nsonar']))
         ob_high = np.append(ob_high, act_high)
+        ob_high = np.append(ob_high, [1., 1., 1.])
 
         ob_low = np.asarray([-1 * self.config['raylength']] * self.config['nsonar'])
         ob_low = np.append(ob_low, np.asarray([-1 * self.config['raylength']] * self.config['nsonar']))
         ob_low = np.append(ob_low, np.asarray([-1 * self.config['raylength']] * self.config['nsonar']))
         ob_low = np.append(ob_low, act_low)
+        ob_low = np.append(ob_low, [-1., -1., -1.])
 
         self.observation_space = spaces.Box(ob_low, ob_high)
 
@@ -79,8 +81,9 @@ class RivuletEnv(gym.Env):
                                          nsonar=self.config['nsonar'],
                                          raylength=self.config['raylength'])
         self._erase(self._stalker.pos)
-        # rewardinterp = RegularGridInterpolator(self._standard_grid, self._rewardmap)
-        return np.append(self._stalker.sample([self._t, self._bimg, self._rewardmap]), [0.] * self.action_space.shape[0])
+        ob = np.append(self._stalker.sample([self._t, self._bimg, self._rewardmap]), [0.] * self.action_space.shape[0])
+        ob = np.append(ob, [0.,0.,0.])
+        return ob
 
 
     def _erase(self, pos):
@@ -97,6 +100,8 @@ class RivuletEnv(gym.Env):
     def _step(self, action):
         done = False
         ob, reward = self._stalker.step(action, self._rewardmap, [self._t, self._bimg, self._rewardmap])
+        endpt = rk4(self._stalker.pos, self._ginterp, self._t, 1)
+        ob = np.append(ob, [endpt - self._stalker.pos]) # Concat RK4 gradients
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
@@ -149,8 +154,8 @@ class RivuletEnv(gym.Env):
             bounds = np.floor(bounds).astype('int16')
             self.viewer = rendering3.Viewer3(800, 800, 800)
             self.viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
-
             ids = [node[0] for node in self._swc]
+
             for node in self._swc:
                 # draw a line between this node and its parents when its parent exists 
                 if node[6] in ids:
