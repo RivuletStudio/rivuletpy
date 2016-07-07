@@ -89,22 +89,27 @@ class DandelionStalker(SonarStalker):
 
 
     def step(self, action, rewardmap, feats=[]):
-        vel = action / np.linalg.norm(action)
-        dt = 0.5
+        # vel = action / np.linalg.norm(action)
+        vel = action
+        dt = 1
         self._move(rewardmap.shape, vel, dt)
 
         # Sample features 
         ob = self.sample(feats)
-        # The last one in ob is reward
-        reward = ob[-1].mean()
+        # The last one in ob is reward 
+        # reward = ob[-1].mean()
+        reward = 1 if rewardmap[ math.floor(self.pos[0]),
+                                 math.floor(self.pos[1]),
+                                 math.floor(self.pos[2])] != -1 else -1
 
         # Flatten ob
         ob = ob.flatten()
-        ob = np.append(ob, vel)
+        # ob = np.append(ob, vel)
         
         self._colour = (1. if reward < 0 else 0.,
                          0.,
                          1. if reward > 0 else 0.)
+        ob = np.squeeze(ob)
 
         return ob, reward
 
@@ -135,4 +140,5 @@ class ExpertStalker(SonarStalker):
         ginterp = feats[1]
         endpt = rk4(self.pos, ginterp, t, 1)
         ob = endpt - self.pos
+        ob = np.squeeze(ob)
         return ob

@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 import numpy
 from numpy import pi
 from scipy.interpolate import RegularGridInterpolator
+from copy import deepcopy
 
 
 class RivuletEnv(gym.Env):
@@ -27,7 +28,7 @@ class RivuletEnv(gym.Env):
 
 
     def __init__(self, **userconfig):
-        self.config = {'imgpath': 'test-small.tif', 'swcpath':'test-small.swc',
+        self.config = {'imgpath': 'test.tif', 'swcpath':'test.swc',
                        'coverage': 0.98, 'threshold': 0,
                        'render': False, 'cached': True, 'nsonar': 30, 'gap': 8,
                        'raylength': 4}
@@ -35,6 +36,7 @@ class RivuletEnv(gym.Env):
         self.viewer = None
         self._debug = userconfig['debug']
         self._dt, self._t, self._ginterp, self._bimg, cropregion = rivulet_preprocessing(self.config['imgpath'], self.config)
+        print('==image size after cropping', self._bimg.shape)
 
         spt = np.asarray(np.unravel_index(self._dt.argmax(), self._dt.shape))
         self._somapt = np.asarray([spt[0], spt[1], spt[2]])
@@ -47,24 +49,15 @@ class RivuletEnv(gym.Env):
         self._swc = swc
 
         # Action Space 
-        act_low = np.array([-10, -10, -10]) # For DandelionStalker 
-        act_high = np.array([10, 10, 10])
+        act_low = np.array([-10., -10., -10.]) # For DandelionStalker 
+        act_high = np.array([10., 10., 10.])
         self.action_space = spaces.Box(act_low, act_high)
         nact = self.action_space.shape[0]
 
         # Observation Space
-        self.obs_dim = self.config['nsonar'] * 3 + nact + 3
-        ob_high = np.asarray([self._t.max() * self.config['raylength']] * self.config['nsonar'])
-        ob_high = np.append(ob_high, np.asarray([self._bimg.max() * self.config['raylength']] * self.config['nsonar']))
-        ob_high = np.append(ob_high, np.asarray([self._dt.max() * 1000 * self.config['raylength']] * self.config['nsonar']))
-        ob_high = np.append(ob_high, act_high)
-        ob_high = np.append(ob_high, [1., 1., 1.])
-
+        self.obs_dim = self.config['nsonar']
         ob_low = np.asarray([-1 * self.config['raylength']] * self.config['nsonar'])
-        ob_low = np.append(ob_low, np.asarray([-1 * self.config['raylength']] * self.config['nsonar']))
-        ob_low = np.append(ob_low, np.asarray([-1 * self.config['raylength']] * self.config['nsonar']))
-        ob_low = np.append(ob_low, act_low)
-        ob_low = np.append(ob_low, [-1., -1., -1.])
+        ob_high = np.asarray([self._dt.max() * 1000 * self.config['raylength']] * self.config['nsonar'])
 
         self.observation_space = spaces.Box(ob_low, ob_high)
 
@@ -81,8 +74,8 @@ class RivuletEnv(gym.Env):
                                          nsonar=self.config['nsonar'],
                                          raylength=self.config['raylength'])
         self._erase(self._stalker.pos)
-        ob = np.append(self._stalker.sample([self._t, self._bimg, self._rewardmap]), [0.] * self.action_space.shape[0])
-        ob = np.append(ob, [0.,0.,0.])
+        ob = self._stalker.sample([self._rewardmap])
+        ob = np.squeeze(ob)
         return ob
 
 
@@ -99,10 +92,11 @@ class RivuletEnv(gym.Env):
 
     def _step(self, action):
         done = False
-        ob, reward = self._stalker.step(action, self._rewardmap, [self._t, self._bimg, self._rewardmap])
-        endpt = rk4(self._stalker.pos, self._ginterp, self._t, 1)
-        ob = np.append(ob, [endpt - self._stalker.pos]) # Concat RK4 gradients
+        ob, reward = self._stalker.step(action, self._rewardmap, [self._rewardmap])
+        # endpt = rk4(self._stalker.pos, self._ginterp, self._t, 1)
+        # ob = np.append(ob, [endpt - self._stalker.pos]) # Concat RK4 gradients
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
+        self._stalker.colour = (0., 0., 1.) if reward > -1 else (1., 0., 0.)
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
         # Erase the current block stalker stays from reward map with the radius estimated from bimg
@@ -185,4 +179,5 @@ class RivuletEnv(gym.Env):
 
 
     def deepcopy(self):
+        # return deepcopy(self) # Causes unknown problem in gym atomic writer
         return RivuletEnv(**self.config)

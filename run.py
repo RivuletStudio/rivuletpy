@@ -60,16 +60,16 @@ if __name__ == "__main__":
                     assert val.ndim == 1
                     diagnostics[stat].extend(val)
             if args.snapshot_every and ((COUNTER % args.snapshot_every==0) or (COUNTER==args.n_iter)): 
-                hdf['/agent_snapshots/%0.4i'%COUNTER] = np.array(cPickle.dumps(agent,-1))
+                hdf['/agent_snapshots/%0.4i'%COUNTER] = np.array(pickle.dumps(agent,-1))
         # Plot
         if args.plot:
             animate_rollout(env, agent, min(500, args.timestep_limit))
 
     run_policy_gradient_algorithm(env, agent, callback=callback, usercfg = cfg)
 
-    # if args.use_hdf:
-    #     hdf['env_id'] = env_spec.id
-    #     try: hdf['env'] = np.array(cPickle.dumps(env, -1))
-    #     except Exception: print("failed to pickle env") #pylint: disable=W0703
+    if args.use_hdf:
+        hdf['env_id'] = env_spec.id
+        try: hdf['env'] = np.array(pickle.dumps(env, -1))
+        except Exception: print("failed to pickle env") #pylint: disable=W0703
     
     env.monitor.close()
