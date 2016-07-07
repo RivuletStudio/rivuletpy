@@ -1,6 +1,6 @@
 from abc  import ABC, abstractmethod
 # from euclid import *
-from .utils.backtrack import fibonacci_sphere, inbound
+from .utils.backtrack import *
 from .utils.rendering3 import Line3, Ball3
 import numpy as np
 import math
@@ -70,6 +70,18 @@ class SonarStalker(Stalker, ABC):
         return ob
 
 
+    def _move(self, shape, vel, dt):
+        self._face = vel / np.linalg.norm(vel)
+
+        # Move to new position
+        pos = self.pos.copy()
+        pos += vel * dt
+
+        if inbound(pos, shape):
+            self.pos = pos
+        self.path.append(self.pos)
+
+
 class DandelionStalker(SonarStalker):
     def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
                        face=None, nsonar=30, raylength=10, raydecay=0.5):
@@ -79,15 +91,9 @@ class DandelionStalker(SonarStalker):
     def step(self, action, rewardmap, feats=[]):
         vel = action / np.linalg.norm(action)
         dt = 0.5
-        self._face = vel / np.linalg.norm(vel)
+        self._move(rewardmap.shape, vel, dt)
 
-        # Move to new position
-        pos = self.pos.copy()
-        pos += vel * dt
-
-        if inbound(pos, rewardmap.shape):
-            self.pos = pos
-        self.path.append(self.pos)
+        # Sample features 
         ob = self.sample(feats)
         # The last one in ob is reward
         reward = ob[-1].mean()
@@ -103,42 +109,30 @@ class DandelionStalker(SonarStalker):
         return ob, reward
 
 
-# Note: if reactivated, need to reimplement with numpy rather than euclid.* since euclid causes problems in deepcopy()
-# class RotStalker(SonarStalker):
-
-#     def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
-#                  face=None, nsonar=30, raylength=10, raydecay=0.7):
-#         super(RotStalker, self).__init__(pos, face, nsonar*2, raylength, raydecay) 
-
-#         # Initialise the sonars
-#         while True:
-#             sonarpts = fibonacci_sphere(nsonar*2) # sonar * 2 since we only use half of the sphere
-#             self._sonars = [Vector3(p.x, p.y, p.z) for p in sonarpts if p.x > 0]
-#             if len(self._sonars) is nsonar:
-#                 break
+class ExpertStalker(SonarStalker):
+    def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
+        face=None, nsonar=30, raylength=10, raydecay=0.5):
+        super(ExpertStalker, self).__init__(pos, face, nsonar, raylength, raydecay)
 
 
-#     def step(self, action, rewardmap):
-#         # Rotate the face angles
-#         vel = Vector3(action[0], action[1], action[2]) # Angular velocity
-#         dt = action[-1]
-#         R  = Quaternion.new_rotate_axis(vel.x, Vector3(1, 0, 0))
-#         R *= Quaternion.new_rotate_axis(vel.y, Vector3(0, 1, 0))
-#         R *= Quaternion.new_rotate_axis(vel.z, Vector3(0, 0, 1))
-#         self._face = R * self._face
+    def step(self,action, rewardmap, feats=[]): 
+        # The feats here are the nessensary matrices for deriving the low dimensional features
+        vel = action / np.linalg.norm(action)
+        dt = 0.5
+        self._move(rewardmap.shape, vel, dt)
+        ob = self.getob(feats)
 
-#         # Rotate sonar rays to new direction
-#         self._sonars = [R * s for s in self._sonars]
-
-#         # Move to new position
-#         pos = self.pos.copy()
-#         pos += self._face * np.asscalar(dt)
-
-#         if inbound(pos[0]yz, rewardmap.shape):
-#             self.pos = pos
-#         self.path.append(self.pos)
-#         ob = np.append(self.sample(rewardmap), action)
-
-#         return ob
+        reward = self.sample([rewardmap, ]).mean()
+        ob = np.append(ob, vel)
+        self._colour = (1. if reward < 0 else 0.,
+                        0.,
+                        1. if reward > 0 else 0.)
+        return ob, reward
 
 
+    def getob(self, feats=[]):
+        t = feats[0]
+        ginterp = feats[1]
+        endpt = rk4(self.pos, ginterp, t, 1)
+        ob = endpt - self.pos
+        return ob
