@@ -89,18 +89,19 @@ class DandelionStalker(SonarStalker):
 
 
     def step(self, action, rewardmap, feats=[]):
-        # vel = action / np.linalg.norm(action)
-        vel = action
-        dt = 1
+        vel = action / np.linalg.norm(action)
+        # vel = action
+        dt = 0.5
         self._move(rewardmap.shape, vel, dt)
 
         # Sample features 
         ob = self.sample(feats)
         # The last one in ob is reward 
-        # reward = ob[-1].mean()
-        reward = 1 if rewardmap[ math.floor(self.pos[0]),
+        reward = ob[-1].mean()
+        stepreward = rewardmap[ math.floor(self.pos[0]),
                                  math.floor(self.pos[1]),
-                                 math.floor(self.pos[2])] != -1 else -1
+                                 math.floor(self.pos[2])]
+        reward += stepreward * 10
 
         # Flatten ob
         ob = ob.flatten()
@@ -123,7 +124,7 @@ class ExpertStalker(SonarStalker):
     def step(self,action, rewardmap, feats=[]): 
         # The feats here are the nessensary matrices for deriving the low dimensional features
         vel = action / np.linalg.norm(action)
-        dt = 0.5
+        dt = 0.2
         self._move(rewardmap.shape, vel, dt)
         ob = self.getob(feats)
 
@@ -142,3 +143,35 @@ class ExpertStalker(SonarStalker):
         ob = endpt - self.pos
         ob = np.squeeze(ob)
         return ob
+
+
+class Reinvulet(SonarStalker):
+    def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
+        face=None, nsonar=30, raylength=10, raydecay=0.5):
+        super(ExpertStalker, self).__init__(pos, face, nsonar, raylength, raydecay)
+        self._rewardonpath = 0
+
+
+    def step(self, action, feats=[], ginterp, tt, swc):
+        if action == 0: # MOVE
+            self.pos = rk4(self.pos, ginterp, t, 1)
+            self.path.append(self.pos)
+            reward = 1 if self._match(swc) else -5
+        else: # END&SAVE
+            self.path = []
+            if action == 2 # END&ABANDON
+                reward = -self._rewardonpath # Erase all the positive or negative reward caused by this branch
+            else: # END&SAVE
+                reward = 0 # TODO: if the path really should be terminate, + 100
+                           # if there is still nodes on the same path not explored -100
+            # Move this stalker to the geodesic furthest point
+            self.pos = np.asarray(np.unravel_index(tt.argmax(), tt.shape))
+        self.rewardonpath += reward
+
+        ob = [] # TODO: features
+
+        return ob, reward
+
+
+    def _match(self, swc):
+        pass

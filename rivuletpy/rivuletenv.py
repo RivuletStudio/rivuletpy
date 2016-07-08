@@ -1,3 +1,7 @@
+'''
+The environment to train a sonarstalker
+'''
+
 import gym
 from gym import spaces
 from gym.utils import seeding
@@ -31,7 +35,7 @@ class RivuletEnv(gym.Env):
         self.config = {'imgpath': 'test.tif', 'swcpath':'test.swc',
                        'coverage': 0.98, 'threshold': 0,
                        'render': False, 'cached': True, 'nsonar': 30, 'gap': 8,
-                       'raylength': 4}
+                       'raylength': 4, 'imitation_sample': 2000}
         self.config.update(userconfig)
         self.viewer = None
         self._debug = userconfig['debug']
@@ -60,6 +64,27 @@ class RivuletEnv(gym.Env):
         ob_high = np.asarray([self._dt.max() * 1000 * self.config['raylength']] * self.config['nsonar'])
 
         self.observation_space = spaces.Box(ob_low, ob_high)
+
+
+    # def _imitation(self):
+    #     self._reset()
+    #     n = self.config['imitation_sample']
+
+    #     # sample foreground and background points on the image
+    #     dilate_kernel = numpy.ones((5,5,5)).astype('bool')
+    #     dilateb = binary_dilation(self._bimg, dilate_kernel)
+    #     idx = np.argwhere(dilateb)
+    #     idx = np.random.permutation(idx)
+    #     idx = idx[:n]
+    #     samplepts = np.unravel_index(idx, dilateb.shape)
+    #     y = np.zeros((n,))
+    #     x = np.zeros((n, self.obs_dim))
+
+    #     for i, p in enumerate(samplepts):
+    #         endpt = rk4(p, ginterp, self._t, 1)
+    #         y[i] = endpt - p 
+    #         self._stalker.pos = p
+    #         self._stalker.sample([self._rewardmap])
 
 
     def _reset(self):
