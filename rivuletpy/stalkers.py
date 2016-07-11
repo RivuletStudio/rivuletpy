@@ -3,7 +3,6 @@ from abc  import ABC, abstractmethod
 from .utils.backtrack import *
 from .utils.rendering3 import Line3, Ball3
 import numpy as np
-from scipy.spatial.distance import cdist
 import math
 
 
@@ -89,31 +88,29 @@ class DandelionStalker(SonarStalker):
         super(DandelionStalker, self).__init__(pos, face, nsonar, raylength, raydecay) 
 
 
-    def step(self, action, rewardmap, feats=[]):
+    def step(self, action, feats=[]):
         vel = action / np.linalg.norm(action)
         # vel = action
         dt = 0.5
-        self._move(rewardmap.shape, vel, dt)
+        assert len(feats) > 0
+        self._move(feats[0].shape, vel, dt)
 
         # Sample features 
         ob = self.sample(feats)
+
         # The last one in ob is reward 
-        reward = ob[-1].mean()
-        stepreward = rewardmap[ math.floor(self.pos[0]),
-                                 math.floor(self.pos[1]),
-                                 math.floor(self.pos[2])]
-        reward += stepreward * 10
+        # reward = ob[-1].mean()
+        # stepreward = rewardmap[ math.floor(self.pos[0]),
+        #                          math.floor(self.pos[1]),
+        #                          math.floor(self.pos[2])]
+        # reward += stepreward * 10
 
         # Flatten ob
         ob = ob.flatten()
         # ob = np.append(ob, vel)
-        
-        self._colour = (1. if reward < 0 else 0.,
-                         0.,
-                         1. if reward > 0 else 0.)
         ob = np.squeeze(ob)
 
-        return ob, reward
+        return ob
 
 
 class ExpertStalker(SonarStalker):

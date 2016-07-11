@@ -15,6 +15,8 @@ from rivuletpy.lib.modular_rl import *
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     update_argument_parser(parser, GENERAL_OPTIONS)    
+    parser.add_argument("--img", required=True)
+    parser.add_argument("--swc", required=True)
     parser.add_argument("--agent", required=True)
     parser.add_argument("--plot", action="store_true")
     parser.add_argument('--gap', type=int)
@@ -27,8 +29,8 @@ if __name__ == "__main__":
     update_argument_parser(parser, agent_ctor.options)
     args = parser.parse_args()
     cfg = args.__dict__
-    env = RivuletEnv(imgpath='tests/data/op1-small.tif', 
-                     swcpath='tests/data/op1-small.swc',
+    env = RivuletEnv(imgpath=cfg['img'], 
+                     swcpath=cfg['swc'],
                      cached=False, 
                      nsonar=cfg['nsonar'] if 'nsonar' in cfg else 60, 
                      raylength=cfg['raylength'] if 'nsonar' in cfg else 8, 

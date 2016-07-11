@@ -2,6 +2,7 @@ import numpy as np
 import random
 import math
 from euclid import Point3
+from scipy.spatial.distance import cdist
 
 def gd(srcpt, ginterp, t, stepsize):
 	gvec = np.asarray([g(srcpt)[0] for g in ginterp])
@@ -95,3 +96,16 @@ def fibonacci_sphere(samples=1, randomize=True):
         points.append(np.array([x, y, z]))
 
     return points
+
+
+def match(swc, pos, radius): 
+    # Find the closest ground truth node 
+    nodes = swc[:, 2:5]
+    distlist = np.squeeze(cdist(pos.reshape(1,3), nodes))
+    minidx = distlist.argmin()
+    minnode = swc[minidx, 2:5]
+
+    # See if either of them can cover each other with a ball of their own radius
+    mindist = np.linalg.norm(pos - minnode)
+
+    return radius > mindist, minidx
