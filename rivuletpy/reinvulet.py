@@ -1,7 +1,15 @@
-from gym import spaces, env
+from gym import spaces, Env
+from gym.utils import seeding
+import numpy as np
 
-class Reinvulet(env):
-	metadata = {'render.modes': ['human', 'rgb_array']}
+from .utils.io import *
+from .utils import rendering3
+from .utils.backtrack import *
+from .utils.preprocessing import rivulet_preprocessing
+from .stalkers import ReinvuletStalker
+
+class Reinvulet(Env):
+    metadata = {'render.modes': ['human', 'rgb_array']}
     _dt = None
     _t = None
     _ginterp = None
@@ -34,22 +42,25 @@ class Reinvulet(env):
         self.action_space = spaces.Discrete(3) 
 
         # Observation Space
-        self.observation_space = spaces.Box(ob_low, ob_high) # TODO
+        ob_low  = [0.0] * self.config['nsonar']
+        ob_low  = np.append(ob_low, [0., -2., 0., 0., 0.])
+        ob_high = [self._dt.max() * self.config['raylength']] * self.config['nsonar']
+        ob_high  = np.append(ob_high, [1., self._t.max(), 30, 1., 30.])
+        self.observation_space = spaces.Box(ob_low, ob_high) 
+        self._dt[self._dt < 0] = 0
     
 
     def _reset(self):
-        # Reinit dt map
-        self._rewardmap = self._dt.copy()
-        self._rewardmap *= 1000
-        self._rewardmap[self._rewardmap==0] = -1
+        self._swccopy = self._swc.copy()
         self._tt = self._t.copy() # For selecting the furthest foreground point
         self._tt[self._bimg==0] = -2
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
         self._stalker = ReinvuletStalker(maxtpt,
                                          nsonar=self.config['nsonar'],
-                                         raylength=self.config['raylength'])
+                                         raylength=self.config['raylength'], 
+                                         raydecay=0.5)
         self._erase(self._stalker.pos)
-        ob = self._stalker.getob([self._rewardmap])
+        ob = self._stalker.getob([self._dt], self._bimg, self._tt)
         ob = np.squeeze(ob)
         return ob
     
@@ -63,10 +74,12 @@ class Reinvulet(env):
 
 
     def _step(self, action):
-        ob, reward = self._stalker.step(action, self._dt, self._ginterp, self._tt, self._swc)
+        ob, reward, self._swccopy = self._stalker.step(action, [self._dt], self._ginterp, self._t, self._tt, self._bimg, self._swccopy)
+        self._erase(self._stalker.pos)
         coverage = np.logical_and(self._tt == -1, self._bimg == 1).astype('float').sum() \
                    / self._bimg.astype('float').sum()
         done = coverage >= .98
+
         return ob, reward, done, {}
 
 
@@ -84,7 +97,7 @@ class Reinvulet(env):
                     parent = next(parent for parent in self._swc if node[6] == parent[0])
                     line = rendering3.Line3((node[3], node[2], node[4]), (parent[3], parent[2], parent[4]))
                     line.set_color(229./256., 231./256., 233./256.)
-                    line.set_line_width(2)
+                    line.set_line_width(1)
                     self.viewer.add_geom(line)
 
         # Draw stalker
@@ -108,4 +121,4 @@ class Reinvulet(env):
 
     def deepcopy(self):
         # return deepcopy(self) # Causes unknown problem in gym atomic writer
-        return RivuletEnv(**self.config)
+        return Reinvulet(**self.config)

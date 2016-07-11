@@ -3,6 +3,7 @@ from abc  import ABC, abstractmethod
 from .utils.backtrack import *
 from .utils.rendering3 import Line3, Ball3
 import numpy as np
+from scipy.spatial.distance import cdist
 import math
 
 
@@ -66,7 +67,7 @@ class SonarStalker(Stalker, ABC):
                                                               math.floor(samplepos[1]),
                                                               math.floor(samplepos[2])]
                     else:
-                        ob[i, j] -= 1
+                        ob[i, j] -= 0
         return ob
 
 
@@ -145,33 +146,101 @@ class ExpertStalker(SonarStalker):
         return ob
 
 
-class Reinvulet(SonarStalker):
+class ReinvuletStalker(SonarStalker):
     def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
         face=None, nsonar=30, raylength=10, raydecay=0.5):
-        super(ExpertStalker, self).__init__(pos, face, nsonar, raylength, raydecay)
+        super(ReinvuletStalker, self).__init__(pos, face, nsonar, raylength, raydecay)
         self._rewardonpath = 0
+        self._steps_on_bg = 0
+        self._continous_on_bg = 0
 
 
-    def step(self, action, feats=[], ginterp, tt, swc):
+    def step(self, action, feats, ginterp, t, tt, bimg, swc):
+        in_save_voxel = 0
+
         if action == 0: # MOVE
+            self.path.append(self.pos.copy())
             self.pos = rk4(self.pos, ginterp, t, 1)
-            self.path.append(self.pos)
-            reward = 1 if self._match(swc) else -5
-        else: # END&SAVE
+            matched, swc = self._match(swc, bimg)
+            reward = 5  if matched else -5
+        else: # END
             self.path = []
-            if action == 2 # END&ABANDON
+            if action == 2: # END&ABANDON
                 reward = -self._rewardonpath # Erase all the positive or negative reward caused by this branch
+
             else: # END&SAVE
-                reward = 0 # TODO: if the path really should be terminate, + 100
+                reward = self._rewardonpath # TODO: if the path really should be terminate, + 100
                            # if there is still nodes on the same path not explored -100
+
             # Move this stalker to the geodesic furthest point
             self.pos = np.asarray(np.unravel_index(tt.argmax(), tt.shape))
-        self.rewardonpath += reward
 
-        ob = [] # TODO: features
+            self._rewardonpath = 0
+            self._steps_on_bg = 0
+            self._continous_on_bg = 0
 
-        return ob, reward
+
+        self._rewardonpath += reward
+        ob = self.getob(feats, bimg, tt)
+
+        return ob, reward, swc
 
 
-    def _match(self, swc):
-        pass
+    def getob(self, feats, bimg, tt):
+        # Get observation from both sensory and low-dimensional info 
+        pos = [ math.floor(np.asscalar(x)) for x in self.pos]
+        if bimg[pos[0], pos[1], pos[2]] == 1:
+            self._continous_on_bg = 0
+        else:
+            self._continous_on_bg += 1
+            self._steps_on_bg += 1
+
+        in_same_voxel = 0
+        for i in reversed(range(len(self.path) - 1)):
+            dist = np.linalg.norm(self.pos - self.path[i])
+            if dist < 1:
+                in_same_voxel += 1
+            else:
+                break
+
+        ob = self.sample(feats)
+        ob = np.append(ob, 
+                       [bimg[pos[0], pos[1], pos[2]],
+                        tt[pos[0], pos[1], pos[2]],
+                        self._steps_on_bg, # Number of continuous steps on background
+                        self._steps_on_bg / len(self.path) if len(self.path) > 0 else 1,
+                        in_same_voxel])
+        return ob
+
+
+    def _match(self, swc, bimg):
+        '''
+        See if the current position of the stalker can be matched on a ground truth node
+        '''
+
+        # Find the closest ground truth node 
+        nodes = swc[:, 2:5]
+        distlist = np.squeeze(cdist(self.pos.reshape(1,3), nodes))
+        minidx = distlist.argmin()
+        minnode = swc[minidx, 2:5]
+
+        # See if either of them can cover each other with a ball of their own radius
+        mindist = np.linalg.norm(self.pos - minnode)
+        stalker_radius = getradius(bimg, self.pos[0], self.pos[1], self.pos[2])
+        gt_radius = getradius(bimg, minnode[0], minnode[1], minnode[2])
+
+        # Erase the nodes covered by stalker 
+        swc = swc[distlist > stalker_radius, :]
+
+        return gt_radius > mindist or stalker_radius > mindist, swc
+
+
+    def render(self, viewer):
+        if len(self.path) >= 2:
+            # for i in range(len(self.path)-1):
+            #     p1 = self.path[i]
+            #     p2 = self.path[i+1] 
+            line = Line3((self.path[-1]), (self.path[-2]))
+            line.set_color(0, 0, 233./256.)
+            line.set_line_width(3)
+            viewer.add_geom(line)
