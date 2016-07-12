@@ -90,8 +90,7 @@ class RivuletEnv(gym.Env):
 
     def _reset(self):
         # Reinit dt map
-        self._rewardmap = self._dt.copy()
-        self._rewardmap *= 1000
+        self._rewardmap = self._dt / self._dt.max()
         self._rewardmap[self._rewardmap==0] = -1
 
         self._tt = self._t.copy() # For selecting the furthest foreground point
@@ -138,17 +137,19 @@ class RivuletEnv(gym.Env):
 
         matched, nodeidx = match(self._swccopy, self._stalker.pos, 3) # See if the stalker catched a candy
 
+        a = 2
+
         if matched:
             # Erase the candy from the swc copy
             if onforeground:
-                reward = 1
+                reward = a
             else:
-                reward = self._continous_background
+                reward = a * self._continous_background
         else:
             if onforeground:
-                reward = -1
+                reward = 0 
             else:
-                reward = -self._continous_background
+                reward = -a * self._continous_background
 
         self._stalker.colour = (0., 0., 1.) if reward > -1 else (1., 0., 0.)
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
@@ -171,8 +172,12 @@ class RivuletEnv(gym.Env):
                    / self._bimg.astype('float').sum()
         covered = coverage >= .98
 
+        if notmoving:
+            reward -= 10
+
         # Respawn if any criterion is met
-        if notmoving or largegap or outofbound or close2soma:
+        # if notmoving or largegap or outofbound or close2soma:
+        if largegap or outofbound or close2soma:
             maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
             self._stalker.pos = maxtpt.astype('float64')
             if self._debug:

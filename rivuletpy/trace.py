@@ -2,10 +2,10 @@ import os
 import numpy as np
 from scipy import ndimage 
 from libtiff import TIFF 
-from utils.io import *
-from utils.preprocessing import *
-from utils.backtrack import *
-from utils.render import *
+from .utils.io import *
+from .utils.preprocessing import *
+from .utils.backtrack import *
+from .utils.rendering3 import *
 from matplotlib import pyplot as plt
 
 
@@ -38,11 +38,11 @@ def trace(filepath, **userconfig):
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
 
-    swc = loadswc('test.swc')
-    for n in swc: # cropswc
-        n[2] -= cropregion[1, 0]
-        n[3] -= cropregion[0, 0]
-        n[4] -= cropregion[2, 0]    
+    # swc = loadswc('test.swc')
+    # for n in swc: # cropswc
+    #     n[2] -= cropregion[1, 0]
+    #     n[3] -= cropregion[0, 0]
+    #     n[4] -= cropregion[2, 0]    
 
     tt = t.copy()
     tt[bimg <= 0] = -2
@@ -102,4 +102,4 @@ def trace(filepath, **userconfig):
 
 
 if __name__ == '__main__':
-    trace('test-small.tif', threshold=0, render=True, length=8)
+    trace('tests/test.tif', threshold=0, render=True, length=8)

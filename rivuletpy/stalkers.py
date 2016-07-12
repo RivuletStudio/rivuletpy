@@ -49,7 +49,7 @@ class SonarStalker(Stalker, ABC):
 
         # Initialise the sonars
         self._sonars = fibonacci_sphere(nsonar)
-        self.raylength = raylength
+        self._raylength = raylength
         self._raydecay = raydecay
 
 
@@ -59,7 +59,7 @@ class SonarStalker(Stalker, ABC):
 
         for i, f in enumerate(feats):
             for j, s in enumerate(self._sonars):
-                for k in range(self.raylength):
+                for k in range(self._raylength):
                     samplepos = self.pos + k * s
                     if inbound(samplepos, f.shape): # Sampling on this ray stops when it reaches out of bound
                         ob[i, j] += (self._raydecay ** k) * f[math.floor(samplepos[0]),
@@ -83,9 +83,24 @@ class SonarStalker(Stalker, ABC):
 
 
 class DandelionStalker(SonarStalker):
+
     def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
                        face=None, nsonar=30, raylength=10, raydecay=0.5):
         super(DandelionStalker, self).__init__(pos, face, nsonar, raylength, raydecay) 
+        self._ob = None
+
+
+    def render(self, viewer):
+        super(SonarStalker, self).render(viewer)
+        pos = np.asarray((40., 40., 40.))
+        if self._ob is not None and len(self._ob) == 1:
+            ob = self._ob[0]
+            ob = (ob - np.median(ob)) / (ob.max() - np.median(ob))
+            ob[ob<0] = 0 
+            for i, s in enumerate(self._sonars):
+                ln = Line3(pos, pos + ob[i] * s * 10)
+                ln.set_color(1, 0, 1)
+                viewer.add_onetime(ln)
 
 
     def step(self, action, feats=[]):
@@ -97,6 +112,7 @@ class DandelionStalker(SonarStalker):
 
         # Sample features 
         ob = self.sample(feats)
+        self._ob = ob # For rendering
 
         # The last one in ob is reward 
         # reward = ob[-1].mean()
