@@ -109,6 +109,7 @@ class RivuletEnv(gym.Env):
 
         self._swccopy = self._swc.copy()
         self._continous_background = 0
+        
         return ob
 
 
