@@ -3,7 +3,6 @@ from abc  import ABC, abstractmethod
 from .utils.backtrack import *
 from .utils.rendering3 import Line3, Ball3
 import numpy as np
-from scipy.spatial.distance import cdist
 import math
 
 
@@ -50,7 +49,7 @@ class SonarStalker(Stalker, ABC):
 
         # Initialise the sonars
         self._sonars = fibonacci_sphere(nsonar)
-        self.raylength = raylength
+        self._raylength = raylength
         self._raydecay = raydecay
 
 
@@ -60,7 +59,7 @@ class SonarStalker(Stalker, ABC):
 
         for i, f in enumerate(feats):
             for j, s in enumerate(self._sonars):
-                for k in range(self.raylength):
+                for k in range(self._raylength):
                     samplepos = self.pos + k * s
                     if inbound(samplepos, f.shape): # Sampling on this ray stops when it reaches out of bound
                         ob[i, j] += (self._raydecay ** k) * f[math.floor(samplepos[0]),
@@ -84,36 +83,50 @@ class SonarStalker(Stalker, ABC):
 
 
 class DandelionStalker(SonarStalker):
+
     def __init__(self, pos=np.asarray([0.0, 0.0, 0.0]),
                        face=None, nsonar=30, raylength=10, raydecay=0.5):
         super(DandelionStalker, self).__init__(pos, face, nsonar, raylength, raydecay) 
+        self._ob = None
 
 
-    def step(self, action, rewardmap, feats=[]):
+    def render(self, viewer):
+        super(SonarStalker, self).render(viewer)
+        pos = np.asarray((40., 40., 40.))
+        if self._ob is not None and len(self._ob) == 1:
+            ob = self._ob[0]
+            ob = (ob - np.median(ob)) / (ob.max() - np.median(ob))
+            ob[ob<0] = 0 
+            for i, s in enumerate(self._sonars):
+                ln = Line3(pos, pos + ob[i] * s * 10)
+                ln.set_color(1, 0, 1)
+                viewer.add_onetime(ln)
+
+
+    def step(self, action, feats=[]):
         vel = action / np.linalg.norm(action)
         # vel = action
         dt = 0.5
-        self._move(rewardmap.shape, vel, dt)
+        assert len(feats) > 0
+        self._move(feats[0].shape, vel, dt)
 
         # Sample features 
         ob = self.sample(feats)
+        self._ob = ob # For rendering
+
         # The last one in ob is reward 
-        reward = ob[-1].mean()
-        stepreward = rewardmap[ math.floor(self.pos[0]),
-                                 math.floor(self.pos[1]),
-                                 math.floor(self.pos[2])]
-        reward += stepreward * 10
+        # reward = ob[-1].mean()
+        # stepreward = rewardmap[ math.floor(self.pos[0]),
+        #                          math.floor(self.pos[1]),
+        #                          math.floor(self.pos[2])]
+        # reward += stepreward * 10
 
         # Flatten ob
         ob = ob.flatten()
         # ob = np.append(ob, vel)
-        
-        self._colour = (1. if reward < 0 else 0.,
-                         0.,
-                         1. if reward > 0 else 0.)
         ob = np.squeeze(ob)
 
-        return ob, reward
+        return ob
 
 
 class ExpertStalker(SonarStalker):

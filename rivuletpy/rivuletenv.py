@@ -19,7 +19,6 @@ from numpy import pi
 from scipy.interpolate import RegularGridInterpolator
 from copy import deepcopy
 
-
 class RivuletEnv(gym.Env):
     # Shared members among all copies 
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -61,7 +60,9 @@ class RivuletEnv(gym.Env):
         # Observation Space
         self.obs_dim = self.config['nsonar']
         ob_low = np.asarray([-1 * self.config['raylength']] * self.config['nsonar'])
+        np.append(ob_low, [0, 0])
         ob_high = np.asarray([self._dt.max() * 1000 * self.config['raylength']] * self.config['nsonar'])
+        np.append(ob_high, [1, self.config['gap']])
 
         self.observation_space = spaces.Box(ob_low, ob_high)
 
@@ -89,18 +90,26 @@ class RivuletEnv(gym.Env):
 
     def _reset(self):
         # Reinit dt map
-        self._rewardmap = self._dt.copy()
-        self._rewardmap *= 1000
+        self._rewardmap = self._dt / self._dt.max()
         self._rewardmap[self._rewardmap==0] = -1
+
         self._tt = self._t.copy() # For selecting the furthest foreground point
         self._tt[self._bimg==0] = -2
         maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
+
+        # Initialise stalker
         self._stalker = DandelionStalker(maxtpt,
                                          nsonar=self.config['nsonar'],
                                          raylength=self.config['raylength'])
         self._erase(self._stalker.pos)
+
+        # Get initial observation
         ob = self._stalker.sample([self._rewardmap])
         ob = np.squeeze(ob)
+
+        self._swccopy = self._swc.copy()
+        self._continous_background = 0
+        
         return ob
 
 
@@ -117,10 +126,32 @@ class RivuletEnv(gym.Env):
 
     def _step(self, action):
         done = False
-        ob, reward = self._stalker.step(action, self._rewardmap, [self._rewardmap])
-        # endpt = rk4(self._stalker.pos, self._ginterp, self._t, 1)
-        # ob = np.append(ob, [endpt - self._stalker.pos]) # Concat RK4 gradients
+        ob = self._stalker.step(action, [self._rewardmap])
         posx, posy, posz = [int(np.asscalar(v)) for v in np.floor(self._stalker.pos)]
+        onforeground = self._bimg[posx, posy, posz]
+
+        # Calculate reward
+        if onforeground:
+            self._continous_background = 0
+        else:
+            self._continous_background += 1
+
+        matched, nodeidx = match(self._swccopy, self._stalker.pos, 3) # See if the stalker catched a candy
+
+        a = 2
+
+        if matched:
+            # Erase the candy from the swc copy
+            if onforeground:
+                reward = a
+            else:
+                reward = a * self._continous_background
+        else:
+            if onforeground:
+                reward = 0 
+            else:
+                reward = -a * self._continous_background
+
         self._stalker.colour = (0., 0., 1.) if reward > -1 else (1., 0., 0.)
         repeat = self._tt[posx, posy, posz] == -1 # It steps on a voxel which has been explored before
 
@@ -132,17 +163,22 @@ class RivuletEnv(gym.Env):
                     np.linalg.norm(self._stalker.path[-15] - self._stalker.pos) <= 1 
         close2soma = np.linalg.norm(self._stalker.pos - self._somapt) < self._dt.max()
         largegap = len(self._stalker.path) > self.config['gap'] 
-        pathvoxsum = np.array([self._bimg[math.floor(p[0]), 
-                               math.floor(p[1]), 
-                               math.floor(p[2])] for p in self._stalker.path[-self.config['gap']:] ]).sum()
-        largegap = largegap and pathvoxsum == 0
+        # pathvoxsum = np.array([self._bimg[math.floor(p[0]), 
+        #                        math.floor(p[1]), 
+        #                        math.floor(p[2])] for p in self._stalker.path[-self.config['gap']:] ]).sum()
+        # largegap = largegap and pathvoxsum == 0
+        largegap = largegap and self._continous_background > self.config['gap']
         outofbound = not inbound(self._stalker.pos, self._rewardmap.shape)
         coverage = np.logical_and(self._tt == -1, self._bimg == 1).astype('float').sum() \
                    / self._bimg.astype('float').sum()
         covered = coverage >= .98
 
+        if notmoving:
+            reward -= 10
+
         # Respawn if any criterion is met
-        if notmoving or largegap or outofbound or close2soma:
+        # if notmoving or largegap or outofbound or close2soma:
+        if largegap or outofbound or close2soma:
             maxtpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape))
             self._stalker.pos = maxtpt.astype('float64')
             if self._debug:
@@ -162,6 +198,7 @@ class RivuletEnv(gym.Env):
                 print('All the foreground has been covered in this episode')
             done = True
 
+        np.append(ob, [onforeground, self._continous_background])
         assert ob.size == self.obs_dim
 
         return ob, reward, done, {}
