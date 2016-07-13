@@ -2,10 +2,10 @@ import os
 import numpy as np
 from scipy import ndimage 
 from libtiff import TIFF 
-from utils.io import *
-from utils.preprocessing import *
-from utils.backtrack import *
-from utils.render import *
+from .utils.io import *
+from .utils.preprocessing import *
+from .utils.backtrack import *
+from .utils.render import *
 from matplotlib import pyplot as plt
 
 
@@ -46,6 +46,7 @@ def trace(filepath, **userconfig):
 
     tt = t.copy()
     tt[bimg <= 0] = -2
+    bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
 
     # Initialise render
     ax = init_render(tt.shape)
@@ -89,7 +90,12 @@ def trace(filepath, **userconfig):
             n = np.floor(node)
             r = getradius(bimg, n[0], n[1], n[2])
             r = r - 1
-            tt[n[0]-r:n[0]+r+1, n[1]-r:n[1]+r+1, n[2]-r:n[2]+r+1] = -1
+            r *= 1.5 # To make sure all the foreground voxels are included in bb
+            bb[n[0]-r:n[0]+r+1, n[1]-r:n[1]+r+1, n[2]-r:n[2]+r+1] = 1
+
+        startidx = [math.floor(p) for p in path[0]]
+        endidx = [math.floor(p) for p in path[0]]
+        tt[ tt[startidx[0], startidx[1], startidx[2]] <= tt <= tt[startidx[0], startidx[1], startidx[2]] and bb == 1] = -1
 
         if len(path) < config['length']:
             continue
