@@ -6,35 +6,17 @@ from .utils.io import *
 from .utils.preprocessing import *
 from .utils.backtrack import *
 from .utils.rendering3 import *
-
 from matplotlib import pyplot as plt
 
-
-def plotswc(swc, ax):
-    ids = [node[0] for node in swc]
-    for node in swc:
-        # draw a line between this node and its parents when its parent exists 
-        if node[6] in ids:
-            parent = next(parent for parent in swc if node[6] == parent[0])
-            ax.plot([node[3], parent[3]], [node[2], parent[2]], [node[4], parent[4]])
-
-
-def plot_grad_on_swc(ax, nodes, gradinterp, sampling=0.2):
-    randnodeidx = np.random.permutation(np.arange(len(nodes)))
-    randnodeidx = randnodeidx[:np.floor(len(randnodeidx) * sampling)]
-    nodes = nodes[randnodeidx.astype('int16')]
-    dx = gradinterp[0](nodes)
-    dy = gradinterp[1](nodes)
-    dz = gradinterp[2](nodes)
-    ax.quiver([n[0] for n in nodes], [n[1] for n in nodes], [n[2] for n in nodes], dx, dy, dz, length=3.0)
-
+import progressbar
 
 def trace(filepath, **userconfig):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
-    config = {'length':5, 'coverage':0.98, 'threshold':0, 'render':False}
+    config = {'length':5, 'coverage':0.98, 'threshold':0,
+              'gap':15, 'render':False, 'toswcfile':None, 'silence':False, }
     config.update(userconfig)
 
-    print('== Preprocessing')
+    # print('== Preprocessing', end='\r')
     dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(filepath, config)
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
@@ -42,10 +24,12 @@ def trace(filepath, **userconfig):
     tt = t.copy()
     tt[bimg <= 0] = -2
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
+    forevoxsum = bimg.sum()
 
     bounds = dt.shape
-    viewer = Viewer3(800, 800, 800)
-    viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
+    if config['render']:
+        viewer = Viewer3(800, 800, 800)
+        viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
 
     idx = np.where(bimg > 0)
 
@@ -53,54 +37,106 @@ def trace(filepath, **userconfig):
     nforeground = bimg.sum()
     covermap = np.zeros(bimg.shape) 
     converage = 0.0
+    iteridx = 0
+    swc = None
+    if not config['silence']: bar = progressbar.ProgressBar(max_value=1.)
 
     while converage < config['coverage']:
+        iteridx += 1
         converage = np.logical_and(tt==-1, bimg > 0).sum() / nforeground
-        print('Tracing ', converage*100, '%%', end='\r')
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
+        if not config['silence']: bar.update(converage)
 
         # Trace it back to maxd 
         path = [srcpt,]
-        while np.linalg.norm(maxdpt - endpt) > dtmax:
+        reached = False
+        touched = False
+        gapctr = 0 # Count continous steps on background
+        fgctr = 0 # Count how many steps are made on foreground in this branch
+        steps_after_reach = 0
+        while np.linalg.norm(maxdpt - endpt) > 1.5 * dtmax:
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
-                endptint = np.floor(endpt)
-                if not inbound(endpt, tt.shape) or tt[endptint[0], endptint[1], endptint[2]] == -1: break;
+                endptint = [math.floor(p) for p in endpt]
+
+                # See if it travels too far on the background
+                endpt_b = bimg[endptint[0], endptint[1], endptint[2]]
+                gapctr = 0 if endpt_b else gapctr + 1
+                fgctr += endpt_b
+
+                if gapctr > config['gap']: break 
+
+                # Render the line segment
+                if config['render']:
+                    l = Line3(srcpt, endpt)
+                    l.set_color(1., 0., 0)
+                    viewer.add_geom(l)
+                    viewer.render(return_rgb_array=False)
+
+                if not inbound(endpt, tt.shape): break;
+                if tt[endptint[0], endptint[1], endptint[2]] == -1:
+                    reached = True
+
+                if reached: # If the endpoint reached previously traced area check for node to connect for at each step
+                    if swc is None:
+                        break;
+
+                    steps_after_reach += 1
+                    endradius = getradius(bimg, endpt[0], endpt[1], endpt[2])
+                    touched, touchidx = match(swc, endpt, endradius)
+                    closestnode = swc[touchidx, :]
+                    if touched and config['render']:
+                        ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
+                        ball.set_color(0, 0, 1)
+                        viewer.add_geom(ball)
+                    if touched or steps_after_reach >= 30: break
             except ValueError:
                 break
 
             path.append(endpt)
-
-            # Render the line segment
-            l = Line3(srcpt, endpt)
-            l.set_color(1., 0., 0)
-            viewer.add_geom(l)
-            viewer.render(return_rgb_array=False)
-
             srcpt = endpt
 
-            if len(path) >= 30 and np.linalg.norm(path[-30] - endpt) <= 1:
+            if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
                 break;
 
+        rlist = []
         # Erase it from the timemap
         for node in path:
             n = [math.floor(n) for n in node]
             r = getradius(bimg, n[0], n[1], n[2])
-            r = r - 1
-            r *= 1.5 # To make sure all the foreground voxels are included in bb
-            bb[n[0]-r:n[0]+r+1, n[1]-r:n[1]+r+1, n[2]-r:n[2]+r+1] = 1
+            rlist.append(r)
+            
+            # To make sure all the foreground voxels are included in bb
+            r *= 1.2 if len(path) < config['length'] else 1.5 
+            r = math.ceil(r)
+            X,Y,Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
+                                constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
+                                constrain_range(n[2]-r, n[2]+r+1, 0, tt.shape[2]))
+            bb[X, Y, Z] = 1
 
         startidx = [math.floor(p) for p in path[0]]
-        endidx = [math.floor(p) for p in path[0]]
-        tt[ tt[startidx[0], startidx[1], startidx[2]] <= tt <= tt[startidx[0], startidx[1], startidx[2]] and bb == 1] = -1
+        endidx = [math.floor(p) for p in path[-1]]
 
-        if len(path) < config['length']:
-            continue
+        if len(path) > config['length']:
+            erase_region = np.logical_and(tt[endidx[0], endidx[1], endidx[2]] <= tt, tt <= tt.max())
+            erase_region = np.logical_and(bb, erase_region)
+        else:
+            erase_region = bb.astype('bool')
 
-        #TODO: Connect it to tree
+        tt[erase_region] = -1
+        bb.fill(0)
+            
+        if len(path) > config['length'] and fgctr / len(path) > .5:
+            swc = add2swc(swc, path, rlist, swc[touchidx, 0] if touched else None)
 
-
-if __name__ == '__main__':
-    trace('tests/test.tif', threshold=0, render=True, length=8)
+    if config['toswcfile'] is not None:
+        swc[:, 2] += cropregion[0, 0]
+        swc[:, 3] += cropregion[1, 0]
+        swc[:, 4] += cropregion[2, 0]
+        swc_x = swc[:, 2].copy()
+        swc_y = swc[:, 3].copy()
+        swc[:, 2] = swc_y
+        swc[:, 3] = swc_x
+        saveswc(config['toswcfile'], swc)

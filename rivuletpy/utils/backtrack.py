@@ -107,6 +107,37 @@ def match(swc, pos, radius):
 
     # See if either of them can cover each other with a ball of their own radius
     mindist = np.linalg.norm(pos - minnode)
+    return radius > mindist or swc[minidx, 5] > mindist, minidx
 
-    return radius > mindist, minidx
 
+def add2swc(swc, path, radius, connectid = None): 
+    newbranch = np.zeros((len(path), 7))
+    if swc is None: # It is the first branch to be added
+        idstart = 1
+    else:
+        idstart = swc[:, 0].max() + 1
+
+    for i, p in enumerate(path):
+        id = idstart+i
+
+        if i == len(path) - 1: # The end of this branch
+            pid = -2 if connectid is None else connectid
+        else:
+            pid = idstart + i + 1
+
+        newbranch[i] = np.asarray([id, 2, p[0], p[1], p[2], radius[i], pid])
+
+    if swc is None:
+        swc = newbranch
+    else:
+        # Check if any tail should be connected to its head
+        head = newbranch[0]
+        matched, minidx = match(swc, head[2:5], head[5])
+        if matched and swc[minidx, -1] is -2: swc[minidx, -1] = head[0]
+        swc = np.vstack((swc, newbranch))
+
+    return swc
+
+
+def constrain_range(min, max, minlimit, maxlimit):
+    return list(range(min if min > minlimit else minlimit, max if max < maxlimit else maxlimit))

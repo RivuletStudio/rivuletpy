@@ -42,3 +42,9 @@ def loadswc(filepath):
                     cells[2:5] = [c-1 for c in cells[2:5]]
                     swc.append(cells)
     return np.array(swc)
+
+
+def saveswc(filepath, swc):
+    with open(filepath, 'w') as f:
+        for i in range(swc.shape[0]):
+            print('%d %d %.3f %.3f %.3f %.3f %d' % tuple(swc[i, :].tolist()), file=f)
