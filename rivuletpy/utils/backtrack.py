@@ -14,9 +14,11 @@ def gd(srcpt, ginterp, t, stepsize):
 
 
 def rk4(srcpt, ginterp, t, stepsize):
-
     # Compute K1
     k1 = np.asarray([g(srcpt)[0] for g in ginterp])
+
+    if np.linalg.norm(k1) == 0:
+        print('== gradient is zero at', srcpt) 
     k1 /= np.linalg.norm(k1)
     k1 *= stepsize
     tp = srcpt - 0.5 * k1 # Position of temporary point
@@ -141,3 +143,42 @@ def add2swc(swc, path, radius, connectid = None):
 
 def constrain_range(min, max, minlimit, maxlimit):
     return list(range(min if min > minlimit else minlimit, max if max < maxlimit else maxlimit))
+
+
+def get_subtree_nodeids(swc, node):
+    subtreeids = np.array([])
+
+    # Find children
+    # print('-- Node here:', node)
+    chidx = np.argwhere(node[0] == swc[:, 6])
+
+    # Recursion stops when there this node is a leaf with no children, return itself 
+    if chidx.size == 0:
+        # print('== No Child, returning', node[0])
+        return node[0]
+    else:
+        # print('== Got child')
+        # Get the node ids of each children
+        for c in chidx:
+            subids = get_subtree_nodeids(swc, swc[c, :].squeeze())
+            # print('==Trying to append', subtreeids, subids, node[0])
+            subtreeids = np.hstack((subtreeids, subids, node[0]))
+
+    # print('==Returning:', subtreeids)
+    return subtreeids
+
+
+def cleanswc(swc):
+    unconnected_idx = np.argwhere(swc[:, -1] == -2)
+    nodes2del = np.array([]) 
+
+    for i in unconnected_idx:
+        node = swc[i, :].squeeze()
+        # A recursive search for all the nodes in its subtree, including itself
+        subtreenodeids = get_subtree_nodeids(swc, node) 
+        nodes2del = np.hstack((nodes2del, subtreenodeids))
+
+    nodes2del = nodes2del.flatten()
+    swc = np.asarray([node for node in swc if node[0] not in nodes2del])
+
+    return swc

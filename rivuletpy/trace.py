@@ -12,8 +12,15 @@ import progressbar
 
 def trace(filepath, **userconfig):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
-    config = {'length':5, 'coverage':0.98, 'threshold':0,
-              'gap':15, 'render':False, 'toswcfile':None, 'silence':False, }
+    config = {'length':5,
+              'coverage':0.98,
+              'threshold':0,
+              'gap':15, 
+              'ignore_radius': False,
+              'render':False, 
+              'toswcfile':None, 
+              'silence':False,
+              'clean': False}
     config.update(userconfig)
 
     # print('== Preprocessing', end='\r')
@@ -40,6 +47,7 @@ def trace(filepath, **userconfig):
     iteridx = 0
     swc = None
     if not config['silence']: bar = progressbar.ProgressBar(max_value=1.)
+    velocity = None
 
     while converage < config['coverage']:
         iteridx += 1
@@ -56,17 +64,25 @@ def trace(filepath, **userconfig):
         gapctr = 0 # Count continous steps on background
         fgctr = 0 # Count how many steps are made on foreground in this branch
         steps_after_reach = 0
-        while np.linalg.norm(maxdpt - endpt) > 1.5 * dtmax:
+        outofbound = reachedsoma = False
+        while True:
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
                 endptint = [math.floor(p) for p in endpt]
+                velocity = endpt - srcpt
 
                 # See if it travels too far on the background
                 endpt_b = bimg[endptint[0], endptint[1], endptint[2]]
                 gapctr = 0 if endpt_b else gapctr + 1
                 fgctr += endpt_b
 
-                if gapctr > config['gap']: break 
+                if gapctr > config['gap']: 
+                    # print('==Stop due to gap at', endpt)
+                    break 
+
+                if np.linalg.norm(maxdpt - endpt) < 1.5 * dtmax:
+                    reachedsoma = True
+                    break
 
                 # Render the line segment
                 if config['render']:
@@ -75,7 +91,10 @@ def trace(filepath, **userconfig):
                     viewer.add_geom(l)
                     viewer.render(return_rgb_array=False)
 
-                if not inbound(endpt, tt.shape): break;
+                if not inbound(endpt, tt.shape): 
+                    # print('==Stop due to out of bound at', endpt)
+                    outofbound = True
+                    break;
                 if tt[endptint[0], endptint[1], endptint[2]] == -1:
                     reached = True
 
@@ -89,17 +108,24 @@ def trace(filepath, **userconfig):
                     closestnode = swc[touchidx, :]
                     if touched and config['render']:
                         ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
-                        ball.set_color(0, 0, 1)
+                        if len(path) < config['length']:
+                            ball.set_color(1, 1, 1)
+                        else:
+                            ball.set_color(0, 0, 1)
                         viewer.add_geom(ball)
                     if touched or steps_after_reach >= 30: break
+
+                if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
+                    # print('== Stop due to not moving at ', endpt)
+                    break;
             except ValueError:
+                # print('==ValueError at:', endpt)
+                if velocity is not None:
+                    endpt = srcpt + velocity
                 break
 
             path.append(endpt)
             srcpt = endpt
-
-            if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
-                break;
 
         rlist = []
         # Erase it from the timemap
@@ -109,27 +135,37 @@ def trace(filepath, **userconfig):
             rlist.append(r)
             
             # To make sure all the foreground voxels are included in bb
-            r *= 1.2 if len(path) < config['length'] else 1.5 
+            r *= 1.5 if len(path) > config['length'] else 2
             r = math.ceil(r)
-            X,Y,Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
-                                constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
-                                constrain_range(n[2]-r, n[2]+r+1, 0, tt.shape[2]))
+            X, Y, Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
+                                  constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
+                                  constrain_range(n[2]-r, n[2]+r+1, 0, tt.shape[2]))
             bb[X, Y, Z] = 1
 
         startidx = [math.floor(p) for p in path[0]]
         endidx = [math.floor(p) for p in path[-1]]
 
         if len(path) > config['length']:
-            erase_region = np.logical_and(tt[endidx[0], endidx[1], endidx[2]] <= tt, tt <= tt.max())
+            erase_region = np.logical_and(tt[endidx[0], endidx[1], endidx[2]] <= tt, tt <= tt[startidx[0], startidx[1], startidx[2]])
             erase_region = np.logical_and(bb, erase_region)
         else:
             erase_region = bb.astype('bool')
 
-        tt[erase_region] = -1
+        if np.count_nonzero(erase_region) > 0:
+            tt[erase_region] = -1
         bb.fill(0)
             
         if len(path) > config['length'] and fgctr / len(path) > .5:
-            swc = add2swc(swc, path, rlist, swc[touchidx, 0] if touched else None)
+            if touched:
+                connectid = swc[touchidx, 0]
+            elif reachedsoma:
+                connectid = -1 
+            else:
+                connectid = None
+
+            swc = add2swc(swc, path, rlist, connectid)
+
+    if config['clean']: swc = cleanswc(swc) # This will find the nodes with -2 as parents and clean its branch
 
     if config['toswcfile'] is not None:
         swc[:, 2] += cropregion[0, 0]
@@ -139,4 +175,6 @@ def trace(filepath, **userconfig):
         swc_y = swc[:, 3].copy()
         swc[:, 2] = swc_y
         swc[:, 3] = swc_x
+        if config['ignore_radius']:
+            swc[:,5] = 1
         saveswc(config['toswcfile'], swc)

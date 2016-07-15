@@ -9,8 +9,18 @@ def crop(img, thr):
     x = ind[:,0]
     y = ind[:,1]
     z = ind[:,2]
+    xmin = max(x.min()-10, 0)
+    xmax = min(x.max()+10, img.shape[0])
+    ymin = max(y.min()-10, 1)
+    ymax = min(y.max()+10, img.shape[1])
+    zmin = max(z.min()-10, 2)
+    zmax = min(z.max()+10, img.shape[2])
     
-    return img[x.min():x.max(), y.min():y.max(), z.min():z.max()], np.array([[x.min(),x.max()], [y.min(),y.max()], [z.min(),z.max()]])
+    return img[xmin : xmax,
+               ymin : ymax, 
+               zmin : zmax], np.array([[xmin, xmax], 
+                                       [ymin, ymax], 
+                                       [zmin, zmax]])
 
 
 def distgradient(img):
