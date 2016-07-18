@@ -53,6 +53,7 @@ def rivulet_preprocessing(filepath, config):
     bimg = bimg.astype('int')
 
     # Distance transform from the background
+    if not config['silence']: print('Distance Transform...')
     dt = skfmm.distance(bimg, dx=5e-2)
     dt[bimg==0] = 0
     dtmax = dt.max()
@@ -61,11 +62,13 @@ def rivulet_preprocessing(filepath, config):
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
     # Fast marching from the position with the largest distance
+    if not config['silence']: print('Fast Marching...')
     F = dt ** 4
     F[F == 0] = 1e-10
     t = skfmm.travel_time(marchmap, F, dx=0.01)
     
     # Get the gradient volume of the time crossing map
+    if not config['silence']: print('Getting gradients...')
     gshape = list(t.shape)
     gshape.append(3)
     g = np.zeros(gshape)

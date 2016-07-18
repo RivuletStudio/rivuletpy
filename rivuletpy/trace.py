@@ -22,11 +22,11 @@ def trace(filepath, **userconfig):
               'silence':False,
               'clean': False}
     config.update(userconfig)
-
-    # print('== Preprocessing', end='\r')
+    if not config['silence']: print('Start Tracing', filepath)
     dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(filepath, config)
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    print('Image size after crop:', bimg.shape)
 
     tt = t.copy()
     tt[bimg <= 0] = -2
@@ -55,6 +55,7 @@ def trace(filepath, **userconfig):
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
+        # tt[math.floor(endpt[0]), math.floor(endpt[1]), math.floor(endpt[2])] = -1
         if not config['silence']: bar.update(converage)
 
         # Trace it back to maxd 
@@ -117,6 +118,8 @@ def trace(filepath, **userconfig):
 
                 if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
                     # print('== Stop due to not moving at ', endpt)
+                    ttblock = tt[274-2:274+3, 320-2:320+3, 97-2:97+3]
+                    # print(ttblock)
                     break;
             except ValueError:
                 # print('==ValueError at:', endpt)

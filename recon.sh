@@ -5,9 +5,10 @@ trace() {
 	THRESHOLD=$2;
 	SILENCE=$3;
 	RENDER=$4;
-	# echo "\n==== Doing $FILE ====";
+	echo 'THRESHOLD:' $THRESHOLD
+	echo 'SILENCE:' $SILENCE
+	echo 'RENDER:' $RENDER
 	python3 -c "from rivuletpy.trace import trace; trace('$FILE', threshold=$THRESHOLD, render=$RENDER, length=4, toswcfile='$FILE.rivuet.swc', ignore_radius=True, clean=False, silence=$SILENCE)"
-	# echo "\n==== Done $FILE ====";
 }
 export -f trace
 
@@ -23,16 +24,16 @@ THREAD=4
 
 case $key in
 	-t|--THRESHOLD)
-	THRESHOLD="$2"
+	export THRESHOLD="$2"
 	shift # past argument
 	;;
 	-j|--THREAD)
-	THREAD="$2"
+	export THREAD="$2"
 	echo Setting THREAD "$2"
 	shift # past argument
 	;;
 	-s|--SILENCE)
-	SILENCE="$2"
+	export SILENCE="$2"
 	shift # past argument
 	;;
 	*)
