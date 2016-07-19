@@ -1,4 +1,4 @@
-from filtering.oof import oofresponse
+from filtering.anisotropic import oofresponse
 from rivuletpy.utils.io import * 
 import matplotlib.pyplot as plt
 from scipy import io as sio

@@ -3,6 +3,8 @@ from scipy.special import jv # Bessel Function of the first kind
 from scipy.linalg import eig
 from scipy.fftpack import fftn, ifftn, ifft
 import progressbar
+from scipy.ndimage import filters as fi
+import math
 
 # An implementation of the Optimally Oriented 
 # M.W.K. Law and A.C.S. Chung, ``Three Dimensional Curvilinear 
@@ -33,6 +35,52 @@ def oofresponse(img, radii, memory_save=True):
         bar.update(i+1)
 
     return rsp
+
+
+def bgkern3(kerlen=21, mu=0., sigma=3., rho=0.2):
+    '''
+    Generate the bi-gaussian kernel
+    '''
+    sigma_b = rho * sigma
+    k = rho ** 2
+    # Make 2 Gaussian Kernels
+    G = gkern3(kerlen, mu, sigma) # Normal Gaussian with mean at origin
+    Gb = gkern3(kerlen, sigma-sigma_b, sigma_b) # Inverse Gaussian with phase shift
+    Gb = k * Gb 
+    c0 = (np.exp(-0.5) / np.sqrt(2*np.pi)) * (rho - 1) * (1 / sigma)
+    c1 = G[0, 0, math.floor(sigma)] - k * Gb[0, 0, math.floor(sigma_b)] + c0
+
+
+    # Replace the centre of Gb with G
+    kr = (kerlen - 1) / 2 
+    X, Y, Z = np.meshgrid(np.arange(-kr, kr+1),
+                          np.arange(-kr, kr+1), 
+                          np.arange(-kr, kr+1))
+    indstack = np.stack((X, Y, Z))
+    dist = np.linalg.norm(indstack, axis=0)
+    central_region = dist <= sigma
+    X = (X[central_region] + kr).astype('int')
+    Y = (Y[central_region] + kr).astype('int')
+    Z = (Z[central_region] + kr).astype('int')
+    Gb[X, Y, Z] = G[X, Y, Z]
+    return Gb
+
+
+def gkern3(kerlen=21, mu=0., sigma=3.):
+    '''
+    Make 3D gaussian kernel
+    Adapted from http://stackoverflow.com/questions/29731726/how-to-calculate-a-gaussian-kernel-matrix-efficiently-in-numpy
+    '''
+    # Make a dirac spherical function
+    kr = (kerlen - 1) / 2 
+    X, Y, Z = np.meshgrid(np.arange(-kr, kr+1),
+                          np.arange(-kr, kr+1), 
+                          np.arange(-kr, kr+1))
+    indstack = np.stack((X, Y, Z))
+    dist = np.linalg.norm(indstack, axis=0)
+    dist = dist - mu
+    G = np.exp(-0.5 * ((dist / sigma)**2)) / (sigma * np.sqrt(2. * np.pi))
+    return G
 
 
 def eigval33(tensorfield):
