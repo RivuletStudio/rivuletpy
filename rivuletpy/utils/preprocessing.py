@@ -46,8 +46,7 @@ def distgradient(img):
 	return -fx, -fy, -fz
 
 
-def rivulet_preprocessing(filepath, config):
-    img = loadtiff3d(filepath) # Load the image file
+def rivulet_preprocessing(img, config):
     img, cropregion = crop(img, config['threshold']) # Crop it
     bimg = (img > config['threshold']).astype(int)
     bimg = bimg.astype('int')

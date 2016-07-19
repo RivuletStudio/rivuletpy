@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 
 import progressbar
 
-def trace(filepath, **userconfig):
+def trace(img, **userconfig):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
     config = {'length':5,
               'coverage':0.98,
@@ -22,8 +22,8 @@ def trace(filepath, **userconfig):
               'silence':False,
               'clean': False}
     config.update(userconfig)
-    if not config['silence']: print('Start Tracing', filepath)
-    dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(filepath, config)
+    # if not config['silence']: print('Start Tracing', filepath)
+    dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(img, config)
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     print('Image size after crop:', bimg.shape)
