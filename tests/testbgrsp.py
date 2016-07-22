@@ -1,4 +1,4 @@
-from filtering.anisotropic import bgresponse
+from filtering.anisotropic import response
 from rivuletpy.utils.io import * 
 import matplotlib.pyplot as plt
 from scipy import io as sio
@@ -13,14 +13,14 @@ mat = sio.loadmat('tests/data/very-small-oof.mat', )
 img = mat['img']
 ostu_img = 0.
 
-radii = np.arange(0.5, 2.1, 0.5)
-rho = 0.3
+radii = np.arange(0.2, 2, 0.5)
+rho = 0.5
 
 oof_matlab = mat['oof']
 ostu_matlaboof = filters.threshold_otsu(oof_matlab)
 
-rps = bgresponse(img.astype('float'), radii, rho)
-thr = 20
+rps, _ = response(img.astype('float'), rsptype='bg', radii=radii, rho=rho)
+thr = 1
 
 smoothed_rps = gaussian_filter(rps, 0.5)
 # ostu_smooth = filters.threshold_otsu(smoothed_rps)

@@ -1,4 +1,4 @@
-from filtering.anisotropic import oofresponse
+from filtering.anisotropic import * 
 from rivuletpy.utils.io import * 
 import matplotlib.pyplot as plt
 from scipy import io as sio
@@ -11,15 +11,15 @@ except ImportError:
 mat = sio.loadmat('tests/data/very-small-oof.mat', )
 img = mat['img']
 ostu_img = filters.threshold_otsu(img)
-radii = np.arange(0.4, 1.5, 0.2)
+radii = np.arange(1, 1.5, 0.1)
 
 oof_matlab = mat['oof']
 ostu_matlaboof = filters.threshold_otsu(oof_matlab)
 
-oofrps_memsave = oofresponse(img.astype('float'), np.asarray(radii), memory_save=True)
+oofrps_memsave, _ = response(img.astype('float'), rsptype='oof', radii=np.asarray(radii), memory_save=True)
 otsu_memsave = filters.threshold_otsu(oofrps_memsave)
 
-oofrps_highmem = oofresponse(img.astype('float'), np.asarray(radii), memory_save=False)
+oofrps_highmem, _ = response(img.astype('float'), rsptype='oof', radii=np.asarray(radii), memory_save=False)
 otsu_highmem = filters.threshold_otsu(oofrps_highmem)
 
 plotidx = 1

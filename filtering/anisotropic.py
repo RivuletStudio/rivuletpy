@@ -14,89 +14,77 @@ import math
 # Representation for Curve Analysis'', ECCV 2012, pp. 557--571.
 # Author: Siqi Liu
 
-def bgresponse(img, radii, rho):
+def response(img, rsptype='oof', **kwargs):
     eps = 1e-12
     rsp = np.zeros(img.shape)
-    bar = progressbar.ProgressBar(max_value=radii.size)
+    bar = progressbar.ProgressBar(max_value=kwargs['radii'].size)
 
-    for i, tensorfield in enumerate(bgtensor(img, radii, rho)):
-        eig1, eig2, eig3 = eigval33(tensorfield)
-        maxe = eig1 - eps
-        mine = eig1 - eps
-        sume = maxe + eig2 + eig3
-        del eig1
+    W = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3)) # Eigen values to save
+    V = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3, 3)) # Eigen vectors to save
 
-        cond = np.abs(eig2) > np.abs(maxe)
-        maxe[cond] = eig2[cond]
+    if rsptype == 'oof' :
+        rsptensor = ooftensor(img, kwargs['radii'], kwargs['memory_save'])
+    elif rsptype == 'bg':
+        rsptensor = bgtensor(img, kwargs['radii'], kwargs['rho'])
 
-        cond = np.abs(eig2) < np.abs(mine)
-        mine[cond] = eig2[cond]
-        del eig2
+    for i, tensorfield in enumerate(rsptensor):
+        # Make the tensor from tensorfield
+        f11, f12, f13, f22, f23, f33 = tensorfield
+        tensor = np.stack((f11, f12, f13, f12, f22, f23, f13, f23, f33), axis=-1)
+        del f11
+        del f12
+        del f13
+        del f22
+        del f23
+        del f33
+        tensor = tensor.reshape(img.shape[0], img.shape[1], img.shape[2], 3, 3)
+        w, v = np.linalg.eigh(tensor)
+        del tensor
+        sume = w.sum(axis=-1)
+        nvox = img.shape[0] * img.shape[1] * img.shape[2]
+        sortidx = np.argsort(np.abs(w), axis=-1)
+        sortidx = sortidx.reshape((nvox, 3))
 
-        cond = np.abs(eig3) > np.abs(maxe)
-        maxe[cond] = eig3[cond]
+        # Sort eigenvalues according to their abs
+        w = w.reshape((nvox, 3))
+        for j, (idx, value) in enumerate(zip(sortidx, w)):
+            w[j,:] = value[idx]
+        w = w.reshape(img.shape[0], img.shape[1], img.shape[2], 3)
 
-        cond = np.abs(eig3) < np.abs(mine)
-        mine[cond] = eig3[cond]
-        del eig3
+        # Sort eigenvectors according to their abs
+        v = v.reshape((nvox, 3, 3))
+        for j, (idx, vec) in enumerate(zip(sortidx, v)):
+            v[j,:,:] = vec[:, idx]
+        del sortidx
+        v = v.reshape(img.shape[0], img.shape[1], img.shape[2], 3, 3)
 
-        mide = sume - maxe - mine;
+        mine = w[:,:,:, 0]
+        mide = w[:,:,:, 1]
+        maxe = w[:,:,:, 2]
 
-        cond = sume >= 0
-        feat = -mide / maxe * (mide + maxe) # Medialness measure response
+        if rsptype == 'oof':
+            feat = maxe
+        elif rsptype == 'bg':
+            feat = -mide / maxe * (mide + maxe) # Medialness measure response
+            cond = sume >= 0
+            feat[cond] = 0 # Filter the non-anisotropic voxels
+
         del mine
         del maxe
         del mide
         del sume
-        feat[cond] = 0 # Filter the non-anisotropic voxels
+
         cond = np.abs(feat) > np.abs(rsp)
+        W[cond, :] = w[cond, :]
+        V[cond, :, :] = v[cond, :, :]
         rsp[cond] = feat[cond]
-        bar.update(i+1)
+        del w
         del tensorfield
         del feat
         del cond
-    return rsp
-
-
-def eigsparse3(tensorfield, lidx):
-    f11, f12, f13, f22, f23, f33 = tensorfield
-    eigvals = np.zeros(lidx.shape[0], 3)
-    eigvecs = np.zeros(lidx.shape[0], 3, 3)
-
-    for i, idx in enumerate(lidx):
-        tensor = np.asarray([[f11[idx[0], idx[1], idx[2]], f12[idx[0], idx[1], idx[2]], f13[idx[0], idx[1], idx[2]]],
-                             [f12[idx[0], idx[1], idx[2]], f22[idx[0], idx[1], idx[2]], f23[idx[0], idx[1], idx[2]]],
-                             [f13[idx[0], idx[1], idx[2]], f23[idx[0], idx[1], idx[2]], f33[idx[0], idx[1], idx[2]]]])
-        w, v = np.linalg.eig(tensor)
-        eigvals[i, :] = w
-        eigvecs[i, :, :] = v 
-    return eigvecs, eigvals
-
-
-def oofresponse(img, radii, memory_save=True):
-    rsp = np.zeros(img.shape)
-    bar = progressbar.ProgressBar(max_value=radii.size)
-
-    for i,tensorfield in enumerate(ooftensor(img, radii, memory_save)):
-        eig1, eig2, eig3 = eigval33(tensorfield)
-        maxe = eig1
-        mine = eig1
-        sume = maxe + eig2 + eig3   
-        cond = np.abs(eig2) > np.abs(maxe)
-        maxe[cond] = eig2[cond]
-        cond = np.abs(eig2) < np.abs(mine)
-        mine[cond] = eig2[cond]
-        cond = np.abs(eig3) > np.abs(maxe)
-        maxe[cond] = eig3[cond]
-        cond = np.abs(eig3) < np.abs(mine)
-        mine[cond] = eig3[cond]
-        mide = sume - maxe - mine;
-        feat = maxe
-        cond = np.abs(feat) > np.abs(rsp)
-        rsp[cond] = feat[cond]
         bar.update(i+1)
 
-    return rsp
+    return rsp, V
 
 
 def bgkern3(kerlen, mu=0, sigma=3., rho=0.2):
@@ -128,6 +116,46 @@ def bgkern3(kerlen, mu=0, sigma=3., rho=0.2):
     Gb[X, Y, Z] = G[X, Y, Z]
 
     return Gb
+
+
+def eigh(a, UPLO='L'):
+    # I Borrowed from Dipy
+    """Iterate over `np.linalg.eigh` if it doesn't support vectorized operation
+    Parameters
+    ----------
+    a : array_like (..., M, M)
+        Hermitian/Symmetric matrices whose eigenvalues and
+        eigenvectors are to be computed.
+    UPLO : {'L', 'U'}, optional
+        Specifies whether the calculation is done with the lower triangular
+        part of `a` ('L', default) or the upper triangular part ('U').
+    Returns
+    -------
+    w : ndarray (..., M)
+        The eigenvalues in ascending order, each repeated according to
+        its multiplicity.
+    v : ndarray (..., M, M)
+        The column ``v[..., :, i]`` is the normalized eigenvector corresponding
+        to the eigenvalue ``w[..., i]``.
+    Raises
+    ------
+    LinAlgError
+        If the eigenvalue computation does not converge.
+    See Also
+    --------
+    np.linalg.eigh
+    """
+    a = np.asarray(a)
+    if a.ndim > 2 and NUMPY_LESS_1_8:
+        shape = a.shape[:-2]
+        a = a.reshape(-1, a.shape[-2], a.shape[-1])
+        evals = np.empty((a.shape[0], a.shape[1]))
+        evecs = np.empty((a.shape[0], a.shape[1], a.shape[1]))
+        for i, item in enumerate(a):
+            evals[i], evecs[i] = np.linalg.eigh(item, UPLO)
+        return (evals.reshape(shape + (a.shape[1], )),
+                evecs.reshape(shape + (a.shape[1], a.shape[1])))
+    return np.linalg.eigh(a, UPLO)
 
 
 def gkern3(dist, mu=0., sigma=3.):
@@ -318,7 +346,8 @@ def ifftshiftedcoordinate(shape, axis):
     return np.tile(A, repmatpara)
 
 
-def nonmaximal_suppression3(img, radii, threshold=0, radius):
-    '''
-    Non-maximal suppression with oof eigen vector
-    '''
+# def nonmaximal_suppression3(img, radii, threshold=0, radius):
+#     '''
+#     Non-maximal suppression with oof eigen vector
+#     '''
+#     

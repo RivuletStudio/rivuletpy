@@ -1,4 +1,4 @@
-from filtering.anisotropic import bgresponse
+from filtering.anisotropic import response
 from rivuletpy.utils.io import * 
 import matplotlib.pyplot as plt
 from scipy import io as sio
@@ -20,12 +20,14 @@ thr = 1
 # Do one large whole image
 
 img = loadtiff3d('tests/data/test-crop.tif')
-rps = bgresponse(img.astype('float'), np.asarray(radii), rho)
+rps, _ = response(img.astype('float'), rsptype='bg', radii=radii, rho=rho)
 smoothafter = gaussian_filter(rps, 0.5)
 
 smoothimg = gaussian_filter(img, 0.5)
-smoothbefore = bgresponse(smoothimg.astype('float'), np.asarray(radii), rho)
+rps, _ = response(smoothimg.astype('float'), rsptype='bg', radii=radii, rho=rho)
 
+# Show response
+plt.figure()
 plt.subplot(2, 2, 1)
 plt.imshow(rps.max(axis=-1))
 plt.title('no smooth')
@@ -40,5 +42,24 @@ plt.title('smoothed before')
 
 plt.subplot(2, 2, 4)
 plt.imshow(img.max(axis=-1))
+plt.title('original')
+
+
+# Show segmentation
+plt.figure()
+plt.subplot(2, 2, 1)
+plt.imshow((rps > 1).max(axis=-1))
+plt.title('no smooth')
+
+plt.subplot(2, 2, 2)
+plt.imshow((smoothafter > 1).max(axis=-1))
+plt.title('smoothed after')
+
+plt.subplot(2, 2, 3)
+plt.imshow((smoothbefore > 1).max(axis=-1))
+plt.title('smoothed before')
+
+plt.subplot(2, 2, 4)
+plt.imshow((img>0).max(axis=-1))
 plt.title('original')
 plt.show()
