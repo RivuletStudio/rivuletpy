@@ -18,7 +18,6 @@ rho = 0.4
 thr = 1
 
 # Do one large whole image
-
 img = loadtiff3d('tests/data/test-crop.tif')
 rps, _ = response(img.astype('float'), rsptype='bg', radii=radii, rho=rho)
 smoothafter = gaussian_filter(rps, 0.5)
