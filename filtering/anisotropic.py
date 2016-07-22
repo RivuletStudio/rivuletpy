@@ -14,21 +14,83 @@ import math
 # Representation for Curve Analysis'', ECCV 2012, pp. 557--571.
 # Author: Siqi Liu
 
+def bgresponse(img, radii, rho):
+    eps = 1e-12
+    rsp = np.zeros(img.shape)
+    bar = progressbar.ProgressBar(max_value=radii.size)
+
+    for i, tensorfield in enumerate(bgtensor(img, radii, rho)):
+        eig1, eig2, eig3 = eigval33(tensorfield)
+        maxe = eig1 - eps
+        mine = eig1 - eps
+        sume = maxe + eig2 + eig3
+        del eig1
+
+        cond = np.abs(eig2) > np.abs(maxe)
+        maxe[cond] = eig2[cond]
+
+        cond = np.abs(eig2) < np.abs(mine)
+        mine[cond] = eig2[cond]
+        del eig2
+
+        cond = np.abs(eig3) > np.abs(maxe)
+        maxe[cond] = eig3[cond]
+
+        cond = np.abs(eig3) < np.abs(mine)
+        mine[cond] = eig3[cond]
+        del eig3
+
+        mide = sume - maxe - mine;
+
+        cond = sume >= 0
+        feat = -mide / maxe * (mide + maxe) # Medialness measure response
+        del mine
+        del maxe
+        del mide
+        del sume
+        feat[cond] = 0 # Filter the non-anisotropic voxels
+        cond = np.abs(feat) > np.abs(rsp)
+        rsp[cond] = feat[cond]
+        bar.update(i+1)
+        del tensorfield
+        del feat
+        del cond
+    return rsp
+
+
+def eigsparse3(tensorfield, lidx):
+    f11, f12, f13, f22, f23, f33 = tensorfield
+    eigvals = np.zeros(lidx.shape[0], 3)
+    eigvecs = np.zeros(lidx.shape[0], 3, 3)
+
+    for i, idx in enumerate(lidx):
+        tensor = np.asarray([[f11[idx[0], idx[1], idx[2]], f12[idx[0], idx[1], idx[2]], f13[idx[0], idx[1], idx[2]]],
+                             [f12[idx[0], idx[1], idx[2]], f22[idx[0], idx[1], idx[2]], f23[idx[0], idx[1], idx[2]]],
+                             [f13[idx[0], idx[1], idx[2]], f23[idx[0], idx[1], idx[2]], f33[idx[0], idx[1], idx[2]]]])
+        w, v = np.linalg.eig(tensor)
+        eigvals[i, :] = w
+        eigvecs[i, :, :] = v 
+    return eigvecs, eigvals
+
+
 def oofresponse(img, radii, memory_save=True):
     rsp = np.zeros(img.shape)
     bar = progressbar.ProgressBar(max_value=radii.size)
 
-    for i,tensorfield in enumerate(anisotropic_tensor(img, radii, oofftkernel, memory_save)):
+    for i,tensorfield in enumerate(ooftensor(img, radii, memory_save)):
         eig1, eig2, eig3 = eigval33(tensorfield)
         maxe = eig1
         mine = eig1
-        mide = maxe + eig2 + eig3   
-
-        maxe[np.abs(eig2) > np.abs(maxe)] = eig2[ np.abs(eig2) > np.abs(maxe) ]
-        mine[np.abs(eig2) < np.abs(mine)] = eig2[ np.abs(eig2) < np.abs(mine) ]
-        maxe[np.abs(eig3) > np.abs(maxe)] = eig3[ np.abs(eig3) > np.abs(maxe) ]
-        mine[np.abs(eig3) < np.abs(mine)] = eig3[ np.abs(eig3) < np.abs(mine) ]
-        
+        sume = maxe + eig2 + eig3   
+        cond = np.abs(eig2) > np.abs(maxe)
+        maxe[cond] = eig2[cond]
+        cond = np.abs(eig2) < np.abs(mine)
+        mine[cond] = eig2[cond]
+        cond = np.abs(eig3) > np.abs(maxe)
+        maxe[cond] = eig3[cond]
+        cond = np.abs(eig3) < np.abs(mine)
+        mine[cond] = eig3[cond]
+        mide = sume - maxe - mine;
         feat = maxe
         cond = np.abs(feat) > np.abs(rsp)
         rsp[cond] = feat[cond]
@@ -37,50 +99,76 @@ def oofresponse(img, radii, memory_save=True):
     return rsp
 
 
-def bgkern3(kerlen=21, mu=0., sigma=3., rho=0.2):
+def bgkern3(kerlen, mu=0, sigma=3., rho=0.2):
     '''
     Generate the bi-gaussian kernel
     '''
     sigma_b = rho * sigma
     k = rho ** 2
-    # Make 2 Gaussian Kernels
-    G = gkern3(kerlen, mu, sigma) # Normal Gaussian with mean at origin
-    Gb = gkern3(kerlen, sigma-sigma_b, sigma_b) # Inverse Gaussian with phase shift
-    Gb = k * Gb 
-    c0 = (np.exp(-0.5) / np.sqrt(2*np.pi)) * (rho - 1) * (1 / sigma)
-    c1 = G[0, 0, math.floor(sigma)] - k * Gb[0, 0, math.floor(sigma_b)] + c0
-
-
-    # Replace the centre of Gb with G
     kr = (kerlen - 1) / 2 
     X, Y, Z = np.meshgrid(np.arange(-kr, kr+1),
                           np.arange(-kr, kr+1), 
                           np.arange(-kr, kr+1))
-    indstack = np.stack((X, Y, Z))
-    dist = np.linalg.norm(indstack, axis=0)
+    dist = np.linalg.norm(np.stack((X, Y, Z)), axis=0) 
+
+    G  = gkern3(dist, mu, sigma) # Normal Gaussian with mean at origin
+    Gb = gkern3(dist, sigma-sigma_b, sigma_b)
+
+    c0 = k * Gb[0, 0, math.floor(sigma_b)] - G[0, 0, math.floor(sigma)]
+    c1 = G[0, 0, math.floor(sigma)] - k * Gb[0, 0, math.floor(sigma_b)] + c0
+    G += c0
+    Gb = k * Gb + c1 # Inverse Gaussian with phase shift
+
+    # Replace the centre of Gb with G
     central_region = dist <= sigma
+    del dist
     X = (X[central_region] + kr).astype('int')
     Y = (Y[central_region] + kr).astype('int')
     Z = (Z[central_region] + kr).astype('int')
     Gb[X, Y, Z] = G[X, Y, Z]
+
     return Gb
 
 
-def gkern3(kerlen=21, mu=0., sigma=3.):
+def gkern3(dist, mu=0., sigma=3.):
     '''
     Make 3D gaussian kernel
-    Adapted from http://stackoverflow.com/questions/29731726/how-to-calculate-a-gaussian-kernel-matrix-efficiently-in-numpy
     '''
     # Make a dirac spherical function
-    kr = (kerlen - 1) / 2 
-    X, Y, Z = np.meshgrid(np.arange(-kr, kr+1),
-                          np.arange(-kr, kr+1), 
-                          np.arange(-kr, kr+1))
-    indstack = np.stack((X, Y, Z))
-    dist = np.linalg.norm(indstack, axis=0)
-    dist = dist - mu
-    G = np.exp(-0.5 * ((dist / sigma)**2)) / (sigma * np.sqrt(2. * np.pi))
-    return G
+    return np.exp(-0.5 * (((dist - mu) / sigma)**2)) / (sigma * np.sqrt(2. * np.pi))
+
+
+def hessian3(x):
+    """
+    Calculate the hessian matrix with finite differences
+    Parameters:
+       - x : ndarray
+    Returns:
+       an array of shape (x.dim, x.ndim) + x.shape
+       where the array[i, j, ...] corresponds to the second derivative x_ij
+    """
+    x_grad = np.gradient(x)
+    tmpgrad = np.gradient(x_grad[0])
+    f11 = tmpgrad[0]
+    f12 = tmpgrad[1]
+    f13 = tmpgrad[2]
+    tmpgrad = np.gradient(x_grad[1])
+    f22 = tmpgrad[1]
+    f23 = tmpgrad[2]
+    tmpgrad = np.gradient(x_grad[2])
+    f33 = tmpgrad[2]
+    return [f11, f12, f13, f22, f23, f33]
+
+
+def bgtensor(img, lsigma, rho=0.2):
+    eps = 1e-12
+    fimg = fftn(img, overwrite_x=True)
+
+    for s in lsigma:
+        jvbuffer = bgkern3(kerlen=math.ceil(s)*6+1, sigma=s, rho=rho)
+        jvbuffer = fftn(jvbuffer, shape=fimg.shape, overwrite_x=True) * fimg
+        fimg = ifftn(jvbuffer, overwrite_x=True)
+        yield hessian3(np.real(fimg))
 
 
 def eigval33(tensorfield):
@@ -127,22 +215,24 @@ def oofftkernel(kernel_radius, r, sigma=1, ntype=1):
                jvbuffer * np.sqrt( 1./ (np.pi**2 * r *kernel_radius ))
 
 
-def anisotropic_tensor(img, radii, kernelfunc, memory_save=True):
+def ooftensor(img, radii, memory_save=True):
+    '''
+    type: oof, bg
+    '''
     # sigma = 1 # TODO: Pixel spacing
     eps = 1e-12
     # ntype = 1 # The type of normalisation
-    fimg = fftn(img)
+    fimg = fftn(img, overwrite_x=True)
     shiftmat = ifftshiftedcoormatrix(fimg.shape)
     x, y, z = shiftmat
     x = x / fimg.shape[0]
     y = y / fimg.shape[1]
     z = z / fimg.shape[2]
-    kernel_radius = np.sqrt(x ** 2 + y ** 2 + z ** 2) + eps # Should be the radius of the kernel
-    tensor = np.zeros((img.shape[0], img.shape[1], img.shape[2], 6))
+    kernel_radius = np.sqrt(x ** 2 + y ** 2 + z ** 2) + eps # The distance from origin
 
     for r in radii:
         # Make the fourier convolutional kernel
-        jvbuffer = kernelfunc(kernel_radius, r) * fimg # Clear radius
+        jvbuffer = oofftkernel(kernel_radius, r) * fimg
 
         if memory_save:
             # F11
@@ -226,3 +316,9 @@ def ifftshiftedcoordinate(shape, axis):
     repmatpara = shape.copy();
     repmatpara[axis] = 1;
     return np.tile(A, repmatpara)
+
+
+def nonmaximal_suppression3(img, radii, threshold=0, radius):
+    '''
+    Non-maximal suppression with oof eigen vector
+    '''

@@ -12,12 +12,19 @@ except ImportError:
 nsig = 5
 nmu = 5
 kerlen = 101
+kr = (kerlen - 1) / 2 
+X, Y, Z = np.meshgrid(np.arange(-kr, kr+1),
+	                  np.arange(-kr, kr+1), 
+	                  np.arange(-kr, kr+1))
+indstack = np.stack((X, Y, Z))
+dist = np.linalg.norm(indstack, axis=0) 
+
 plt.title('Gaussian')
 for i in range(nsig):
 	for j in range(nmu):
 		mu = float(j*10)
 		sigma = float(i+4)
-		k = gkern3(kerlen, mu, sigma)
+		k = gkern3(dist, mu, sigma)
 		ax = plt.subplot(nsig, nmu, (i) * nsig + (j + 1))
 		ax.set_title('mu=%.2f, sigma=%.2f' % (mu, sigma))
 		imgplot = plt.imshow(k[:, :, int((kerlen-1)/2)])
