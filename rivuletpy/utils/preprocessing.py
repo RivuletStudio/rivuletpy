@@ -76,18 +76,7 @@ def rivulet_preprocessing(img, config):
     F = dt ** 4
     F[F==0] = 1e-10
     t = skfmm.travel_time(marchmap, F, dx=5e-3)
-
-    # from matplotlib import pyplot as plt
-    # plt.figure()
-    # plt.imshow(F.max(axis=-1))
-
-    # plt.figure()
-    # plt.imshow(t.min(axis=-1))
-
-    # plt.figure()
-    # plt.imshow(bimg.max(axis=-1))
-    # plt.show()
-
+    
     # Get the gradient volume of the time crossing map
     if not config['silence']: print('Getting gradients...')
     gshape = list(t.shape)

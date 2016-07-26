@@ -1,10 +1,10 @@
 import os
 import numpy as np
-from libtiff import TIFFfile
-from libtiff import TIFF
 
 def loadtiff3d(filepath):
     """Load a tiff file into 3D numpy array"""
+    from libtiff import TIFFfile
+    from libtiff import TIFF
     tiff = TIFF.open(filepath, mode='r')
     stack = []
     for sample in tiff.iter_images():
@@ -17,6 +17,8 @@ def loadtiff3d(filepath):
 
 
 def writetiff3d(filepath, block):
+    from libtiff import TIFFfile
+    from libtiff import TIFF
     try:
         os.remove(filepath)
     except OSError:

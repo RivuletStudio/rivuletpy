@@ -2,9 +2,7 @@
 from filtering.anisotropic import * 
 from rivuletpy.utils.io import * 
 from rivuletpy.utils.preprocessing import crop
-import matplotlib.pyplot as plt
 from scipy import io as sio
-from mpl_toolkits.mplot3d import Axes3D
 import skfmm
 from skimage.morphology import skeletonize_3d
 from rivuletpy.trace import trace
@@ -21,7 +19,7 @@ def recon(file, threshold, filter='bg', radii=np.arange(1,1.2,0.2)):
         img = loadtiff3d(file)
     else:
         filecont = sio.loadmat(file)
-        img = next (iter (filecont.values()))
+        img = filecont['img']
 
     # Crop image
     img, cropregion = crop(img, threshold)

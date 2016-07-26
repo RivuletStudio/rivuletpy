@@ -1,7 +1,6 @@
 import numpy as np
 import random
 import math
-from euclid import Point3
 from scipy.spatial.distance import cdist
 
 def gd(srcpt, ginterp, t, stepsize):

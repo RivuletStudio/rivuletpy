@@ -1,13 +1,8 @@
 import os
 import numpy as np
 from scipy import ndimage 
-from libtiff import TIFF 
-from .utils.io import *
 from .utils.preprocessing import *
 from .utils.backtrack import *
-from .utils.rendering3 import *
-from matplotlib import pyplot as plt
-
 import progressbar
 
 def trace(img, **userconfig):
@@ -22,6 +17,7 @@ def trace(img, **userconfig):
               'silence':False,
               'skedt': False, # True if the distance transform is generated with skelontonization algorithm
               'clean': False}
+
     config.update(userconfig)
 
     dt, t, ginterp, bimg  = rivulet_preprocessing(img, config)
@@ -37,6 +33,7 @@ def trace(img, **userconfig):
 
     bounds = dt.shape
     if config['render']:
+        from .utils.rendering3 import Viewer3, Line3
         viewer = Viewer3(800, 800, 800)
         viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
 

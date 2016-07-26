@@ -43,12 +43,13 @@ case $key in
 	;;
 	*)
 	echo "Doing $1"
-	sem -j$THREAD trace "$1" "$THRESHOLD" "$FILTER" "$RADII" ; # When it is not an option, it is assumed to be a file
+	# sem -j$THREAD trace "$1" "$THRESHOLD" "$FILTER" "$RADII" ; # When it is not an option, it is assumed to be a file
+	trace "$1" "$THRESHOLD" "$FILTER" "$RADII" ;
 	;;
 esac
 
 shift
 done
-sem --wait
+# sem --wait
 
 echo "==== ALL done ===="
