@@ -23,9 +23,8 @@ def trace(img, **userconfig):
               'skedt': False, # True if the distance transform is generated with skelontonization algorithm
               'clean': False}
     config.update(userconfig)
-    # if not config['silence']: print('Start Tracing', filepath)
 
-    dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(img, config)
+    dt, t, ginterp, bimg  = rivulet_preprocessing(img, config)
 
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
@@ -172,15 +171,5 @@ def trace(img, **userconfig):
             swc = add2swc(swc, path, rlist, connectid)
 
     if config['clean']: swc = cleanswc(swc) # This will find the nodes with -2 as parents and clean its branch
-
-    if config['toswcfile'] is not None:
-        swc[:, 2] += cropregion[0, 0]
-        swc[:, 3] += cropregion[1, 0]
-        swc[:, 4] += cropregion[2, 0]
-        swc_x = swc[:, 2].copy()
-        swc_y = swc[:, 3].copy()
-        swc[:, 2] = swc_y
-        swc[:, 3] = swc_x
-        if config['ignore_radius']:
-            swc[:,5] = 1
-        saveswc(config['toswcfile'], swc)
+    
+    return swc
