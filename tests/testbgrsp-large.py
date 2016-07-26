@@ -21,9 +21,10 @@ thr = 1
 img = loadtiff3d('tests/data/test-crop.tif')
 rps, _ = response(img.astype('float'), rsptype='bg', radii=radii, rho=rho)
 smoothafter = gaussian_filter(rps, 0.5)
+canny = nonmaximal_suppression3(rps, sigma=3)
 
-smoothimg = gaussian_filter(img, 0.5)
-rps, _ = response(smoothimg.astype('float'), rsptype='bg', radii=radii, rho=rho)
+# smoothimg = gaussian_filter(img, 0.5)
+# rps, _ = response(smoothimg.astype('float'), rsptype='bg', radii=radii, rho=rho)
 
 # Show response
 plt.figure()
@@ -36,7 +37,7 @@ plt.imshow(smoothafter.max(axis=-1))
 plt.title('smoothed after')
 
 plt.subplot(2, 2, 3)
-plt.imshow(smoothbefore.max(axis=-1))
+plt.imshow(canny.max(axis=-1))
 plt.title('smoothed before')
 
 plt.subplot(2, 2, 4)
@@ -55,7 +56,7 @@ plt.imshow((smoothafter > 1).max(axis=-1))
 plt.title('smoothed after')
 
 plt.subplot(2, 2, 3)
-plt.imshow((smoothbefore > 1).max(axis=-1))
+plt.imshow((canny > 1).max(axis=-1))
 plt.title('smoothed before')
 
 plt.subplot(2, 2, 4)

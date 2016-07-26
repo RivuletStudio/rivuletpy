@@ -11,7 +11,7 @@ except ImportError:
     from skimage import filter as filters
 
 img = loadtiff3d('tests/data/test-crop.tif'); 
-img = oofresponse3(img, np.arange(1, 4)); 
-img = filters.threshold_otsu(img)
+# img = oofresponse3(img, np.arange(1, 4)); 
+thr = filters.threshold_otsu(img)
 
-trace(img, threshold=, render=$RENDER, length=2, toswcfile='$FILE.swc')
+trace(img, threshold=thr, render=True, length=2, toswcfile='tests/data/test-crop.swc')

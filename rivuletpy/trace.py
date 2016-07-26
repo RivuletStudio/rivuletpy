@@ -20,10 +20,13 @@ def trace(img, **userconfig):
               'render':False, 
               'toswcfile':None, 
               'silence':False,
+              'skedt': False, # True if the distance transform is generated with skelontonization algorithm
               'clean': False}
     config.update(userconfig)
     # if not config['silence']: print('Start Tracing', filepath)
+
     dt, t, ginterp, bimg, cropregion = rivulet_preprocessing(img, config)
+
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     print('Image size after crop:', bimg.shape)

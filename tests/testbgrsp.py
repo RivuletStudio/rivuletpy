@@ -1,4 +1,4 @@
-from filtering.anisotropic import response
+from filtering.anisotropic import *
 from rivuletpy.utils.io import * 
 import matplotlib.pyplot as plt
 from scipy import io as sio
@@ -21,6 +21,10 @@ ostu_matlaboof = filters.threshold_otsu(oof_matlab)
 
 rps, _ = response(img.astype('float'), rsptype='bg', radii=radii, rho=rho)
 thr = 1
+
+from scipy import ndimage as ndi
+from skimage import feature
+canny = feature.canny(rps, sigma=3)
 
 smoothed_rps = gaussian_filter(rps, 0.5)
 # ostu_smooth = filters.threshold_otsu(smoothed_rps)
@@ -68,22 +72,22 @@ plt.title('Smooth XY')
 plotidx +=1
 
 plt.subplot(4, 4, plotidx)
-plt.imshow(oof_matlab.max(axis=0))
+plt.imshow(canny.max(axis=0))
 plt.title('OOF Matlab YZ')
 plotidx += 1
 
 plt.subplot(4, 4, plotidx)
-plt.imshow(oof_matlab.max(axis=1))
+plt.imshow(canny.max(axis=1))
 plt.title('OOF Matlab XZ')
 plotidx += 1
 
 plt.subplot(4, 4, plotidx)
-plt.imshow(oof_matlab.max(axis=2))
+plt.imshow(canny.max(axis=2))
 plt.title('OOF Matlab XY')
 plotidx += 1
 
 plt.subplot(4, 4, plotidx)
-plt.imshow((oof_matlab > ostu_matlaboof).max(axis=2))
+plt.imshow((canny > ostu_matlaboof).max(axis=2))
 plt.title('OOF Matlab Otsu XY')
 plotidx += 1
 

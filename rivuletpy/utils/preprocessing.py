@@ -1,6 +1,7 @@
 import numpy as np
 from .io import *
 from scipy.interpolate import RegularGridInterpolator
+from skimage.morphology import skeletonize_3d
 import skfmm
 
 def crop(img, thr):
@@ -53,19 +54,41 @@ def rivulet_preprocessing(img, config):
 
     # Distance transform from the background
     if not config['silence']: print('Distance Transform...')
+
+    # The boundary dt
     dt = skfmm.distance(bimg, dx=5e-2)
     dt[bimg==0] = 0
     dtmax = dt.max()
     marchmap = np.ones(bimg.shape)
+
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
+
+    if config['skedt']:
+        if not config['silence']: print('Using skelonisation DT...')
+        ske = skeletonize_3d(bimg)
+        dt = skfmm.distance(np.logical_not(ske), dx=5e-3)
+        dt[dt > 0.04] = 0.04
+        bimg = dt < 0.02
+        dt = dt.max() - dt
 
     # Fast marching from the position with the largest distance
     if not config['silence']: print('Fast Marching...')
     F = dt ** 4
-    F[F == 0] = 1e-10
-    t = skfmm.travel_time(marchmap, F, dx=0.01)
-    
+    F[F==0] = 1e-10
+    t = skfmm.travel_time(marchmap, F, dx=5e-3)
+
+    from matplotlib import pyplot as plt
+    plt.figure()
+    plt.imshow(F.max(axis=-1))
+
+    plt.figure()
+    plt.imshow(t.min(axis=-1))
+
+    plt.figure()
+    plt.imshow(bimg.max(axis=-1))
+    plt.show()
+
     # Get the gradient volume of the time crossing map
     if not config['silence']: print('Getting gradients...')
     gshape = list(t.shape)

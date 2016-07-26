@@ -65,7 +65,7 @@ def getradius(bimg, x, y, z):
         try:
             if bimg[max(x-r, 0) : min(x+r+1, bimg.shape[0]),
                     max(y-r, 0) : min(y+r+1, bimg.shape[1]), 
-                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < 0.5:
+                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < 0.8:
                 break
         except IndexError:
             break
