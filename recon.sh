@@ -8,7 +8,7 @@ trace() {
 	echo 'THRESHOLD:' $THRESHOLD
 	echo 'SILENCE:' $SILENCE
 	echo 'RENDER:' $RENDER
-	python3 -c "from rivuletpy.recon import recon; import numpy as np; recon($FILE, $THRESHOLD, filter='$FILTER', radii=np.arange(RADII))"
+	python3 -c "from rivuletpy.recon import recon; import numpy as np; recon('$FILE', $THRESHOLD, filter='$FILTER', radii=np.arange($RADII))"
 }
 
 export -f trace
