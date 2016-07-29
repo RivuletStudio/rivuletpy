@@ -12,22 +12,24 @@ except ImportError:
     from skimage import filter as filters
 
 
-def recon(file, threshold, filter='bg', radii=np.arange(1,1.2,0.2)):
+def recon(file, threshold, threshold_filter=1, filter='bg', radii=np.arange(1,1.2,0.2), cache=False):
     print('Trying to read ', file)
-
-    if file.endswith('.tif'):
-        img = loadtiff3d(file)
-    else:
-        filecont = sio.loadmat(file)
-        img = filecont['img']
+    img = loadimg(file)
 
     # Crop image
     img, cropregion = crop(img, threshold)
 
     if filter is not 'original':
+        print('Filtering... ')
         rps, _, _ = response(img.astype('float'), rsptype=filter,
                              radii=np.asarray(radii), rho=0.2, memory_save=False)
-        img = rps > 1
+        if cache:
+            np.save(''.join([file, '.rps.npy']), rps)
+
+        img = rps > threshold_filter
+
+        if cache:
+            np.save(''.join([file, '.seg.npy']), img)
 
     swc = trace(img, threshold=0, render=False, 
                 length=4, ignore_radius=True,

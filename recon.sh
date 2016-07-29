@@ -5,10 +5,11 @@ trace() {
 	THRESHOLD=$2;
 	FILTER=$3;
 	RADII=$4;
+	FILTERTHRESHOLD=$5;
 	echo 'THRESHOLD:' $THRESHOLD
 	echo 'SILENCE:' $SILENCE
 	echo 'RENDER:' $RENDER
-	python3 -c "from rivuletpy.recon import recon; import numpy as np; recon('$FILE', $THRESHOLD, filter='$FILTER', radii=np.arange($RADII))"
+	python3 -c "from rivuletpy.recon import recon; import numpy as np; recon('$FILE', $THRESHOLD, $FILTERTHRESHOLD, filter='$FILTER', radii=np.arange($RADII))"
 }
 
 export -f trace
@@ -19,12 +20,17 @@ do
 key="$1"
 
 THRESHOLD=0
-RADII="1,1.2,0.1"
-FILTER='bg'
+FILTERTHRESHOLD=4
+RADII="2.6,3,0.1"
+FILTER="bg"
 THREAD=1
 
 case $key in
 	-t|--THRESHOLD)
+	export THRESHOLD="$2"
+	shift # past argument
+	;;
+	-l|--FILTERTHRESHOLD)
 	export THRESHOLD="$2"
 	shift # past argument
 	;;
@@ -44,7 +50,7 @@ case $key in
 	*)
 	echo "Doing $1"
 	# sem -j$THREAD trace "$1" "$THRESHOLD" "$FILTER" "$RADII" ; # When it is not an option, it is assumed to be a file
-	trace "$1" "$THRESHOLD" "$FILTER" "$RADII" ;
+	trace "$1" "$THRESHOLD" "$FILTER" "$RADII" "$FILTERTHRESHOLD";
 	;;
 esac
 

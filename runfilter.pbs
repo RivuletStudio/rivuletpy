@@ -1,0 +1,11 @@
+#!/bin/bash
+#PBS -P cu5
+#PBS -q express 
+#PBS -l walltime=0:30:00
+#PBS -l mem=16GB
+#PBS -l ncpus=8
+
+cd $PBS_O_WORKDIR
+module load python3
+source ../rivuletenv/bin/activate
+python3 runfilter.py $args

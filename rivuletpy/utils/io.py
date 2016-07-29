@@ -1,10 +1,25 @@
 import os
 import numpy as np
 
+def loadimg(file):
+    if file.endswith('.mat'):
+        filecont = sio.loadmat(file)
+        img = filecont['img']
+        for z in range(img.shape[-1]): # Flip the image upside down
+            img[:,:,z] = np.flipud(img[:,:,z])
+        img = np.swapaxes(img, 0, 1)
+    elif file.endswith('.tif'):
+        img = loadtiff3d(file)
+    elif file.endswith('.nii') or file.endswith('.nii.gz'):
+        import nibabel as nib
+        img = nib.load(file)
+        img = img.get_data()
+
+    return img
+
 def loadtiff3d(filepath):
     """Load a tiff file into 3D numpy array"""
-    from libtiff import TIFFfile
-    from libtiff import TIFF
+    from libtiff import TIFFfile, TIFF
     tiff = TIFF.open(filepath, mode='r')
     stack = []
     for sample in tiff.iter_images():
@@ -17,8 +32,7 @@ def loadtiff3d(filepath):
 
 
 def writetiff3d(filepath, block):
-    from libtiff import TIFFfile
-    from libtiff import TIFF
+    from libtiff import TIFFfile, TIFF
     try:
         os.remove(filepath)
     except OSError:

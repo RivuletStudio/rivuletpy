@@ -167,17 +167,96 @@ def get_subtree_nodeids(swc, node):
     return subtreeids
 
 
-def cleanswc(swc):
-    unconnected_idx = np.argwhere(swc[:, -1] == -2)
-    nodes2del = np.array([]) 
+class Node(object):
+    def __init__(self, id):
+        self.__id  = id
+        self.__links = set()
 
-    for i in unconnected_idx:
-        node = swc[i, :].squeeze()
-        # A recursive search for all the nodes in its subtree, including itself
-        subtreenodeids = get_subtree_nodeids(swc, node) 
-        nodes2del = np.hstack((nodes2del, subtreenodeids))
+    @property
+    def id(self):
+        return self.__id
 
-    nodes2del = nodes2del.flatten()
-    swc = np.asarray([node for node in swc if node[0] not in nodes2del])
+    @property
+    def links(self):
+        return set(self.__links)
+
+    def add_link(self, other):
+        self.__links.add(other)
+        other.__links.add(self)
+
+
+# The function to look for connected components.
+# https://breakingcode.wordpress.com/2013/04/08/finding-connected-components-in-a-graph/
+def connected_components(nodes):
+
+    # List of connected components found. The order is random.
+    result = []
+
+    # Make a copy of the set, so we can modify it.
+    nodes = set(nodes)
+
+    # Iterate while we still have nodes to process.
+    while nodes:
+
+        # Get a random node and remove it from the global set.
+        n = nodes.pop()
+
+        # This set will contain the next group of nodes connected to each other.
+        group = {n}
+
+        # Build a queue with this node in it.
+        queue = [n]
+
+        # Iterate the queue.
+        # When it's empty, we finished visiting a group of connected nodes.
+        while queue:
+
+            # Consume the next item from the queue.
+            n = queue.pop(0)
+
+            # Fetch the neighbors.
+            neighbors = n.links
+
+            # Remove the neighbors we already visited.
+            neighbors.difference_update(group)
+
+            # Remove the remaining nodes from the global set.
+            nodes.difference_update(neighbors)
+
+            # Add them to the group of connected nodes.
+            group.update(neighbors)
+
+            # Add them to the queue, so we visit them in the next iterations.
+            queue.extend(neighbors)
+
+        # Add the group to the list of groups.
+        result.append(group)
+
+    # Return the list of groups.
+    return result
+
+
+def cleanswc(swc, radius=True):
+    '''
+    Only keep the largest connected component
+    '''
+    swcdict = {}
+    for n in swc: # Hash all the swc nodes
+        swcdict[n[0]] = Node(n[0])
+
+    for n in swc: # Add mutual links for all nodes
+        id = n[0]
+        pid = n[-1]
+
+        if pid >= 1: swcdict[id].add_link(swcdict[pid])
+
+    groups = connected_components(set(swcdict.values()))
+    lenlist = [len(g) for g in groups]
+    maxidx = lenlist.index(max(lenlist))
+    set2keep = groups[maxidx]
+    id2keep = [n.id for n in set2keep]
+    swc = swc[np.in1d(swc[:, 0], np.asarray(id2keep)), :]
+    if not radius:
+        swc[:,5] = 1
 
     return swc
