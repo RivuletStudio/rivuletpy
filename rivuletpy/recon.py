@@ -2,7 +2,6 @@
 from filtering.anisotropic import * 
 from rivuletpy.utils.io import * 
 from rivuletpy.utils.preprocessing import crop
-from scipy import io as sio
 import skfmm
 from skimage.morphology import skeletonize_3d
 from rivuletpy.trace import trace

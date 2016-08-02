@@ -26,5 +26,6 @@ radii = np.arange(args.rlow, args.rhigh, args.rstep)
 rps, _, _ = response(img.astype('float'), rsptype='bg', radii=np.asarray(radii), rho=args.rho, memory_save=False)
 
 # writetiff3d(''.join([args.file, '.', str(rlow), '.', str(rhigh), '.' , str(rstep), '.', str(rho), '.rps.tif'], rps))
+import nibabel as nib
 img = nib.Nifti1Image(rps, np.eye(4))
 nib.save(img, '_'.join([args.file, str(args.rlow), str(args.rhigh), str(args.rstep), str(args.rho), '.rps.nii.gz']))

@@ -14,27 +14,40 @@ def rivulet_preprocessing(img, config):
     # Distance transform from the background
     if not config['silence']: print('Distance Transform...')
 
-    # The boundary dt
-    dt = skfmm.distance(bimg, dx=5e-2)
-    dt[bimg==0] = 0
+    # The boundary DT
+    # The boundary DT is performed with a segmenation on the original image rather than the filtered one
+    # if an original image is given
+    if config['original_image'] is not None and config['soma_threshold'] is not None:
+        obimg = config['original_image'] > config['soma_threshold']
+        dt = skfmm.distance(obimg, dx=5e-2)
+        dt[obimg==0] = 0
+    else:
+        dt = skfmm.distance(bimg, dx=5e-2)
+        dt[bimg==0] = 0
+
     dtmax = dt.max()
     marchmap = np.ones(bimg.shape)
-
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
-    if config['skedt']:
-        if not config['silence']: print('Using skelonisation DT...')
-        ske = skeletonize_3d(bimg)
-        dt = skfmm.distance(np.logical_not(ske), dx=5e-3)
-        dt[dt > 0.04] = 0.04
-        bimg = dt < 0.02
-        dt = dt.max() - dt
+    if config['response_as_speed']:
+        if config['skedt']:
+            if not config['silence']: print('Using skelonisation DT...')
+            ske = skeletonize_3d(bimg)
+            dt = skfmm.distance(np.logical_not(ske), dx=5e-3)
+            dt[dt > 0.04] = 0.04
+            bimg = dt < 0.02
+            # bimg = np.logical_or(bimg, obimg) # Add the soma segmentation as well
+            dt = dt.max() - dt
 
-    # Fast marching from the position with the largest distance
-    if not config['silence']: print('Fast Marching...')
-    F = dt ** 4
-    F[F==0] = 1e-10
+        # Fast marching from the position with the largest distance
+        if not config['silence']: print('Fast Marching...')
+        F = dt ** 4
+        F[F==0] = 1e-10
+    else:
+        F = img 
+        F[F <= config['threshold']] = 1e-10
+
     t = skfmm.travel_time(marchmap, F, dx=5e-3)
     
     # Get the gradient volume of the time crossing map
@@ -48,7 +61,7 @@ def rivulet_preprocessing(img, config):
                RegularGridInterpolator(standard_grid, dy),
                RegularGridInterpolator(standard_grid, dz))
 
-    return dt, t, ginterp, bimg
+    return dt, t, ginterp, bimg, dtmax, maxdpt # The dtmax and maxdpt are derived from the boundary dt, however dt is the skelonton dt
 
 
 def trace(img, **userconfig):
@@ -66,10 +79,10 @@ def trace(img, **userconfig):
 
     config.update(userconfig)
 
-    dt, t, ginterp, bimg  = rivulet_preprocessing(img, config)
+    dt, t, ginterp, bimg, dtmax, maxdpt  = rivulet_preprocessing(img, config)
 
-    dtmax = dt.max()
-    maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    # dtmax = dt.max()
+    # maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     print('Image size after crop:', bimg.shape)
 
     tt = t.copy()
@@ -213,6 +226,12 @@ def trace(img, **userconfig):
 
             swc = add2swc(swc, path, rlist, connectid)
 
-    if config['clean']: swc = cleanswc(swc) # This will find the nodes with -2 as parents and clean its branch
+    if config['clean']:
+        # This will only keep the largest connected component of the graph in swc
+        print('Cleaning swc')
+        swc = cleanswc(swc, not config['ignore_radius']) 
+
+    if not config['clean'] and config['ignore_radius']:
+        swc[:, 5] = 1
     
     return swc

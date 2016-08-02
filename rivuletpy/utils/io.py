@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from scipy import io as sio
 
 def loadimg(file):
     if file.endswith('.mat'):

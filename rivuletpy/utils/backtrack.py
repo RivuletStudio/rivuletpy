@@ -120,13 +120,18 @@ def add2swc(swc, path, radius, connectid = None):
 
     for i, p in enumerate(path):
         id = idstart+i
+        nodetype = 3 # 3 for basal dendrite; 4 for apical dendrite; However now we cannot differentiate them automatically
 
         if i == len(path) - 1: # The end of this branch
             pid = -2 if connectid is None else connectid
+            if connectid is -1: nodetype = 1
+            elif connectid is not None: swc[swc[:, 0]==connectid, 1] = 5 # its connected node is fork point 
         else:
             pid = idstart + i + 1
+            if i == 0:
+                nodetype = 6 # Endpoint
 
-        newbranch[i] = np.asarray([id, 2, p[0], p[1], p[2], radius[i], pid])
+        newbranch[i] = np.asarray([id, nodetype, p[0], p[1], p[2], radius[i], pid])
 
     if swc is None:
         swc = newbranch
