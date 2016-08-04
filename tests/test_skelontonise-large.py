@@ -1,7 +1,6 @@
 from filtering.anisotropic import * 
 from rivuletpy.utils.io import * 
 import matplotlib.pyplot as plt
-from scipy import io as sio
 from mpl_toolkits.mplot3d import Axes3D
 
 try:
