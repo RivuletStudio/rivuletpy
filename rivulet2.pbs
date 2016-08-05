@@ -1,11 +1,11 @@
 #!/bin/bash
 #PBS -P cu5
 #PBS -q express 
-#PBS -l walltime=2:00:00
-#PBS -l mem=32GB
+#PBS -l walltime=1:00:00
+#PBS -l mem=16GB
 #PBS -l ncpus=4
 
 cd $PBS_O_WORKDIR
 module load python3
 source ../rivuletenv/bin/activate
-python3 runfilter.py $args
+python3 rivulet2 $args

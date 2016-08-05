@@ -85,11 +85,10 @@ if args.trace and args.filter:
 if args.filter:
     if not args.silence: print('--Filtering with filter: ', args.filtertype)
     radii = np.arange(args.rlow, args.rhigh, args.rstep)
-    rps, _, _ = response(img.astype('float'), rsptype=args.filtertype, radii=np.asarray(radii), rho=args.rho, memory_save=False)
+    img, _, _ = response(img.astype('float'), rsptype=args.filtertype, radii=np.asarray(radii), rho=args.rho, memory_save=False)
 
     # Save the filtered image by default
-    img = nib.Nifti1Image(rps, np.eye(4))
-    nib.save(img, '_'.join([args.file,str(args.rlow), str(args.rhigh), 
+    nib.save(nib.Nifti1Image(img, np.eye(4)), '_'.join([args.file,str(args.rlow), str(args.rhigh), 
                             str(args.rstep), str(args.rho), '.rps.nii.gz']))
 
     if not args.silence: print('--End Filtering: ', args.filtertype)
@@ -127,23 +126,18 @@ if args.trace:
     if args.speed in ['ske', 'ssmske']:
         if not args.silence: print('--Skelontising...')
         if args.speed == 'ske':
-            dt = skeletonize_3d(dt)
+            dt = skeletonize_3d(img > 0)
         elif args.speed == 'ssmske':
             dt = skeletonize_3d(dt > 0.15)
 
         if not args.silence: print('--Reverse DT...')
-        dt = skfmm.distance(np.logical_not(dt), dx=5e-2)
+        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
         dt[dt > 0.04] = 0.04
         dt = dt.max() - dt
 
     # Fast Marching
     if not args.silence: print('--FM...')
     t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
-    # from matplotlib import pyplot as plt
-    # plt.figure()
-    # plt.imshow(t.min(-1))
-    # plt.title('t')
-    # plt.show()
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
