@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import math
-from gym.envs.classic_control.rendering import *
+# from gym.envs.classic_control.rendering import *
+from .rendering import *
 from PIL import Image  # PIL library is required
 import pyglet
 from pyglet.gl import glu

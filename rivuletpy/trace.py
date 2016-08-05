@@ -1,97 +1,37 @@
 import os
 import numpy as np
 from scipy import ndimage 
-from .utils.preprocessing import *
 from .utils.backtrack import *
+from .utils.preprocessing import distgradient
 import progressbar
+from scipy.interpolate import RegularGridInterpolator 
 
 from skimage.morphology import skeletonize_3d
 import skfmm
 
-def rivulet_preprocessing(img, config):
-    bimg = (img > config['threshold']).astype('int')
+def makespeed(dt, threshold=0):
+    F = dt ** 4
+    F[F<=threshold] = 1e-10
+    return F
 
-    # Distance transform from the background
-    if not config['silence']: print('Distance Transform...')
+def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False):
+    '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
+    config = {'length':4, 'coverage':0.98, 'gap':15}
 
-    # The boundary DT
-    # The boundary DT is performed with a segmenation on the original image rather than the filtered one
-    # if an original image is given
-    if config['original_image'] is not None and config['soma_threshold'] is not None:
-        obimg = config['original_image'] > config['soma_threshold']
-        dt = skfmm.distance(obimg, dx=5e-2)
-        dt[obimg==0] = 0
-    else:
-        dt = skfmm.distance(bimg, dx=5e-2)
-        dt[bimg==0] = 0
-
-    dtmax = dt.max()
-    marchmap = np.ones(bimg.shape)
-    maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
-
-    if config['response_as_speed']:
-        if config['skedt']:
-            if not config['silence']: print('Using skelonisation DT...')
-            ske = skeletonize_3d(bimg)
-            dt = skfmm.distance(np.logical_not(ske), dx=5e-3)
-            dt[dt > 0.04] = 0.04
-            bimg = dt < 0.02
-            # bimg = np.logical_or(bimg, obimg) # Add the soma segmentation as well
-            dt = dt.max() - dt
-
-        # Fast marching from the position with the largest distance
-        if not config['silence']: print('Fast Marching...')
-        F = dt ** 4
-        F[F==0] = 1e-10
-    else:
-        F = img 
-        F[F <= config['threshold']] = 1e-10
-
-    t = skfmm.travel_time(marchmap, F, dx=5e-3)
-    
-    # Get the gradient volume of the time crossing map
-    if not config['silence']: print('Getting gradients...')
-    gshape = list(t.shape)
-    gshape.append(3)
-    g = np.zeros(gshape)
-    standard_grid = (np.arange(t.shape[0]), np.arange(t.shape[1]), np.arange(t.shape[2]))
+    # Get the gradient of the Time-crossing map
     dx, dy, dz = distgradient(t.astype('float64'))
+    standard_grid = (np.arange(t.shape[0]), np.arange(t.shape[1]), np.arange(t.shape[2]))
     ginterp = (RegularGridInterpolator(standard_grid, dx),
                RegularGridInterpolator(standard_grid, dy),
                RegularGridInterpolator(standard_grid, dz))
 
-    return dt, t, ginterp, bimg, dtmax, maxdpt # The dtmax and maxdpt are derived from the boundary dt, however dt is the skelonton dt
-
-
-def trace(img, **userconfig):
-    '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
-    config = {'length':5,
-              'coverage':0.98,
-              'threshold':0,
-              'gap':15, 
-              'ignore_radius': False,
-              'render':False, 
-              'toswcfile':None, 
-              'silence':False,
-              'skedt': False, # True if the distance transform is generated with skelontonization algorithm
-              'clean': False}
-
-    config.update(userconfig)
-
-    dt, t, ginterp, bimg, dtmax, maxdpt  = rivulet_preprocessing(img, config)
-
-    # dtmax = dt.max()
-    # maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    print('Image size after crop:', bimg.shape)
-
+    bounds = t.shape
     tt = t.copy()
     tt[bimg <= 0] = -2
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
     forevoxsum = bimg.sum()
 
-    bounds = dt.shape
-    if config['render']:
+    if render:
         from .utils.rendering3 import Viewer3, Line3, Ball3
         viewer = Viewer3(800, 800, 800)
         viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
@@ -104,7 +44,7 @@ def trace(img, **userconfig):
     converage = 0.0
     iteridx = 0
     swc = None
-    if not config['silence']: bar = progressbar.ProgressBar(max_value=1.)
+    if not silence: bar = progressbar.ProgressBar(max_value=1.)
     velocity = None
 
     while converage < config['coverage']:
@@ -114,7 +54,7 @@ def trace(img, **userconfig):
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
         # tt[math.floor(endpt[0]), math.floor(endpt[1]), math.floor(endpt[2])] = -1
-        if not config['silence']: bar.update(converage)
+        if not silence: bar.update(converage)
 
         # Trace it back to maxd 
         path = [srcpt,]
@@ -139,12 +79,12 @@ def trace(img, **userconfig):
                     # print('==Stop due to gap at', endpt)
                     break 
 
-                if np.linalg.norm(maxdpt - endpt) < 1.5 * dtmax:
+                if np.linalg.norm(somapt - endpt) < 1.5 * somaradius:
                     reachedsoma = True
                     break
 
                 # Render the line segment
-                if config['render']:
+                if render:
                     l = Line3(srcpt, endpt)
                     l.set_color(1., 0., 0)
                     viewer.add_geom(l)
@@ -165,7 +105,7 @@ def trace(img, **userconfig):
                     endradius = getradius(bimg, endpt[0], endpt[1], endpt[2])
                     touched, touchidx = match(swc, endpt, endradius)
                     closestnode = swc[touchidx, :]
-                    if touched and config['render']:
+                    if touched and render:
                         ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
                         if len(path) < config['length']:
                             ball.set_color(1, 1, 1)
@@ -226,12 +166,5 @@ def trace(img, **userconfig):
 
             swc = add2swc(swc, path, rlist, connectid)
 
-    if config['clean']:
-        # This will only keep the largest connected component of the graph in swc
-        print('Cleaning swc')
-        swc = cleanswc(swc, not config['ignore_radius']) 
-
-    if not config['clean'] and config['ignore_radius']:
-        swc[:, 5] = 1
     
     return swc

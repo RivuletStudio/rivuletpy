@@ -18,6 +18,7 @@ def response(img, rsptype='oof', **kwargs):
     eps = 1e-12
     rsp = np.zeros(img.shape)
     bar = progressbar.ProgressBar(max_value=kwargs['radii'].size)
+    bar.update(0)
 
     W = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3)) # Eigen values to save
     V = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3, 3)) # Eigen vectors to save
