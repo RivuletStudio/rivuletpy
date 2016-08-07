@@ -16,8 +16,8 @@ def rk4(srcpt, ginterp, t, stepsize):
     # Compute K1
     k1 = np.asarray([g(srcpt)[0] for g in ginterp])
 
-    if np.linalg.norm(k1) == 0:
-        print('== gradient is zero at', srcpt) 
+    # if np.linalg.norm(k1) == 0:
+    #     print('== gradient is zero at', srcpt) 
     k1 /= np.linalg.norm(k1)
     k1 *= stepsize
     tp = srcpt - 0.5 * k1 # Position of temporary point

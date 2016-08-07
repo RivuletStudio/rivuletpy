@@ -17,7 +17,7 @@ def ssm(img, anisotropic=False, iterations=30):
     # f = gaussian_gradient_magnitude(img, 1)
     # f = 1 - gimg # Inverted version of the smoothed gradient of the distance transform
 
-    gvfmap = gvf(img, mu=0.005, iterations=iterations, anisotropic=anisotropic)
+    gvfmap = gvf(img, mu=0.001, iterations=iterations, anisotropic=anisotropic)
     
     shifts = [-1, 1, -1, -1, -1, 1]
     axis = [1, 1, 2, 2, 3, 3]
@@ -125,7 +125,7 @@ def div(x):
     return reduce(np.add, np.gradient(x)) # http://stackoverflow.com/a/21134289/1890513
 
 
-def gvf(f, mu=0.05, iterations=30, anisotropic=False, k=0.5, ignore_second_term=False):
+def gvf(f, mu=0.05, iterations=30, anisotropic=False,  ignore_second_term=False):
     # Gradient vector flow
     # Translated from https://github.com/smistad/3D-Gradient-Vector-Flow-for-Matlab
     f = (f-f.min()) / (f.max() - f.min())
@@ -150,7 +150,7 @@ def gvf(f, mu=0.05, iterations=30, anisotropic=False, k=0.5, ignore_second_term=
 
     bar = progressbar.ProgressBar(max_value=iterations)
     for i in range(iterations):
-        bar.update(i)
+        bar.update(i+1)
 
         # The boundary might not matter here
         # u = enforce_mirror_boundary(u)

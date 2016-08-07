@@ -25,20 +25,27 @@ parser.add_argument('--rstep', type=float, default=0.5, help='The step size of t
 parser.add_argument('--rho', type=float, default=0.5, help='The step size of trying radius. Only used if filter type is bg')
 
 # Argument for tracing
+
 parser.add_argument('--trace', dest='trace', action='store_true', help='Run tracing with rivulet 2')
 parser.add_argument('--no-trace', dest='trace', action='store_false', help='Skip the tracing with rivulet 2')
 parser.set_defaults(trace=True)
 
+
+parser.add_argument('--ssmiter', type=int, default=10, help='The number of iterations to compute GVF for SSM. Default 10')
+
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
 parser.set_defaults(radius=False)
-
 
 parser.add_argument('--speed', type=str, default='dt', help='The type of speed image to use (dt, ssm, ske, ssmske)')
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
 parser.set_defaults(clean=True)
+
+parser.add_argument('--rotateswc90', dest='rotateswc90', action='store_true')
+parser.add_argument('--no-rotateswc90', dest='rotateswc90', action='store_false')
+parser.set_defaults(rotateswc90=False)
 
 
 # MISC
@@ -61,7 +68,7 @@ args = parser.parse_args()
 img = loadimg(args.file)
 
 ## Get the soma radius if image is about to be filtered before tracing
-if args.trace and args.filter: 
+if args.trace:  
     # Prepare variables for fastmarching
     ## Distance Transform
     if args.soma_threshold < 0:
@@ -73,7 +80,7 @@ if args.trace and args.filter:
 
     if not args.silence: print('--DT to get soma location with threshold:', args.soma_threshold)
     bimg = (img > args.soma_threshold).astype('int') # Segment image
-    dt = skfmm.distance(bimg, dx=5e-2) # Boundary DT
+    dt = skfmm.distance(bimg, dx=1) # Boundary DT
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
@@ -122,6 +129,8 @@ if args.trace:
     if args.speed in ['ssm', 'ssmske']:
         if not args.silence: print('--SSM with GVF...')
         dt = ssm(dt, anisotropic=True, iterations=10)
+        img = dt > filters.threshold_otsu(dt)
+        dt = skfmm.distance(img, dx=5e-2)
 
     if args.speed in ['ske', 'ssmske']:
         if not args.silence: print('--Skelontising...')
@@ -139,6 +148,11 @@ if args.trace:
     if not args.silence: print('--FM...')
     t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
+    from matplotlib import pyplot as plt
+    plt.figure()
+    plt.imshow(t.min(-1))
+    plt.show()
+
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
     swc = iterative_backtrack(t, img, maxdpt, dtmax, render=args.render, silence=args.silence)
@@ -150,6 +164,12 @@ if args.trace:
         swc = cleanswc(swc, args.radius) 
     elif not args.radius:
         swc[:, 5] = 1
+
+    if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
+        swc_x = swc[:, 2].copy()
+        swc_y = swc[:, 3].copy()
+        swc[:, 2] = swc_y
+        swc[:, 3] = swc_x
 
     # Save the final swc
     # Make the long file name

@@ -5,7 +5,7 @@ from .utils.backtrack import *
 from .utils.preprocessing import distgradient
 import progressbar
 from scipy.interpolate import RegularGridInterpolator 
-
+from random import random
 from skimage.morphology import skeletonize_3d
 import skfmm
 
@@ -53,6 +53,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
+        # print('reset tracing at ', srcpt)
         # tt[math.floor(endpt[0]), math.floor(endpt[1]), math.floor(endpt[2])] = -1
         if not silence: bar.update(converage)
 
@@ -64,9 +65,12 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         fgctr = 0 # Count how many steps are made on foreground in this branch
         steps_after_reach = 0
         outofbound = reachedsoma = False
+
+        line_color = [random(), random(), random()]
         while True:
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
+                # print('At:', srcpt, '\tvelocity:', endpt - srcpt)
                 endptint = [math.floor(p) for p in endpt]
                 velocity = endpt - srcpt
 
@@ -80,13 +84,14 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                     break 
 
                 if np.linalg.norm(somapt - endpt) < 1.5 * somaradius:
+                    # print('==Stop due to reached soma at', endpt)
                     reachedsoma = True
                     break
 
                 # Render the line segment
                 if render:
                     l = Line3(srcpt, endpt)
-                    l.set_color(1., 0., 0)
+                    l.set_color(*line_color)
                     viewer.add_geom(l)
                     viewer.render(return_rgb_array=False)
 
@@ -142,6 +147,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                                   constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
                                   constrain_range(n[2]-r, n[2]+r+1, 0, tt.shape[2]))
             bb[X, Y, Z] = 1
+        # print('##bb', bb.sum())
 
         startidx = [math.floor(p) for p in path[0]]
         endidx = [math.floor(p) for p in path[-1]]
@@ -151,6 +157,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             erase_region = np.logical_and(bb, erase_region)
         else:
             erase_region = bb.astype('bool')
+        # print('##erase_region:', erase_region.sum())
 
         if np.count_nonzero(erase_region) > 0:
             tt[erase_region] = -1
