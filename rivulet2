@@ -148,10 +148,10 @@ if args.trace:
     if not args.silence: print('--FM...')
     t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
-    from matplotlib import pyplot as plt
-    plt.figure()
-    plt.imshow(t.min(-1))
-    plt.show()
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # plt.imshow(t.min(-1))
+    # plt.show()
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
