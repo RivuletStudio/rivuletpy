@@ -176,5 +176,9 @@ if args.trace:
     kvpairs = []
     for key, value in vars(args).items():
         if key is not 'file': kvpairs.append(key + ':' + str(value))
-    filename = args.file + '_' + '_'.join(kvpairs) +'.swc'
+
+    # Only the first part of the file name is kept, otherwise the file name is too long
+    fileroot = args.file.split('.')[0]
+    print('==fileroot:', fileroot)
+    filename = fileroot + '_' + '_'.join(kvpairs) +'.swc'
     saveswc(filename, swc)

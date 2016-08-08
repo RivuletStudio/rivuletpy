@@ -15,8 +15,11 @@ def loadimg(file):
         import nibabel as nib
         img = nib.load(file)
         img = img.get_data()
+    else:
+        raise IOError("The extension of " + file + 'is not supported. File extension supported are: *.tif, *.mat, *.nii')
 
     return img
+    
 
 def loadtiff3d(filepath):
     """Load a tiff file into 3D numpy array"""

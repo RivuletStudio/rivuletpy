@@ -1,8 +1,8 @@
 #!/bin/bash
 #PBS -P cu5
-#PBS -q express 
+#PBS -q normal 
 #PBS -l walltime=1:00:00
-#PBS -l mem=16GB
+#PBS -l mem=24GB
 #PBS -l ncpus=4
 
 cd $PBS_O_WORKDIR
