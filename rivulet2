@@ -82,10 +82,10 @@ if args.trace:
     bimg = (img > args.soma_threshold).astype('int') # Segment image
     dt = skfmm.distance(bimg, dx=1) # Boundary DT
     dtmax = dt.max()
+    print('DT max:', dtmax)
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
-    del bimg
 
 
 ## Filter
@@ -115,16 +115,32 @@ if args.trace:
 
     img = (img > args.threshold).astype('int') # Segment image
 
-
     if not args.silence: print('--Boundary DT...')
+
+    # If the image is filtered, there is like to be a large hole in the middle of the soma
+    # Make a ball with radius 1.5 *dtmax to rewrite the segmented image
+    if args.filter: 
+        gx, gy, gz = np.meshgrid(np.arange(img.shape[0]), np.arange(img.shape[1]), np.arange(img.shape[2]))
+        griddist = np.linalg.norm((gx.flatten() - maxdpt[0], gy.flatten() - maxdpt[1], gz.flatten() - maxdpt[2]))
+        include_region =  griddist <= 1.5*dtmax
+        gx = gx[include_region]
+        gy = gy[include_region]
+        gz = gz[include_region]
+        img[gx, gy, gz] = bimg[gx, gy, gz]
+        del bimg
+        del gx
+        del gy
+        del gz
+        del include_region
+        del griddist
+
     dt = skfmm.distance(img, dx=5e-2) # Boundary DT
 
-
-    if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
-        dtmax = dt.max()
-        maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-        marchmap = np.ones(img.shape)
-        marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
+    # if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
+    dtmax = dt.max()
+    maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    marchmap = np.ones(img.shape)
+    marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
     if args.speed in ['ssm', 'ssmske']:
         if not args.silence: print('--SSM with GVF...')
@@ -148,14 +164,9 @@ if args.trace:
     if not args.silence: print('--FM...')
     t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
-    # from matplotlib import pyplot as plt
-    # plt.figure()
-    # plt.imshow(t.min(-1))
-    # plt.show()
-
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, maxdpt, dtmax, render=args.render, silence=args.silence, eraseratio=2.0 if args.speed=='ssm' else 1.5)
+    swc = iterative_backtrack(t, img, maxdpt, dtmax, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
     # Clean SWC 
     if args.clean:

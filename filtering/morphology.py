@@ -32,6 +32,7 @@ def ssm(img, anisotropic=False, iterations=30):
         # Dot product gvf and neighbour displacement fields / distance between neighbour
         f += np.sum(np.roll(gvfmap, s, axis=a) * shiftmat, axis=0) / np.linalg.norm(shiftmat, axis=0) 
 
+    f[np.isnan(f)] = 0
     f[f<0] = 0
     return f
 
