@@ -14,7 +14,7 @@ def makespeed(dt, threshold=0):
     F[F<=threshold] = 1e-10
     return F
 
-def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False):
+def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.5):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
     config = {'length':4, 'coverage':0.98, 'gap':15}
 
@@ -141,7 +141,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             rlist.append(r)
             
             # To make sure all the foreground voxels are included in bb
-            r *= 1.5 if len(path) > config['length'] else 2
+            r *= eraseratio if len(path) > config['length'] else 2
             r = math.ceil(r)
             X, Y, Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
                                   constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),

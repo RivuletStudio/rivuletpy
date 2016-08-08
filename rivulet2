@@ -155,7 +155,7 @@ if args.trace:
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, maxdpt, dtmax, render=args.render, silence=args.silence)
+    swc = iterative_backtrack(t, img, maxdpt, dtmax, render=args.render, silence=args.silence, eraseratio=2.0 if args.speed=='ssm' else 1.5)
 
     # Clean SWC 
     if args.clean:
