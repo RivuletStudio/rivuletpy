@@ -27,7 +27,7 @@ def loadtiff3d(filepath):
     tiff = TIFF.open(filepath, mode='r')
     stack = []
     for sample in tiff.iter_images():
-        stack.append(np.flipud(sample))
+        stack.append(np.rot90(np.fliplr(np.flipud(sample))))
 
     out = np.dstack(stack)
     tiff.close()

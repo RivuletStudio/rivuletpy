@@ -4,7 +4,6 @@
 #PBS -l walltime=1:00:00
 #PBS -l mem=24GB
 #PBS -l ncpus=4
-#PBS -m ae -M lsqshr@me.com
 
 cd $PBS_O_WORKDIR
 module load python3
