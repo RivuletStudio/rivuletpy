@@ -31,7 +31,7 @@ parser.add_argument('--no-trace', dest='trace', action='store_false', help='Skip
 parser.set_defaults(trace=True)
 
 
-parser.add_argument('--ssmiter', type=int, default=10, help='The number of iterations to compute GVF for SSM. Default 10')
+parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
 
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
@@ -144,7 +144,7 @@ if args.trace:
 
     if args.speed in ['ssm', 'ssmske']:
         if not args.silence: print('--SSM with GVF...')
-        dt = ssm(dt, anisotropic=True, iterations=10)
+        dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
         img = dt > filters.threshold_otsu(dt)
         dt = skfmm.distance(img, dx=5e-2)
 
