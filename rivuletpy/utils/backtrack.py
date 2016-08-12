@@ -267,7 +267,7 @@ def cleanswc(swc, radius=True):
     return swc
 
 
-def confidence_cut(path, img, windowsize):
+def confidence_cut(path, img, marginsize):
     '''
     Do confidence cut on a new path.
     Two accumulated confidence scores will be calculated on each node: 
@@ -275,24 +275,47 @@ def confidence_cut(path, img, windowsize):
     2. starts from the end of the branch
     '''
 
-    # Forward confidence
     vox = np.asarray([ img[math.floor(p[0]), math.floor(p[1]), math.floor(p[2])] for p in path])
 
+    # Forward confidence
     conf_forward = np.zeros(shape=(len(path, )))
-    for i in range(windowsize, len(path)):
-        conf_forward[i] = vox[i-windowsize: i].sum() / windowsize
+    for i in range(marginsize+1, len(path)):
+        conf_forward[i] = vox[:i].sum() / (i+1)
 
     # Backward confidence    
     conf_backward = np.zeros(shape=(len(path, )))
-    for i in range(-windowsize-1,  0, -1):
-        conf_backward[i] = vox[i: i + windowsize].sum() / windowsize
+    for i in range(len(path) - marginsize):
+        conf_backward[i] = vox[i:].sum() / (len(path) - i)
 
     # Find the node with highest confidence disagreement
     confdiff = conf_backward - conf_forward
-    confdiff = confdiff[windowsize:-windowsize]
+    confdiff = confdiff[marginsize:-marginsize]
 
-    if confdiff.max() > 0.8:
-        return path[: windowsize+confdiff.argmax()], True
+    if conf_forward[-1] < 0.5:
+        return path, True
+
+    # Path too short for confidence cut
+    if len(path) < 3 * marginsize:
+        print('Path kept:', vox.size)
+        return path, False
+
+    # Find the node with highest confidence disagreement
+    confdiff = conf_backward - conf_forward
+    confdiff = confdiff[marginsize:-marginsize-1]
+
+    # If a cut is needed, calculate the windowed backward confidence
+    if confdiff.max() > 0.8 :
+        conf_backward = np.zeros(shape=(len(path, )))
+        window = math.floor(1.5 * marginsize)
+        for i in range(len(path) - window):
+            conf_backward[i] = vox[i:i+window].sum() / (len(path) - i)
+        # print('==windowed backward:', conf_backward)
+
+        idx = np.argwhere(conf_backward[:-window-1] < 0.5).flatten()
+        idx = idx.max() if idx.size > 0 else -1
+        print('Cut happens at:', idx, '/', vox.size)
+        return path[: idx] if idx == -1 else path, True
     else:
+        print('Path kept:', vox.size)
         return path, False
         

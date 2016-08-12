@@ -134,9 +134,8 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         the latter half of the branch will be cut off,
         and the first half will be considered as traced on noises -> it will be erased but not added to the tree
         '''
-        window_size = 5
-        if len(path) > 2 * window_size:
-            path, dump = confidence_cut(path, bimg, window_size)
+        marginsize = 8
+        path, dump = confidence_cut(path, bimg, marginsize)
 
         # Render the cut point
         if dump and render:
