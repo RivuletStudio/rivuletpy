@@ -37,11 +37,11 @@ parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
 parser.set_defaults(radius=False)
 
-parser.add_argument('--speed', type=str, default='dt', help='The type of speed image to use (dt, ssm, ske, ssmske)')
+parser.add_argument('--speed', type=str, default='ssm', help='The type of speed image to use (dt, ssm, ske, ssmske)')
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
-parser.set_defaults(clean=True)
+parser.set_defaults(clean=False)
 
 parser.add_argument('--rotateswc90', dest='rotateswc90', action='store_true')
 parser.add_argument('--no-rotateswc90', dest='rotateswc90', action='store_false')

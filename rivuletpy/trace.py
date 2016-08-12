@@ -14,7 +14,7 @@ def makespeed(dt, threshold=0):
     F[F<=threshold] = 1e-10
     return F
 
-def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.5):
+def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.2):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
     config = {'length':4, 'coverage':0.98, 'gap':15}
 
@@ -117,15 +117,11 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                         else:
                             ball.set_color(0, 0, 1)
                         viewer.add_geom(ball)
-                    if touched or steps_after_reach >= 30: break
+                    if touched or steps_after_reach >= 20: break
 
                 if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
-                    # print('== Stop due to not moving at ', endpt)
-                    ttblock = tt[274-2:274+3, 320-2:320+3, 97-2:97+3]
-                    # print(ttblock)
                     break;
             except ValueError:
-                # print('==ValueError at:', endpt)
                 if velocity is not None:
                     endpt = srcpt + velocity
                 break
@@ -133,15 +129,31 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             path.append(endpt)
             srcpt = endpt
 
+        '''
+        Do confidence cut on the new path.
+        When the confidence difference at the cut point is large enough,
+        the latter half of the branch will be cut off,
+        and the first half will be considered as traced on noises -> it will be erased but not added to the tree
+        '''
+        if len(path) > config['length']:
+            path, dump = confidence_cut(path, bimg)
+
+        # Render the cut point
+        if dump and render:
+            ball = Ball3((path[-1][0], path[-1][1], path[-1][2]), radius=2)
+            ball.set_color(1, 1, 0)
+            viewer.add_geom(ball)
+
+        ## Erase it from the timemap
         rlist = []
-        # Erase it from the timemap
         for node in path:
             n = [math.floor(n) for n in node]
             r = getradius(bimg, n[0], n[1], n[2])
             rlist.append(r)
             
             # To make sure all the foreground voxels are included in bb
-            r *= eraseratio if len(path) > config['length'] else 2
+            if not dump:
+                r *= eraseratio if len(path) > config['length'] else 2
             r = math.ceil(r)
             X, Y, Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
                                   constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
@@ -163,7 +175,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             tt[erase_region] = -1
         bb.fill(0)
             
-        if len(path) > config['length'] and fgctr / len(path) > .5:
+        if len(path) > config['length'] and not dump: # Replaced the old confidence score with the confidence cut
             if touched:
                 connectid = swc[touchidx, 0]
             elif reachedsoma:

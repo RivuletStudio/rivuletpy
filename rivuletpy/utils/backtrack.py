@@ -111,7 +111,7 @@ def match(swc, pos, radius):
     return radius > mindist or swc[minidx, 5] > mindist, minidx
 
 
-def add2swc(swc, path, radius, connectid = None): 
+def add2swc(swc, path, radius, connectid = None):  
     newbranch = np.zeros((len(path), 7))
     if swc is None: # It is the first branch to be added
         idstart = 1
@@ -265,3 +265,58 @@ def cleanswc(swc, radius=True):
         swc[:,5] = 1
 
     return swc
+
+
+def confidence_cut(path, img):
+    '''
+    Do confidence cut on a new path.
+    Two accumulated confidence scores will be calculated on each node: 
+    1. starts from the start of the branch
+    2. starts from the end of the branch
+    The node with the highest confidence difference will be considered as the cutpoint
+    When the confidence difference at the cutpoint is large enough,
+    the latter half of the branch will be cut off,
+    and the first half will be considered as traced on noises -> it will be erased but not added to the tree
+    '''
+
+    # Forward confidence score
+    conf_forward = np.asarray([0.] * len(path))
+    voxsum = 0.
+    for i, node in enumerate(path):
+        x = math.floor(node[0])
+        y = math.floor(node[1])
+        z = math.floor(node[2])
+        voxsum += img[x, y, z]
+        conf_forward[i] = voxsum / (i + 1)
+
+    if conf_forward[-1] < 0.5:
+        return path, True
+
+    if len(path) < 8:
+        return path, False
+
+    # Backward confidence score
+    conf_backward = np.asarray([0.] * len(path))
+    voxsum = 0.
+    for i, node in enumerate(reversed(path)):
+        x = math.floor(node[0])
+        y = math.floor(node[1])
+        z = math.floor(node[2])
+        voxsum += img[x, y, z]
+        conf_backward[-i] = voxsum / (i + 1)
+
+    # Find the node with highest confidence disagreement
+    confdiff = np.abs(conf_backward[2:-2] - conf_forward[2:-2])
+    cutdiff = confdiff.max()
+    cutpoint = confdiff.argmax() + 2
+    dump = cutdiff > 0.8
+
+    # Cut off 
+    if dump:
+        cutted = path[: cutpoint-2] # The cutted branch is returned only for erasing
+        # print('==conf_forward:', conf_forward)
+        # print('==conf_backward:', conf_backward)
+        # print('==cutpoint:', cutpoint)
+        return cutted, dump
+    else:
+        return path, dump
