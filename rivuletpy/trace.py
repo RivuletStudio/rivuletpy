@@ -53,8 +53,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
-        # print('reset tracing at ', srcpt)
-        # tt[math.floor(endpt[0]), math.floor(endpt[1]), math.floor(endpt[2])] = -1
         if not silence: bar.update(converage)
 
         # Trace it back to maxd 
@@ -67,7 +65,8 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         outofbound = reachedsoma = False
 
         line_color = [random(), random(), random()]
-        while True:
+
+        while True: # Start 1 Back-tracking iteration
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
                 # print('At:', srcpt, '\tvelocity:', endpt - srcpt)
@@ -79,12 +78,11 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 gapctr = 0 if endpt_b else gapctr + 1
                 fgctr += endpt_b
 
-                if gapctr > config['gap']: 
-                    # print('==Stop due to gap at', endpt)
-                    break 
+                # if gapctr > config['gap']: 
+                #     # print('==Stop due to gap at', endpt)
+                #     break 
 
                 if np.linalg.norm(somapt - endpt) < 1.5 * somaradius:
-                    # print('==Stop due to reached soma at', endpt)
                     reachedsoma = True
                     break
 
@@ -121,6 +119,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
                 if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
                     break;
+
             except ValueError:
                 if velocity is not None:
                     endpt = srcpt + velocity
@@ -135,8 +134,9 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         the latter half of the branch will be cut off,
         and the first half will be considered as traced on noises -> it will be erased but not added to the tree
         '''
-        if len(path) > config['length']:
-            path, dump = confidence_cut(path, bimg)
+        window_size = 5
+        if len(path) > 2 * window_size:
+            path, dump = confidence_cut(path, bimg, window_size)
 
         # Render the cut point
         if dump and render:
@@ -154,6 +154,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             # To make sure all the foreground voxels are included in bb
             if not dump:
                 r *= eraseratio if len(path) > config['length'] else 2
+
             r = math.ceil(r)
             X, Y, Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
                                   constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
