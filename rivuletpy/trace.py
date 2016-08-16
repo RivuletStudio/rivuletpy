@@ -16,7 +16,7 @@ def makespeed(dt, threshold=0):
 
 def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.2):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
-    config = {'length':4, 'coverage':0.98, 'gap':15}
+    config = {'length':8, 'coverage':0.98, 'gap':15}
 
     # Get the gradient of the Time-crossing map
     dx, dy, dz = distgradient(t.astype('float64'))
@@ -146,8 +146,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             rlist.append(r)
             
             # To make sure all the foreground voxels are included in bb
-            r *= eraseratio if len(path) > config['length'] else 2
-
+            r *= eraseratio
             r = math.ceil(r)
             X, Y, Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
                                   constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
@@ -167,18 +166,18 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             tt[erase_region] = -1
         bb.fill(0)
             
-        if len(path) > config['length']: 
-            if touched:
-                connectid = swc[touchidx, 0]
-            elif reachedsoma:
-                connectid = 1 
-            else:
-                connectid = None
+        # if len(path) > config['length']: 
+        if touched:
+            connectid = swc[touchidx, 0]
+        elif reachedsoma:
+            connectid = 1 
+        else:
+            connectid = None
 
-            if cf[-1] < 0.5 or low_online_conf: # Check the confidence of this branch
-                continue 
+        if cf[-1] < 0.5 or low_online_conf: # Check the confidence of this branch
+            continue 
 
-            swc = add2swc(swc, path, rlist, connectid)
+        swc = add2swc(swc, path, rlist, connectid)
 
     # Check all unconnected nodes
     for nodeidx in range(swc.shape[0]):

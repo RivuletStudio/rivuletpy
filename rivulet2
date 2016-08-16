@@ -182,7 +182,7 @@ if args.trace:
         swc[:, 2] = swc_y
         swc[:, 3] = swc_x
 
-    # Save the final swc
+    ## Save the final swc
     # Make the long file name
     kvpairs = []
     for key, value in vars(args).items():
