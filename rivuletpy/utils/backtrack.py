@@ -1,6 +1,6 @@
 import numpy as np
-import random
-import math
+import random, math
+from collections import Counter
 from scipy.spatial.distance import cdist
 
 def gd(srcpt, ginterp, t, stepsize):
@@ -267,55 +267,100 @@ def cleanswc(swc, radius=True):
     return swc
 
 
-def confidence_cut(path, img, marginsize):
+def confidence_cut(swc, img, marginsize=3):
     '''
-    Do confidence cut on a new path.
-    Two accumulated confidence scores will be calculated on each node: 
-    1. starts from the start of the branch
-    2. starts from the end of the branch
+    DEPRECATED FOR NOW
+    Confidence Cut on the leaves
+    For each leave,  if the total forward confidence is smaller than 0.5, the leave is dumped 
+    For leave with forward confidence > 0.5, find the cut point with the largest difference between
+    the forward and backward confidence
+    If the difference on the cut point > 0.5, make the cut here
     '''
 
-    vox = np.asarray([ img[math.floor(p[0]), math.floor(p[1]), math.floor(p[2])] for p in path])
+    id2dump = [] 
 
-    # Forward confidence
-    conf_forward = np.zeros(shape=(len(path, )))
-    for i in range(marginsize+1, len(path)):
-        conf_forward[i] = vox[:i].sum() / (i+1)
+    # Find all the leaves
+    childctr = Counter(swc[:, -1])
+    leafidlist= [id for id in childctr if childctr[id] == 0]
 
-    # Backward confidence    
-    conf_backward = np.zeros(shape=(len(path, )))
-    for i in range(len(path) - marginsize):
-        conf_backward[i] = vox[i:].sum() / (len(path) - i)
+    for leafid in leafidlist: # Iterate each leaf node
+        nodeid = leafid 
 
-    # Find the node with highest confidence disagreement
-    confdiff = conf_backward - conf_forward
-    confdiff = confdiff[marginsize:-marginsize]
+        branch = []
+        while True: # Get the leaf branch out
+            node = swc[swc[:, 0] == nodeid, :]
+            branch.append(node)
+            parentid = node[-1]
+            if childctr[parentid] is not 1: break # merged / unconnected
+            nodeid = parentid
 
-    if conf_forward[-1] < 0.5:
-        return path, True
+        # Forward confidence
+        conf_forward = np.zeros(shape=(len(branch), ))
+        branchvox = np.asarray([ img[math.floor(p[2]), math.floor(p[3]), math.floor(p[4])] for p in branch])
+        for i in range(len(branch, )):
+            conf_forward[i] = branchvox[:i].sum() / (i+1)
 
-    # Path too short for confidence cut
-    if len(path) < 3 * marginsize:
-        print('Path kept:', vox.size)
-        return path, False
+        if conf_forward[-1] < 0.5: # Dump immediately if the forward confidence is too low
+            id2dump.extend([b[0] for b in branch])
+            print(id2dump)
+            continue
 
-    # Find the node with highest confidence disagreement
-    confdiff = conf_backward - conf_forward
-    confdiff = confdiff[marginsize:-marginsize-1]
+        if len(branch) <= 2*marginsize: # The branch is too short for confidence cut, leave it
+            continue
 
-    # If a cut is needed, calculate the windowed backward confidence
-    if confdiff.max() > 0.8 :
-        conf_backward = np.zeros(shape=(len(path, )))
-        window = math.floor(1.5 * marginsize)
-        for i in range(len(path) - window):
-            conf_backward[i] = vox[i:i+window].sum() / (len(path) - i)
-        # print('==windowed backward:', conf_backward)
+        # Backward confidence    
+        conf_backward = np.zeros(shape=(len(branch, )))
+        for i in range(len(path)):
+            conf_backward[i] = branchvox[i:].sum() / (len(path) - i)
 
-        idx = np.argwhere(conf_backward[:-window-1] < 0.5).flatten()
-        idx = idx.max() if idx.size > 0 else -1
-        print('Cut happens at:', idx, '/', vox.size)
-        return path[: idx] if idx == -1 else path, True
-    else:
-        print('Path kept:', vox.size)
-        return path, False
+        # Find the node with highest confidence disagreement
+        confdiff = conf_backward - conf_forward
+        confdiff = confdiff[marginsize:-marginsize]
+
+        # A cut is needed 
+        if confdiff.max() > 0.5:
+            cutidx = confdiff.argmax() + marginsize
+            id2dump.extend([b[0] for b in branch[:cutpoint]])
         
+    # Only keep the swc nodes not in the dump id list
+    cuttedswc = []
+    for nodeidx in range(swc.shape[0]):
+        if swc[nodeidx, 0] not in id2dump:
+            cuttedswc.append(swc[nodeidx, :])
+
+    cuttedswc = np.squeeze(np.dstack(cuttedswc)).T
+
+    return cuttedswc
+
+
+def prune_short_leaves(swc, length):    
+
+    # Find all the leaves
+    childctr = Counter(swc[:, -1]) 
+    leafidlist= [id for id in swc[:, 0] if id not in swc[:, -1] ] # Does not work
+    id2dump = []
+
+    for leafid in leafidlist: # Iterate each leaf node
+        nodeid = leafid 
+        branch = []
+        while True: # Get the leaf branch out
+            node = swc[swc[:, 0] == nodeid, :].flatten()
+            branch.append(node)
+            parentid = node[-1]
+            if childctr[parentid] is not 1: break # merged / unconnected
+            nodeid = parentid
+
+        if len(branch) < length:
+            id2dump.extend([ node[0] for node in branch ] )
+
+
+    # Only keep the swc nodes not in the dump id list
+    cuttedswc = []
+    for nodeidx in range(swc.shape[0]):
+        if swc[nodeidx, 0] not in id2dump:
+            cuttedswc.append(swc[nodeidx, :])
+
+    cuttedswc = np.squeeze(np.dstack(cuttedswc)).T
+    return cuttedswc
+
+

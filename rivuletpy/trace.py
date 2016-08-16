@@ -183,6 +183,9 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 # swc[swc[:,0] == swc[nodeidx, -1], 2] = 5
             else:
                 swc[nodeidx, 1] = 200 
+
+    # Prune short leaves 
+    swc = prune_short_leaves(swc, config['length'])
     
     return swc
 
