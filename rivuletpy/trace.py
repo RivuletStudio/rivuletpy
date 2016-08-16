@@ -29,18 +29,14 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     tt = t.copy()
     tt[bimg <= 0] = -2
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
-    forevoxsum = bimg.sum()
 
     if render:
         from .utils.rendering3 import Viewer3, Line3, Ball3
         viewer = Viewer3(800, 800, 800)
         viewer.set_bounds(0, bounds[0], 0, bounds[1], 0, bounds[2])
 
-    idx = np.where(bimg > 0)
-
     # Start tracing loop
     nforeground = bimg.sum()
-    covermap = np.zeros(bimg.shape) 
     converage = 0.0
     iteridx = 0
     swc = None
@@ -78,9 +74,8 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 gapctr = 0 if endpt_b else gapctr + 1
                 fgctr += endpt_b
 
-                # if gapctr > config['gap']: 
-                #     # print('==Stop due to gap at', endpt)
-                #     break 
+                if gapctr > config['gap']: 
+                    break 
 
                 if np.linalg.norm(somapt - endpt) < 1.5 * somaradius:
                     reachedsoma = True
@@ -128,20 +123,10 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             path.append(endpt)
             srcpt = endpt
 
-        '''
-        Do confidence cut on the new path.
-        When the confidence difference at the cut point is large enough,
-        the latter half of the branch will be cut off,
-        and the first half will be considered as traced on noises -> it will be erased but not added to the tree
-        '''
-        marginsize = 8
-        path, dump = confidence_cut(path, bimg, marginsize)
+        # Check forward confidence 
+        cf = conf_forward(path, bimg)
 
-        # Render the cut point
-        if dump and render:
-            ball = Ball3((path[-1][0], path[-1][1], path[-1][2]), radius=2)
-            ball.set_color(1, 1, 0)
-            viewer.add_geom(ball)
+        # 
 
         ## Erase it from the timemap
         rlist = []
@@ -151,15 +136,13 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             rlist.append(r)
             
             # To make sure all the foreground voxels are included in bb
-            if not dump:
-                r *= eraseratio if len(path) > config['length'] else 2
+            r *= eraseratio if len(path) > config['length'] else 2
 
             r = math.ceil(r)
             X, Y, Z = np.meshgrid(constrain_range(n[0]-r, n[0]+r+1, 0, tt.shape[0]),
                                   constrain_range(n[1]-r, n[1]+r+1, 0, tt.shape[1]),
                                   constrain_range(n[2]-r, n[2]+r+1, 0, tt.shape[2]))
             bb[X, Y, Z] = 1
-        # print('##bb', bb.sum())
 
         startidx = [math.floor(p) for p in path[0]]
         endidx = [math.floor(p) for p in path[-1]]
@@ -175,7 +158,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             tt[erase_region] = -1
         bb.fill(0)
             
-        if len(path) > config['length'] and not dump: # Replaced the old confidence score with the confidence cut
+        if len(path) > config['length']: # Replaced the old confidence score with the confidence cut
             if touched:
                 connectid = swc[touchidx, 0]
             elif reachedsoma:
@@ -183,7 +166,31 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             else:
                 connectid = None
 
+            if cf[-1] < 0.5: continue 
+
             swc = add2swc(swc, path, rlist, connectid)
 
+    # Check all unconnected nodes
+    for nodeidx in range(swc.shape[0]):
+        if swc[nodeidx, -1]  == -2:
+            # Find the closest node in swc, excluding the nodes traced earlier than this node in match
+            swc2consider = swc[swc[:, 0] > swc[nodeidx, 0], :]
+            connect, minidx = match(swc2consider, 
+                                                     swc[nodeidx, 2:5], 3)
+            if connect:
+                # print('Connect node:',  swc[nodeidx, 0], 'with', 'node:', swc[minidx, 0], ', distance:' , np.linalg.norm(swc[nodeidx, 2:5] - swc[minidx, 2:5]))
+                swc[nodeidx, -1] = swc2consider[minidx, 0]
+                # swc[swc[:,0] == swc[nodeidx, -1], 2] = 5
+            else:
+                swc[nodeidx, 1] = 200 
     
     return swc
+
+
+def conf_forward(path, img):
+        conf_forward = np.zeros(shape=(len(path), ))
+        branchvox = np.asarray([ img[math.floor(p[0]), math.floor(p[1]), math.floor(p[2])] for p in path])
+        for i in range(len(path, )):
+            conf_forward[i] = branchvox[:i].sum() / (i+1)
+
+        return conf_forward
