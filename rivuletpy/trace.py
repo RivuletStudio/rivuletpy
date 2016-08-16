@@ -60,12 +60,15 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         steps_after_reach = 0
         outofbound = reachedsoma = False
 
+        # For online confidence comupting
+        online_voxsum = 0.
+        low_online_conf = False
+
         line_color = [random(), random(), random()]
 
         while True: # Start 1 Back-tracking iteration
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
-                # print('At:', srcpt, '\tvelocity:', endpt - srcpt)
                 endptint = [math.floor(p) for p in endpt]
                 velocity = endpt - srcpt
 
@@ -74,10 +77,14 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 gapctr = 0 if endpt_b else gapctr + 1
                 fgctr += endpt_b
 
-                if gapctr > config['gap']: 
-                    break 
+                # Compute the online confidence
+                online_voxsum += endpt_b
+                online_confidence = online_voxsum / (len(path) + 1)
+                # print('online confidence:', online_confidence, online_voxsum, '/', len(path)+1)
 
-                if np.linalg.norm(somapt - endpt) < 1.5 * somaradius:
+                # if gapctr > config['gap']: break  # Stop tracing due to the gap threshold
+
+                if np.linalg.norm(somapt - endpt) < 1.5 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
                     break
 
@@ -96,8 +103,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                     reached = True
 
                 if reached: # If the endpoint reached previously traced area check for node to connect for at each step
-                    if swc is None:
-                        break;
+                    if swc is None: break;
 
                     steps_after_reach += 1
                     endradius = getradius(bimg, endpt[0], endpt[1], endpt[2])
@@ -115,6 +121,12 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
                     break;
 
+                # if len(path) > config['length'] and online_confidence < 0.15:
+                if online_confidence < 0.25:
+                    # print('== Stop due to low online confidence')
+                    low_online_conf = True
+                    break 
+
             except ValueError:
                 if velocity is not None:
                     endpt = srcpt + velocity
@@ -125,8 +137,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
         # Check forward confidence 
         cf = conf_forward(path, bimg)
-
-        # 
 
         ## Erase it from the timemap
         rlist = []
@@ -152,21 +162,21 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             erase_region = np.logical_and(bb, erase_region)
         else:
             erase_region = bb.astype('bool')
-        # print('##erase_region:', erase_region.sum())
 
         if np.count_nonzero(erase_region) > 0:
             tt[erase_region] = -1
         bb.fill(0)
             
-        if len(path) > config['length']: # Replaced the old confidence score with the confidence cut
+        if len(path) > config['length']: 
             if touched:
                 connectid = swc[touchidx, 0]
             elif reachedsoma:
-                connectid = -1 
+                connectid = 1 
             else:
                 connectid = None
 
-            if cf[-1] < 0.5: continue 
+            if cf[-1] < 0.5 or low_online_conf: # Check the confidence of this branch
+                continue 
 
             swc = add2swc(swc, path, rlist, connectid)
 
@@ -178,22 +188,17 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
             connect, minidx = match(swc2consider, 
                                                      swc[nodeidx, 2:5], 3)
             if connect:
-                # print('Connect node:',  swc[nodeidx, 0], 'with', 'node:', swc[minidx, 0], ', distance:' , np.linalg.norm(swc[nodeidx, 2:5] - swc[minidx, 2:5]))
                 swc[nodeidx, -1] = swc2consider[minidx, 0]
-                # swc[swc[:,0] == swc[nodeidx, -1], 2] = 5
             else:
                 swc[nodeidx, 1] = 200 
 
     # Prune short leaves 
-    swc = prune_short_leaves(swc, config['length'])
-    
+    swc = prune_leaves(swc, bimg, config['length'], 0.5)
+
+    # Add soma node to the result swc
+    somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
+    swc = np.vstack((somanode, swc))
+
     return swc
 
 
-def conf_forward(path, img):
-        conf_forward = np.zeros(shape=(len(path), ))
-        branchvox = np.asarray([ img[math.floor(p[0]), math.floor(p[1]), math.floor(p[2])] for p in path])
-        for i in range(len(path, )):
-            conf_forward[i] = branchvox[:i].sum() / (i+1)
-
-        return conf_forward

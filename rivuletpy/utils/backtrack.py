@@ -114,7 +114,7 @@ def match(swc, pos, radius):
 def add2swc(swc, path, radius, connectid = None):  
     newbranch = np.zeros((len(path), 7))
     if swc is None: # It is the first branch to be added
-        idstart = 1
+        idstart = 2
     else:
         idstart = swc[:, 0].max() + 1
 
@@ -124,8 +124,8 @@ def add2swc(swc, path, radius, connectid = None):
 
         if i == len(path) - 1: # The end of this branch
             pid = -2 if connectid is None else connectid
-            if connectid is -1: nodetype = 1
-            elif connectid is not None: swc[swc[:, 0]==connectid, 1] = 5 # its connected node is fork point 
+            # if connectid is 1: nodetype = 1
+            if connectid is not None and connectid is not 1: swc[swc[:, 0]==connectid, 1] = 5 # its connected node is fork point 
         else:
             pid = idstart + i + 1
             if i == 0:
@@ -333,7 +333,7 @@ def confidence_cut(swc, img, marginsize=3):
     return cuttedswc
 
 
-def prune_short_leaves(swc, length):    
+def prune_leaves(swc, img, length, conf):
 
     # Find all the leaves
     childctr = Counter(swc[:, -1]) 
@@ -350,9 +350,9 @@ def prune_short_leaves(swc, length):
             if childctr[parentid] is not 1: break # merged / unconnected
             nodeid = parentid
 
-        if len(branch) < length:
+        # Prune if the leave is too short | the confidence of the leave branch is too low
+        if len(branch) < length or conf_forward([b[2:5] for b in branch], img)[-1] < conf:
             id2dump.extend([ node[0] for node in branch ] )
-
 
     # Only keep the swc nodes not in the dump id list
     cuttedswc = []
@@ -363,4 +363,12 @@ def prune_short_leaves(swc, length):
     cuttedswc = np.squeeze(np.dstack(cuttedswc)).T
     return cuttedswc
 
+
+def conf_forward(path, img):
+        conf_forward = np.zeros(shape=(len(path), ))
+        branchvox = np.asarray([ img[math.floor(p[0]), math.floor(p[1]), math.floor(p[2])] for p in path])
+        for i in range(len(path, )):
+            conf_forward[i] = branchvox[:i].sum() / (i+1)
+
+        return conf_forward
 
