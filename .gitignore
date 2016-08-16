@@ -6,3 +6,4 @@
 *.mat
 *.npy
 *.nii
+*.nii.gz
