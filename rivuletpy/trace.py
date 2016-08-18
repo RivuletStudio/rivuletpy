@@ -128,7 +128,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
                 if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
                     notmoving = True
-                    print('==Not Moving - Velocity:', velocity)
+                    # print('==Not Moving - Velocity:', velocity)
                     # Render a brown node at stopping point since not moving
                     if render:
                         ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
@@ -136,7 +136,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                         viewer.add_geom(ball)
                     break # There could be zero gradients somewhere
 
-                if online_confidence < 0.35:
+                if online_confidence < 0.25:
                     low_online_conf = True
 
                     # Render a grey node at stopping point with low confidence
