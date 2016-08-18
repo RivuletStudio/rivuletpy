@@ -103,6 +103,8 @@ def match(swc, pos, radius):
     # Find the closest ground truth node 
     nodes = swc[:, 2:5]
     distlist = np.squeeze(cdist(pos.reshape(1,3), nodes))
+    if distlist.size == 0:
+        return False, -2
     minidx = distlist.argmin()
     minnode = swc[minidx, 2:5]
 
@@ -345,6 +347,8 @@ def prune_leaves(swc, img, length, conf):
         branch = []
         while True: # Get the leaf branch out
             node = swc[swc[:, 0] == nodeid, :].flatten()
+            if node.size == 0:
+                break 
             branch.append(node)
             parentid = node[-1]
             if childctr[parentid] is not 1: break # merged / unconnected
