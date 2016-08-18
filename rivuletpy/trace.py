@@ -16,7 +16,7 @@ def makespeed(dt, threshold=0):
 
 def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.2):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
-    config = {'length':8, 'coverage':0.98, 'gap':15}
+    config = {'length':6, 'coverage':0.98, 'gap':15}
 
     # Get the gradient of the Time-crossing map
     dx, dy, dz = distgradient(t.astype('float64'))
@@ -80,7 +80,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 # Compute the online confidence
                 online_voxsum += endpt_b
                 online_confidence = online_voxsum / (len(path) + 1)
-                # print('online confidence:', online_confidence, online_voxsum, '/', len(path)+1)
 
                 # if gapctr > config['gap']: break  # Stop tracing due to the gap threshold
 
@@ -96,7 +95,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                     viewer.render(return_rgb_array=False)
 
                 if not inbound(endpt, tt.shape): 
-                    # print('==Stop due to out of bound at', endpt)
                     outofbound = True
                     break;
                 if tt[endptint[0], endptint[1], endptint[2]] == -1:
@@ -123,7 +121,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
                 # if len(path) > config['length'] and online_confidence < 0.15:
                 if online_confidence < 0.25:
-                    # print('== Stop due to low online confidence')
                     low_online_conf = True
                     break 
 
@@ -143,6 +140,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         for node in path:
             n = [math.floor(n) for n in node]
             r = getradius(bimg, n[0], n[1], n[2])
+            r = 1 if r < 1 else r
             rlist.append(r)
             
             # To make sure all the foreground voxels are included in bb
@@ -156,7 +154,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         startidx = [math.floor(p) for p in path[0]]
         endidx = [math.floor(p) for p in path[-1]]
 
-        if len(path) > config['length']:
+        if len(path) > config['length'] and tt[endidx[0], endidx[1], endidx[2]] < tt[startidx[0], startidx[1], startidx[2]]:
             erase_region = np.logical_and(tt[endidx[0], endidx[1], endidx[2]] <= tt, tt <= tt[startidx[0], startidx[1], startidx[2]])
             erase_region = np.logical_and(bb, erase_region)
         else:
