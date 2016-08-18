@@ -9,6 +9,11 @@ from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
 
+try:
+    from skimage import filters
+except ImportError:
+    from skimage import filter as filters
+
 parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The file to filter')
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
@@ -57,12 +62,6 @@ parser.add_argument('--render', dest='render', action='store_true')
 parser.add_argument('--no-render', dest='render', action='store_false')
 parser.set_defaults(render=False)
 
-# Seems not useful
-# parser.add_argument('--response_as_speed', dest='response_as_speed', action='store_true')
-# parser.add_argument('--no-response_as_speed', dest='response_as_speed', action='store_false')
-# parser.set_defaults(response_as_speed=False)
-
-# parser.add_argument('--length', type=int, default=4, help='branches with lengths below this threshold will be abandoned')
 args = parser.parse_args()
 
 img = loadimg(args.file)
@@ -87,7 +86,6 @@ if args.trace:
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
-
 ## Filter
 if args.filter:
     if not args.silence: print('--Filtering with filter: ', args.filtertype)
@@ -104,10 +102,6 @@ if args.filter:
 if args.trace:
     ## Distance Transform
     if args.threshold < 0:
-        try:
-            from skimage import filters
-        except ImportError:
-            from skimage import filter as filters
         args.threshold = filters.threshold_otsu(img)
         if not args.silence: print('--Otus for threshold: ', args.threshold)
     else:
