@@ -80,11 +80,11 @@ if args.trace:
     if not args.silence: print('--DT to get soma location with threshold:', args.soma_threshold)
     bimg = (img > args.soma_threshold).astype('int') # Segment image
     dt = skfmm.distance(bimg, dx=1) # Boundary DT
-    dtmax = dt.max()
-    print('DT max:', dtmax)
-    maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    somaradius = dt.max()
+    print('DT max:', somaradius)
+    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
-    marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
+    marchmap[somapos[0], somapos[1], somapos[2]] = -1
 
 ## Filter
 if args.filter:
@@ -160,7 +160,7 @@ if args.trace:
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, maxdpt, dtmax, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
+    swc = iterative_backtrack(t, img, somapos, somaradius, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
     # Clean SWC 
     if args.clean:

@@ -14,7 +14,7 @@ def makespeed(dt, threshold=0):
     F[F<=threshold] = 1e-10
     return F
 
-def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.2):
+def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.1):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
     config = {'length':6, 'coverage':0.98, 'gap':15}
 
@@ -40,21 +40,24 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     converage = 0.0
     iteridx = 0
     swc = None
-    if not silence: bar = progressbar.ProgressBar(max_value=1.)
+    if not silence: bar = progressbar.ProgressBar(max_value=nforeground)
     velocity = None
 
     while converage < config['coverage']:
         iteridx += 1
-        converage = np.logical_and(tt==-1, bimg > 0).sum() / nforeground
+        coveredctr = np.logical_and(tt<0, bimg > 0).sum() 
+        converage =  coveredctr / nforeground
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
-        if not silence: bar.update(converage)
+        if not silence: bar.update(coveredctr)
 
         # Trace it back to maxd 
-        path = [srcpt,]
+        branch = [srcpt,]
         reached = False
         touched = False
+        notmoving =False 
+        valueerror = False 
         gapctr = 0 # Count continous steps on background
         fgctr = 0 # Count how many steps are made on foreground in this branch
         steps_after_reach = 0
@@ -79,12 +82,16 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
                 # Compute the online confidence
                 online_voxsum += endpt_b
-                online_confidence = online_voxsum / (len(path) + 1)
+                online_confidence = online_voxsum / (len(branch) + 1)
 
-                # if gapctr > config['gap']: break  # Stop tracing due to the gap threshold
-
-                if np.linalg.norm(somapt - endpt) < 1.5 * somaradius: # Stop due to reaching soma point
+                if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
+
+                    # Render a yellow node at fork point
+                    if render:
+                        ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
+                        ball.set_color(0.917, 0.933, 0.227)
+                        viewer.add_geom(ball)
                     break
 
                 # Render the line segment
@@ -94,50 +101,75 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                     viewer.add_geom(l)
                     viewer.render(return_rgb_array=False)
 
-                if not inbound(endpt, tt.shape): 
-                    outofbound = True
-                    break;
-                if tt[endptint[0], endptint[1], endptint[2]] == -1:
+                # Consider reaches previous explored area traced with real branch
+                # Note: when the area was traced due to noise points (erased with -2), not considered as 'reached'
+                if tt[endptint[0], endptint[1], endptint[2]] == -1:  
                     reached = True
 
                 if reached: # If the endpoint reached previously traced area check for node to connect for at each step
-                    if swc is None: break;
+                    if swc is None: break # There has not been any branch added yet
 
                     steps_after_reach += 1
                     endradius = getradius(bimg, endpt[0], endpt[1], endpt[2])
                     touched, touchidx = match(swc, endpt, endradius)
                     closestnode = swc[touchidx, :]
-                    if touched and render:
-                        ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
-                        if len(path) < config['length']:
-                            ball.set_color(1, 1, 1)
-                        else:
+
+                    if touched or steps_after_reach >= 100: 
+                        # Render a blue node at fork point
+                        if touched and render:
+                            ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
                             ball.set_color(0, 0, 1)
+                            viewer.add_geom(ball)
+                        break
+
+                # If the velocity is too small, sprint a bit with the momentum
+                if np.linalg.norm(velocity) <= 0.5 and len(branch) >= config['length']:
+                    endpt = srcpt + (branch[-1] - branch[-4])
+
+                if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
+                    notmoving = True
+                    print('==Not Moving - Velocity:', velocity)
+                    # Render a brown node at stopping point since not moving
+                    if render:
+                        ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
+                        ball.set_color(0.729, 0.192, 0.109)
                         viewer.add_geom(ball)
-                    if touched or steps_after_reach >= 20: break
+                    break # There could be zero gradients somewhere
 
-                if len(path) > 15 and np.linalg.norm(path[-15] - endpt) < 1.:
-                    break;
-
-                # if len(path) > config['length'] and online_confidence < 0.15:
-                if online_confidence < 0.25:
+                if online_confidence < 0.35:
                     low_online_conf = True
+
+                    # Render a grey node at stopping point with low confidence
+                    if render:
+                        ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
+                        ball.set_color(0.5, 0.5, 0.5)
+                        viewer.add_geom(ball)
                     break 
 
-            except ValueError:
-                if velocity is not None:
-                    endpt = srcpt + velocity
-                break
+                # All in vain finally if it traces out of bound
+                if not inbound(endpt, tt.shape): 
+                    outofbound = True
+                    break
 
-            path.append(endpt)
-            srcpt = endpt
+            except ValueError:
+                valueerror = True
+                print('== Value ERR - Velocity:', velocity, 'Point:', endpt)
+                # Render a pink node at value error 
+                if render:
+                    ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
+                    ball.set_color(0.972, 0.607, 0.619)
+                    viewer.add_geom(ball)
+                break 
+
+            branch.append(endpt) # Add the newly traced node to current branch
+            srcpt = endpt # Shift forward
 
         # Check forward confidence 
-        cf = conf_forward(path, bimg)
+        cf = conf_forward(branch, bimg)
 
         ## Erase it from the timemap
         rlist = []
-        for node in path:
+        for node in branch:
             n = [math.floor(n) for n in node]
             r = getradius(bimg, n[0], n[1], n[2])
             r = 1 if r < 1 else r
@@ -151,33 +183,35 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                                   constrain_range(n[2]-r, n[2]+r+1, 0, tt.shape[2]))
             bb[X, Y, Z] = 1
 
-        startidx = [math.floor(p) for p in path[0]]
-        endidx = [math.floor(p) for p in path[-1]]
+        startidx = [math.floor(p) for p in branch[0]]
+        endidx = [math.floor(p) for p in branch[-1]]
 
-        if len(path) > config['length'] and tt[endidx[0], endidx[1], endidx[2]] < tt[startidx[0], startidx[1], startidx[2]]:
+        if len(branch) > config['length'] and tt[endidx[0], endidx[1], endidx[2]] < tt[startidx[0], startidx[1], startidx[2]]:
             erase_region = np.logical_and(tt[endidx[0], endidx[1], endidx[2]] <= tt, tt <= tt[startidx[0], startidx[1], startidx[2]])
             erase_region = np.logical_and(bb, erase_region)
         else:
             erase_region = bb.astype('bool')
 
         if np.count_nonzero(erase_region) > 0:
-            tt[erase_region] = -1
+            tt[erase_region] = -2 if low_online_conf else -1
         bb.fill(0)
             
-        # if len(path) > config['length']: 
+        # if len(branch) > config['length']: 
         if touched:
             connectid = swc[touchidx, 0]
         elif reachedsoma:
-            connectid = 1 
+            connectid = 0 
         else:
             connectid = None
 
         if cf[-1] < 0.5 or low_online_conf: # Check the confidence of this branch
             continue 
 
-        swc = add2swc(swc, path, rlist, connectid)
+        swc = add2swc(swc, branch, rlist, connectid)
+        if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop
+        if valueerror: swc[-1, 1] = 256 # Some weired colour for unexpected stop
 
-    # Check all unconnected nodes
+    # After all tracing iterations, check all unconnected nodes
     for nodeidx in range(swc.shape[0]):
         if swc[nodeidx, -1]  == -2:
             # Find the closest node in swc, excluding the nodes traced earlier than this node in match
@@ -186,8 +220,8 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                                                      swc[nodeidx, 2:5], 3)
             if connect:
                 swc[nodeidx, -1] = swc2consider[minidx, 0]
-            else:
-                swc[nodeidx, 1] = 200 
+            # else:
+            #     swc[nodeidx, 1] = 200 
 
     # Prune short leaves 
     swc = prune_leaves(swc, bimg, config['length'], 0.5)

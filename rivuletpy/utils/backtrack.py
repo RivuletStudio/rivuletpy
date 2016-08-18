@@ -15,18 +15,14 @@ def gd(srcpt, ginterp, t, stepsize):
 def rk4(srcpt, ginterp, t, stepsize):
     # Compute K1
     k1 = np.asarray([g(srcpt)[0] for g in ginterp])
-
-    # if np.linalg.norm(k1) == 0:
-    #     print('== gradient is zero at', srcpt) 
-    k1 /= np.linalg.norm(k1)
-    k1 *= stepsize
+    k1 *= stepsize / max(np.linalg.norm(k1), 1.)
     tp = srcpt - 0.5 * k1 # Position of temporary point
     if not inbound(tp, t.shape):
         return srcpt
 
     # Compute K2
     k2 = np.asarray([g(tp)[0] for g in ginterp])
-    k2 /= np.linalg.norm(k2)
+    k2 *= stepsize / max(np.linalg.norm(k2), 1.)
     k2 *= stepsize
     tp = srcpt - 0.5 * k2 # Position of temporary point
     if not inbound(tp, t.shape):
@@ -34,7 +30,7 @@ def rk4(srcpt, ginterp, t, stepsize):
 
     # Compute K3
     k3 = np.asarray([g(tp)[0] for g in ginterp])
-    k3 /= np.linalg.norm(k3)
+    k3 *= stepsize / max(np.linalg.norm(k3), 1.)
     k3 *= stepsize
     tp = srcpt - k3 # Position of temporary point
     if not inbound(tp, t.shape):
@@ -42,7 +38,7 @@ def rk4(srcpt, ginterp, t, stepsize):
 
     # Compute K4
     k4 = np.asarray([g(tp)[0] for g in ginterp])
-    k4 /= np.linalg.norm(k4)
+    k4 *= stepsize / max(np.linalg.norm(k4), 1.)
     k4 *= stepsize
 
     # Compute final point
@@ -64,7 +60,7 @@ def getradius(bimg, x, y, z):
         try:
             if bimg[max(x-r, 0) : min(x+r+1, bimg.shape[0]),
                     max(y-r, 0) : min(y+r+1, bimg.shape[1]), 
-                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < 0.8:
+                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < .6:
                 break
         except IndexError:
             break
@@ -116,7 +112,7 @@ def match(swc, pos, radius):
 def add2swc(swc, path, radius, connectid = None):  
     newbranch = np.zeros((len(path), 7))
     if swc is None: # It is the first branch to be added
-        idstart = 2
+        idstart = 1
     else:
         idstart = swc[:, 0].max() + 1
 
