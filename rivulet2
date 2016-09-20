@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import os
 import argparse
 import nibabel as nib
 
@@ -16,6 +17,7 @@ except ImportError:
 
 parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The file to filter')
+parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
 
@@ -177,13 +179,15 @@ if args.trace:
         swc[:, 3] = swc_x
 
     ## Save the final swc
-    # Make the long file name
-    kvpairs = []
-    for key, value in vars(args).items():
-        if key is not 'file': kvpairs.append(key + ':' + str(value))
+    if args.outfile:
+        filename = os.path.join(os.path.dirname(args.file), args.outfile)
+    else:
+        # Make the long file name
+        kvpairs = []
+        for key, value in vars(args).items():
+            if key not in ['file', 'outfile']: 
+                kvpairs.append(key + ':' + str(value))
 
-    # Only the first part of the file name is kept, otherwise the file name is too long
-    # fileroot = args.file.split('.')[0]
-    # print('==fileroot:', fileroot)
-    filename = args.file + '_' + '_'.join(kvpairs) +'.swc'
+        filename = args.file + '_' + '_'.join(kvpairs) +'.swc'
+
     saveswc(filename, swc)

@@ -23,7 +23,6 @@ def rk4(srcpt, ginterp, t, stepsize):
     # Compute K2
     k2 = np.asarray([g(tp)[0] for g in ginterp])
     k2 *= stepsize / max(np.linalg.norm(k2), 1.)
-    k2 *= stepsize
     tp = srcpt - 0.5 * k2 # Position of temporary point
     if not inbound(tp, t.shape):
         return srcpt
@@ -31,7 +30,6 @@ def rk4(srcpt, ginterp, t, stepsize):
     # Compute K3
     k3 = np.asarray([g(tp)[0] for g in ginterp])
     k3 *= stepsize / max(np.linalg.norm(k3), 1.)
-    k3 *= stepsize
     tp = srcpt - k3 # Position of temporary point
     if not inbound(tp, t.shape):
         return srcpt
@@ -39,14 +37,9 @@ def rk4(srcpt, ginterp, t, stepsize):
     # Compute K4
     k4 = np.asarray([g(tp)[0] for g in ginterp])
     k4 *= stepsize / max(np.linalg.norm(k4), 1.)
-    k4 *= stepsize
 
     # Compute final point
-    endpt = srcpt - (k1 + k2*2 + k3*2 + k4)/6.0
-    if not inbound(tp, t.shape):
-        return endpt
-
-    return endpt
+    return srcpt - (k1 + k2*2 + k3*2 + k4)/6.0
 
 
 def getradius(bimg, x, y, z):
@@ -122,8 +115,7 @@ def add2swc(swc, path, radius, connectid = None):
 
         if i == len(path) - 1: # The end of this branch
             pid = -2 if connectid is None else connectid
-            # if connectid is 1: nodetype = 1
-            if connectid is not None and connectid is not 1: swc[swc[:, 0]==connectid, 1] = 5 # its connected node is fork point 
+            if connectid is not None and connectid is not 1 and swc is not None: swc[swc[:, 0]==connectid, 1] = 5 # its connected node is fork point 
         else:
             pid = idstart + i + 1
             if i == 0:
