@@ -10,4 +10,5 @@ else
 fi
 
 rm $DATAPATH/test.tif; # Clean the test image
+rm $DATAPATH/test-output.swc; # Clean the test output
 echo "== Done =="
