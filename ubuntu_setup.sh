@@ -2,9 +2,9 @@
 # This script will globally setup the dependencies for rivuletpy
 
 # Setup the dependencies for scipy and pip3
-yes | sudo apt-get install libblas-dev liblapack-dev libatlas-base-dev gfortran;
-yes | sudo apt-get install python3-pip;
-yes | sudo apt-get install python3-matplotlib; # Matplotlib easier to install from ubuntu repo 
+sudo apt-get -y install libblas-dev liblapack-dev libatlas-base-dev gfortran;
+sudo apt-get -y install python3-pip;
+sudo apt-get -y install python3-matplotlib; # Matplotlib easier to install from ubuntu repo 
 
 # Install pip packages
 sudo pip3 install numpy=1.11.1; # Needs to be installed outside of requirements
