@@ -2,6 +2,12 @@ mkdir tmp
 DATAPATH="tests/data";
 unzip $DATAPATH/test.tif.zip -d $DATAPATH;
 python3 rivulet2 --threshold 0 --file $DATAPATH/test.tif --outfile $DATAPATH/test-output.swc
-cmp --silent tmp/test-expected.swc tmp/test-output.swc || echo "The output is not identical with the expected!"
+if cmp --silent "$DATAPATH/test-expected.swc" "$DATAPATH/test-output.swc"
+then
+    echo "＼(＾O＾)／ The reconstruction was successful!"
+else
+    echo "The reconstruction failed. The output is not identical as expected."
+fi
+
 rm $DATAPATH/test.tif; # Clean the test image
 echo "== Done =="
