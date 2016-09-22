@@ -1,6 +1,5 @@
 *.ipynb
 *.tif
-*.swc
 *.pyc
 *.swp
 *.mat
