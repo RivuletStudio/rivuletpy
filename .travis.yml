@@ -1,0 +1,8 @@
+language: python
+python:
+  - "3.4"
+  - "3.5"
+# command to install dependencies
+install: ./ubuntu_setup.sh 
+# command to run tests
+script: ./quicktest.sh
