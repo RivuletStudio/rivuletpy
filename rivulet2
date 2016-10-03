@@ -16,7 +16,7 @@ except ImportError:
     from skimage import filter as filters
 
 parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
-parser.add_argument('--file', type=str, default=None, required=True, help='The file to filter')
+parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
 parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
