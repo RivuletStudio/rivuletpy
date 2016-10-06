@@ -1,0 +1,15 @@
+{  "rootpath": ".", 
+    "data":
+    {
+        "test_dataset":
+        {   
+            "test1":
+            {
+             "imagepath": "tests/data/test.tif",
+             "groundtruth": "tests/data/test-expected.swc",
+             "misc": 
+             {"threshold": 0}
+            }
+        }
+    }
+}

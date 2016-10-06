@@ -18,6 +18,7 @@ except ImportError:
 parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
 parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
+parser.add_argument('--groundtruth', type=str, default=None, required=False, help='The ground truth file. A image file (*.tif, *.nii, *.mat). If given, the precision, recall and F1 will be inserted to the start of the swc file')
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
 
@@ -180,7 +181,7 @@ if args.trace:
 
     ## Save the final swc
     if args.outfile:
-        filename = args.outfile
+        outswcfile = args.outfile
     else:
         # Make the long file name
         kvpairs = []
@@ -188,6 +189,18 @@ if args.trace:
             if key not in ['file', 'outfile']: 
                 kvpairs.append(key + ':' + str(value))
 
-        filename = args.file + '_' + '_'.join(kvpairs) +'.swc'
+        outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
 
-    saveswc(filename, swc)
+    saveswc(outswcfile, swc)
+
+    # If ground truth is present, use the ground truth to evaluate the reconstruction
+    # The results will be written to the front of the swc file
+    if args.groundtruth is not None:
+        print('Found gt path at ', args.groundtruth)
+        from rivuletpy.utils.metrics import precision_recall
+        precision, recall, f1 = precision_recall(outswcfile, args.groundtruth)
+        with open(outswcfile, 'r+') as f:
+            content = f.read()
+            f.seek(0, 0)
+            line = '#precision=%.4f\trecall=%.4f\tf1=%.4f' % (precision, recall, f1)
+            f.write(line + '\n' + content)
