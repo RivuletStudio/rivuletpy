@@ -5,11 +5,13 @@ import json
 import os
 import argparse
 
-def tracejsonfile(fname, pbs=False, method='rivulet2'):
-    with open(fname) as f:
+def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
+    with open(fpath) as f:
         dataidx = json.load(f)
 
     root = dataidx['rootpath']
+    if not os.path.isabs(root): # Make the root path absolute if it is not yet
+        root = os.path.join(os.path.dirname(os.path.abspath(fpath)), root)
 
     for datasetname, dataset in dataidx['data'].items():
         print('-- Working on dataset', datasetname)
@@ -17,26 +19,27 @@ def tracejsonfile(fname, pbs=False, method='rivulet2'):
             print('---- Working on image', imgid)
             outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r2.swc'
             if method is 'rivulet2':
-                cmd = 'python3 rivulet2 --file %s --outfile %s --speed dt' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
-                if 'groundtruth' in img: 
-                    cmd += ' --groundtruth ' + os.path.join(root, img['groundtruth'])
+                cmd = 'python3 rivulet2 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
+                if 'groundtruth' in img: cmd += ' --groundtruth ' + os.path.join(root, img['groundtruth'])
+                if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
+                # Parameters for different methods
+                if 'rivulet2' in img['misc']:
+                    speed = img['misc']['rivulet2']['speed'] if 'speed' in img['misc']['rivulet2'] else 'dt'
+                    ssmiter = img['misc']['rivulet2']['ssmiter'] if 'ssmiter' in img['misc']['rivulet2'] else 40
+                    cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
             else:
                 raise Exception('Method %s not implemented yet' % method)
 
-            for name, value in img['misc'].items():
-                cmd += ' --' + name + ' ' + str(value)
 
-            if pbs: # Add the options for pbs 
+            if pbsfile is not None: # Add the options for pbs 
                 pbscmd = "qsub " + " -N " + str(imgid)
-                cmd = pbscmd + ' -v rivuletcmd=\"' + cmd + '\" ' + dataidx['pbsfile']
+                cmd = pbscmd + ' -v rivuletcmd=\"' + cmd + '\" ' + pbsfile 
             print(cmd)
             os.system(cmd)
 
 parser = argparse.ArgumentParser(description='Arguments for tracing files index with a .json file.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input json file. Pls see ./tests/data/test.json for example.')
 parser.add_argument('--method', type=str, default='rivulet2', required=False, help='The method to use (rivulet2/rivulet1/app2) ')
-parser.add_argument('--pbs', dest='pbs', action='store_true')
-parser.add_argument('--no-pbs', dest='pbs', action='store_false')
-parser.set_defaults(pbs=False)
+parser.add_argument('--pbsfile', type=str, default=None, required=False, help='The pbs file to run. Required if --pbs written.')
 args = parser.parse_args()
-tracejsonfile(args.file, args.pbs, method=args.method)
+tracejsonfile(args.file, args.pbsfile, method=args.method)
