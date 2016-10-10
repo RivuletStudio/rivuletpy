@@ -196,9 +196,12 @@ if args.trace:
     # If ground truth is present, use the ground truth to evaluate the reconstruction
     # The results will be written to the front of the swc file
     if args.groundtruth is not None:
-        print('Found gt path at ', args.groundtruth)
         from rivuletpy.utils.metrics import precision_recall
-        precision, recall, f1 = precision_recall(outswcfile, args.groundtruth)
+        gtswc = loadswc(args.groundtruth) # Load the ground truth
+        (precision, recall, f1), prswc = precision_recall(swc, gtswc) # Run precision&recall metrics
+        fpath, _ = os.path.splitext(outswcfile)
+        saveswc(fpath+'.compare.swc', prswc) # Save the compare swc resulted from precision & recall
+
         with open(outswcfile, 'r+') as f:
             content = f.read()
             f.seek(0, 0)

@@ -1,7 +1,7 @@
 mkdir tmp
 DATAPATH="tests/data";
 unzip $DATAPATH/test.tif.zip -d $DATAPATH;
-python3 rivulet2 --threshold 0 --file $DATAPATH/test.tif --outfile $DATAPATH/test-output.swc
+python3 rivulet2 --threshold 0 --file $DATAPATH/test.tif --outfile $DATAPATH/test-output.swc --groundtruth $DATAPATH/test-expected.swc
 if cmp --silent "$DATAPATH/test-expected.swc" "$DATAPATH/test-output.swc"
 then
     echo "＼(＾O＾)／ The reconstruction was successful!"

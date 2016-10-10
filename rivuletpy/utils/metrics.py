@@ -1,8 +1,7 @@
-from .io import *
 import numpy as np
 from scipy.spatial.distance import cdist
 
-def precision_recall(targetpath, gtpath, dist1=4, dist2=2):
+def precision_recall(swc1, swc2, dist1=4, dist2=2):
     '''
     Calculate the precision, recall and F1 score between swc1 and swc2 (ground truth)
     It generates a new swc file with node types indicating the agreement between two input swc files
@@ -15,12 +14,7 @@ def precision_recall(targetpath, gtpath, dist1=4, dist2=2):
     dist2: The distance to consider for recall
     '''
 
-    TPCOLOUR = 3
-    FPCOLOUR = 2
-    FNCOLOUR = 180
-
-    swc1 = loadswc(targetpath)
-    swc2 = loadswc(gtpath)
+    TPCOLOUR, FPCOLOUR, FNCOLOUR  = 3, 2, 180 # COLOUR is the SWC node type defined for visualising in V3D
 
     d = cdist(swc1[:, 2:5], swc2[:, 2:5])
     mindist1 = d.min(axis=1)
@@ -42,7 +36,5 @@ def precision_recall(targetpath, gtpath, dist1=4, dist2=2):
     swc2_fn[:, 1] = FNCOLOUR
     swc_compare = np.vstack((swc1, swc2_fn))
     swc_compare[:, -2]  = 1
-    fpath, _ = os.path.splitext(targetpath)
-    saveswc(fpath+'.compare.swc', swc_compare)
 
-    return precision, recall, f1
+    return (precision, recall, f1), swc_compare

@@ -30,10 +30,10 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
             else:
                 raise Exception('Method %s not implemented yet' % method)
 
-
             if pbsfile is not None: # Add the options for pbs 
                 pbscmd = "qsub " + " -N " + str(imgid)
                 cmd = pbscmd + ' -v rivuletcmd=\"' + cmd + '\" ' + pbsfile 
+
             print(cmd)
             os.system(cmd)
 

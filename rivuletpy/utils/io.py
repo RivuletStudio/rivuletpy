@@ -53,7 +53,7 @@ def writetiff3d(filepath, block):
 def loadswc(filepath):
     swc = []
     with open(filepath) as f:
-        lines = f.read().split('\n')
+        lines = f.read().split("\n")
         for l in lines:
             if not l.startswith('#'):
                 cells = l.split(' ')
