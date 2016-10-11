@@ -3,6 +3,6 @@ python:
   - "3.4"
   - "3.5"
 # command to install dependencies
-before_script: ./ubuntu_setup.sh
+before_script: sh ubuntu_setup.sh
 # command to run tests
-script: ./quicktest.sh
+script: sh quicktest.sh
