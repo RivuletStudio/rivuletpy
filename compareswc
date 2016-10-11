@@ -1,6 +1,5 @@
 #!/usr/bin/python3
-import argparse
-import os
+import os, argparse, json
 
 from rivuletpy.utils.metrics import *
 from rivuletpy.utils.io import loadswc, saveswc
@@ -39,4 +38,12 @@ for i in midx2:
     swc2[i, 1] = 2
     swc2[i, 5] = 4
 saveswc(fpath+'.connect-err2.swc', swc2)
+
+metrics = {}
+metrics['PRF'] = {'precision': precision, 'recall': recall, 'f1': f1}
+metrics['NetMetsGeometry'] = {'G1': gd1.mean(), 'G2': gd2.mean()}
+metrics['NetMetsConectivity'] = {'C1': len(midx1), 'C2': len(midx2)}
+
+with open(fpath+'.metrics.json', 'w') as f:
+	json.dump(metrics, f)
 
