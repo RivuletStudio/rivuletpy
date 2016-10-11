@@ -4,6 +4,6 @@ language: python
 #   - "3.5"
 sudo: required
 # command to install dependencies
-before_script: ./ubuntu_setup.sh
+before_script: ./travis_setup.sh
 # command to run tests
 script: ./quicktest.sh
