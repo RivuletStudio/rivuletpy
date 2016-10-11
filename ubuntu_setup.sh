@@ -16,3 +16,4 @@ sudo pip3 install -r requirements.txt; # Install the requirements.txt friendly p
 
 chmod +x rivulet2
 chmod +x tracejson
+chmod +x compareswc
