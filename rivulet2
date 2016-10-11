@@ -15,7 +15,7 @@ try:
 except ImportError:
     from skimage import filter as filters
 
-parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
+parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
 parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
 parser.add_argument('--groundtruth', type=str, default=None, required=False, help='The ground truth file. A image file (*.tif, *.nii, *.mat). If given, the precision, recall and F1 will be inserted to the start of the swc file')
@@ -193,17 +193,3 @@ if args.trace:
 
     saveswc(outswcfile, swc)
 
-    # If ground truth is present, use the ground truth to evaluate the reconstruction
-    # The results will be written to the front of the swc file
-    if args.groundtruth is not None:
-        from rivuletpy.utils.metrics import precision_recall
-        gtswc = loadswc(args.groundtruth) # Load the ground truth
-        (precision, recall, f1), prswc = precision_recall(swc, gtswc) # Run precision&recall metrics
-        fpath, _ = os.path.splitext(outswcfile)
-        saveswc(fpath+'.compare.swc', prswc) # Save the compare swc resulted from precision & recall
-
-        with open(outswcfile, 'r+') as f:
-            content = f.read()
-            f.seek(0, 0)
-            line = '#precision=%.4f\trecall=%.4f\tf1=%.4f' % (precision, recall, f1)
-            f.write(line + '\n' + content)
