@@ -2,7 +2,8 @@ language: python
 python:
   - "3.4"
   - "3.5"
+sudo: required
 # command to install dependencies
-before_script: sh ubuntu_setup.sh
+before_script: sudo sh ubuntu_setup.sh
 # command to run tests
 script: sh quicktest.sh
