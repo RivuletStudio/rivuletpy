@@ -20,13 +20,16 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
             outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r2.swc'
             if method is 'rivulet2':
                 cmd = 'python3 rivulet2 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
-                if 'groundtruth' in img: cmd += ' --groundtruth ' + os.path.join(root, img['groundtruth'])
                 if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
                 # Parameters for different methods
                 if 'rivulet2' in img['misc']:
                     speed = img['misc']['rivulet2']['speed'] if 'speed' in img['misc']['rivulet2'] else 'dt'
                     ssmiter = img['misc']['rivulet2']['ssmiter'] if 'ssmiter' in img['misc']['rivulet2'] else 40
                     cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
+                    cmd += '\n'
+
+                if 'groundtruth' in img: 
+                    cmd += 'python3 compareswc --target %s --groundtruth %s' % (outpath, os.path.join(root, img['groundtruth']))
             else:
                 raise Exception('Method %s not implemented yet' % method)
 
