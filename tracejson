@@ -26,17 +26,19 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
                     speed = img['misc']['rivulet2']['speed'] if 'speed' in img['misc']['rivulet2'] else 'dt'
                     ssmiter = img['misc']['rivulet2']['ssmiter'] if 'ssmiter' in img['misc']['rivulet2'] else 40
                     cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
-                    cmd += ';'
 
                 if 'groundtruth' in img: 
-                    cmd += 'python3 compareswc --target %s --groundtruth %s;' % (outpath, os.path.join(root, img['groundtruth']))
+                    comparecmd = 'python3 compareswc --target %s --groundtruth %s' % (os.path.join(root, outpath), os.path.join(root, img['groundtruth']))
+                else:
+                    comparecmd = ''
             else:
                 raise Exception('Method %s not implemented yet' % method)
 
             if pbsfile is not None: # Add the options for pbs 
-                pbscmd = "qsub " + " -N " + str(imgid)
-                cmd = pbscmd + ' -v rivuletcmd=\'' + cmd + '\' ' + pbsfile 
-
+                cmd = 'qsub -N %s -v rivuletcmd=\'%s\',comparecmd=\'%s\' %s' % (str(imgid), cmd, comparecmd, pbsfile)
+            else:
+                cmd += comparecmd
+                
             print(cmd)
             os.system(cmd)
 
