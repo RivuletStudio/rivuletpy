@@ -45,5 +45,5 @@ metrics['NetMetsGeometry'] = {'G1': gd1.mean(), 'G2': gd2.mean()}
 metrics['NetMetsConectivity'] = {'C1': len(midx1), 'C2': len(midx2)}
 
 with open(fpath+'.metrics.json', 'w') as f:
-	json.dump(metrics, f)
+    json.dump(metrics, f)
 

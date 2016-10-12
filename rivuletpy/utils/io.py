@@ -27,7 +27,7 @@ def loadtiff3d(filepath):
     tiff = TIFF.open(filepath, mode='r')
     stack = []
     for sample in tiff.iter_images():
-        stack.append(np.fliplr(np.rot90(np.fliplr(np.flipud(sample)))))
+        stack.append(np.rot90(np.fliplr(np.flipud(sample))))
 
     out = np.dstack(stack)
     tiff.close()
@@ -51,6 +51,9 @@ def writetiff3d(filepath, block):
 
 
 def loadswc(filepath):
+    '''
+    Load swc file as a N X 7 numpy array
+    '''
     swc = []
     with open(filepath) as f:
         lines = f.read().split("\n")
@@ -59,7 +62,7 @@ def loadswc(filepath):
                 cells = l.split(' ')
                 if len(cells) ==7:
                     cells = [float(c) for c in cells]
-                    cells[2:5] = [c-1 for c in cells[2:5]]
+                    # cells[2:5] = [c-1 for c in cells[2:5]]
                     swc.append(cells)
     return np.array(swc)
 
