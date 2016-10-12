@@ -56,9 +56,9 @@ function v3d2tif(path2dir, cropthr, rescale_ratio)
             swc = load_v3d_swc_file(swcpath);
 
             % Crop the swc
-            swc(:, 3) = swc(:, 3) - cropregion(1, 1);
-            swc(:, 4) = swc(:, 4) - cropregion(2, 1);
-            swc(:, 5) = swc(:, 5) - cropregion(3, 1);
+            swc(:, 3) = swc(:, 3) - cropregion(1, 1) + 1;
+            swc(:, 4) = swc(:, 4) - cropregion(2, 1) + 1;
+            swc(:, 5) = swc(:, 5) - cropregion(3, 1) + 1;
 
             % Resize the swc
             swc(:, 3:5) = swc(:, 3:5) * rescale_ratio;
