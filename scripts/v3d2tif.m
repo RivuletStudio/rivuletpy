@@ -1,4 +1,4 @@
-function v3d2tif(path2dir, cropthr, rescale_ratio)
+function v3d2tif(inpath, cropthr, rescale_ratio)
 % V3DTIF Convert V3Draw files to 3D tiff. At the same time do some cropping and resizing
 %   v3d2tif(path2v3draw, cropthr, rescale_ratio) convert every *.v3draw in path2v3draw to .v3draw
 %   the boundary with voxels smaller than cropthr will be cropped
@@ -12,22 +12,36 @@ function v3d2tif(path2dir, cropthr, rescale_ratio)
     %     disp('V3D matlab IO path not loaded...')
     %     return
     % end
+    fprintf('inpath: %s\n', inpath);
 
-    outdir = fullfile(path2dir, 'tif');
-    if exist(outdir, 'dir')
-        rmdir(outdir, 's')
-        mkdir(outdir)
+    if isdir(inpath)
+        outdir = fullfile(inpath, 'tif');
+        if exist(outdir, 'dir')
+            rmdir(outdir, 's')
+            mkdir(outdir)
+        else
+            mkdir(outdir)
+        end
+
+        % Search for v3draw files in this folder
+        v3drawlist = dir(fullfile(inpath, '*.v3draw'));
+        % Convert each v3draw file - parfor is too memory consuming
+        for i = 1 : numel(v3drawlist) 
+            fprintf('Converting %d/%d', i, numel(v3drawlist))
+            outputFileName = fullfile(inpath, 'tif', [name, '.tif']);
+            v3drawpath = fullfile(inpath, v3drawlist(i).name, outputFileName);
+            convertfile(inpath, cropthr, rescale_ratio);
+        end % End of loop of processing 1 file
+
+        disp('== Done ==')
     else
-        mkdir(outdir)
+        outputFileName = strcat(inpath, '.tif');
+        convertfile(inpath, cropthr, rescale_ratio, outputFileName);
     end
+end
 
-    % Search for v3draw files in this folder
-    v3drawlist = dir(fullfile(path2dir, '*.v3draw'));
 
-    parfor i = 1 : numel(v3drawlist) % Convert each v3draw file
-        fprintf('Converting %d/%d', i, numel(v3drawlist))
-
-        v3drawpath = fullfile(path2dir, v3drawlist(i).name);
+function convertfile(v3drawpath, cropthr, rescale_ratio, outputFileName)
         [pathstr, name, ext] = fileparts(v3drawpath);
         v3dvol = load_v3d_raw_img_file(v3drawpath);
 
@@ -35,15 +49,17 @@ function v3d2tif(path2dir, cropthr, rescale_ratio)
         [v3dvol, cropregion] = imagecrop(v3dvol, cropthr);
 
         % Resize the 3D volume
-        v3dvol = rescale3D(v3dvol, rescale_ratio);
+        if rescale_ratio ~= 1
+            v3dvol = rescale3D(v3dvol, rescale_ratio);
+        end
 
-        outputFileName = fullfile(path2dir, 'tif', [name, '.tif']);
 
-        % Make the .ano file as well
-        anopath = fullfile(pathstr, 'tif', [name, '.ano']);
-        anofid = fopen(anopath, 'w');
-        fprintf(anofid, 'GRAYIMG=%s\n', [name, '.tif']) ;
+        if exist(outputFileName, 'file') == 2
+            fprintf('Found an existing %s. The old file is deleted.\n', outputFileName);
+            delete(outputFileName);
+        end
 
+        fprintf('Writing the tif image into %s\n', outputFileName)
         for z = 1:size(v3dvol, 3)
             imwrite(rot90(v3dvol(:, :, z)), outputFileName, 'WriteMode', 'append');
         end
@@ -64,16 +80,16 @@ function v3d2tif(path2dir, cropthr, rescale_ratio)
             swc(:, 3:5) = swc(:, 3:5) * rescale_ratio;
 
             % Save swc
-            swcpath2save = fullfile(pathstr, 'tif', [name, '.swc']);
+            disp('outputFileName:')
+            disp(outputFileName)
+            [pathstr, name, ~] = fileparts(outputFileName);
+            swcpath2save = fullfile(pathstr, [name, '.swc']);
+            disp('swcpath2save')
+            disp(swcpath2save)
             saveswc(swc, swcpath2save);
-            fprintf(anofid, 'SWCFILE=%s\n', [name, '.swc']);
+            % fprintf(anofid, 'SWCFILE=%s\n', [name, '.swc']);
         end
 
-        fclose(anofid);
-
-    end % End of loop of processing 1 file
-
-    disp('== Done ==')
 end
 
 
