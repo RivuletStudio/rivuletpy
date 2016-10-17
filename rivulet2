@@ -9,7 +9,7 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
-
+from soma.cube import cube_value
 try:
     from skimage import filters
 except ImportError:
@@ -139,57 +139,61 @@ if args.trace:
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
-    if args.speed in ['ssm', 'ssmske']:
-        if not args.silence: print('--SSM with GVF...')
-        dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
-        img = dt > filters.threshold_otsu(dt)
-        dt = skfmm.distance(img, dx=5e-2)
+    # A small test case of importing soma library 
+    x = 3
+    y = cube_value(3)
+    print('x to the power of 3 is {}', y)
+    # if args.speed in ['ssm', 'ssmske']:
+    #     if not args.silence: print('--SSM with GVF...')
+    #     dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
+    #     img = dt > filters.threshold_otsu(dt)
+    #     dt = skfmm.distance(img, dx=5e-2)
 
-    if args.speed in ['ske', 'ssmske']:
-        if not args.silence: print('--Skelontising...')
-        if args.speed == 'ske':
-            dt = skeletonize_3d(img > 0)
-        elif args.speed == 'ssmske':
-            dt = skeletonize_3d(dt > 0.15)
+    # if args.speed in ['ske', 'ssmske']:
+    #     if not args.silence: print('--Skelontising...')
+    #     if args.speed == 'ske':
+    #         dt = skeletonize_3d(img > 0)
+    #     elif args.speed == 'ssmske':
+    #         dt = skeletonize_3d(dt > 0.15)
 
-        if not args.silence: print('--Reverse DT...')
-        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-        dt[dt > 0.04] = 0.04
-        dt = dt.max() - dt
+    #     if not args.silence: print('--Reverse DT...')
+    #     dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
+    #     dt[dt > 0.04] = 0.04
+    #     dt = dt.max() - dt
 
-    # Fast Marching
-    if not args.silence: print('--FM...')
-    t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+    # # Fast Marching
+    # if not args.silence: print('--FM...')
+    # t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
-    # Iterative Back Tracking with Erasing
-    if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, somapos, somaradius, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
+    # # Iterative Back Tracking with Erasing
+    # if not args.silence: print('--Start Backtracking...')
+    # swc = iterative_backtrack(t, img, somapos, somaradius, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
-    # Clean SWC 
-    if args.clean:
-        # This will only keep the largest connected component of the graph in swc
-        print('Cleaning swc')
-        swc = cleanswc(swc, args.radius) 
-    elif not args.radius:
-        swc[:, 5] = 1
+    # # Clean SWC 
+    # if args.clean:
+    #     # This will only keep the largest connected component of the graph in swc
+    #     print('Cleaning swc')
+    #     swc = cleanswc(swc, args.radius) 
+    # elif not args.radius:
+    #     swc[:, 5] = 1
 
-    if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
-        swc_x = swc[:, 2].copy()
-        swc_y = swc[:, 3].copy()
-        swc[:, 2] = swc_y
-        swc[:, 3] = swc_x
+    # if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
+    #     swc_x = swc[:, 2].copy()
+    #     swc_y = swc[:, 3].copy()
+    #     swc[:, 2] = swc_y
+    #     swc[:, 3] = swc_x
 
-    ## Save the final swc
-    if args.outfile:
-        outswcfile = args.outfile
-    else:
-        # Make the long file name
-        kvpairs = []
-        for key, value in vars(args).items():
-            if key not in ['file', 'outfile']: 
-                kvpairs.append(key + ':' + str(value))
+    # ## Save the final swc
+    # if args.outfile:
+    #     outswcfile = args.outfile
+    # else:
+    #     # Make the long file name
+    #     kvpairs = []
+    #     for key, value in vars(args).items():
+    #         if key not in ['file', 'outfile']: 
+    #             kvpairs.append(key + ':' + str(value))
 
-        outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+    #     outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
 
-    saveswc(outswcfile, swc)
+    # saveswc(outswcfile, swc)
 
