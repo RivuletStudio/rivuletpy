@@ -1,9 +1,9 @@
 
-import morphsnakes
+# import morphsnakes
 
 import numpy as np
 from scipy.misc import imread
-from matplotlib import pyplot as ppl
+# from matplotlib import pyplot as ppl
 
 def rgb2gray(img):
     """Convert a RGB image to gray scale."""

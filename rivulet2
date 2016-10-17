@@ -9,7 +9,10 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
-from soma.cube import cube_value
+# from soma.cube import cube_value
+from soma.tests import circle_levelset
+import soma.cube as scube
+import soma.morphsnakes as somasnake
 try:
     from skimage import filters
 except ImportError:
@@ -141,8 +144,15 @@ if args.trace:
 
     # A small test case of importing soma library 
     x = 3
-    y = cube_value(3)
-    print('x to the power of 3 is {}', y)
+    # y = soma.cube.cube_value(3)
+    y = scube.cube_value(3)
+    print('x to the power of 3 is {}'.format(y))
+    print('the dim 1 is {0}; the dim 2 is {1}; the dim 3 is {2}'.format(img.shape[0], img.shape[1], img.shape[2]))
+    sphere = circle_levelset((6, 6), (3, 3), 2)
+    print(sphere)
+    # macwe = somasnake.MorphACWE(img, smoothing=1, lambda1=1, lambda2=2)
+    # macwe.levelset = circle_levelset(img.shape, (30, 50, 80), 25)
+
     # if args.speed in ['ssm', 'ssmske']:
     #     if not args.silence: print('--SSM with GVF...')
     #     dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
