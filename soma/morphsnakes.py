@@ -150,6 +150,7 @@ class MorphACWE(object):
     def step(self):
         """Perform a single step of the morphological Chan-Vese evolution."""
         # Assign attributes to local variables for convenience.
+        print('The step function of MorphACWE class has been called')
         u = self._u
         
         if u is None:

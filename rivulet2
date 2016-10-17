@@ -148,8 +148,47 @@ if args.trace:
     y = scube.cube_value(3)
     print('x to the power of 3 is {}'.format(y))
     print('the dim 1 is {0}; the dim 2 is {1}; the dim 3 is {2}'.format(img.shape[0], img.shape[1], img.shape[2]))
-    sphere = circle_levelset((6, 6), (3, 3), 2)
+    sphere = circle_levelset((6,6), (3,3), 2)
     print(sphere)
+    ratioxz = img.shape[0] / img.shape[2]
+    ratioyz = img.shape[1] / img.shape[2]
+    print('the ratioxz is {0}, the ratioyz is {1}'.format(ratioxz, ratioyz))
+    print('the maximum element is {0}'.format(max(ratioxz, ratioyz)))
+    print('the soma radius is {0}'.format(somaradius))
+    sqrval = np.floor(min((somaradius**0.5 * max(ratioxz, ratioyz)), somaradius))
+    print('the value of sqrval {0}'.format(sqrval))
+    startpt = maxdpt - 3 * sqrval
+    print(startpt)
+    # To constrain the soma growth region inside the cubic region
+    # Python index start from 0 
+    startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
+    startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
+    startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
+    endpt = maxdpt + 3 * sqrval
+    endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
+    endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
+    endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
+    print(startpt, endpt)
+    # print(type(startpt))
+    startpt = startpt.astype(int)
+    endpt = endpt.astype(int)
+    print(startpt, endpt)
+    somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
+    # print(somaimg)
+    # Morphological ACWE. Initialization of the level-set.
+    centerpt = np.arange(3)
+    centerpt[0] = 3 * sqrval
+    centerpt[1] = 3 * sqrval
+    centerpt[2] = 3 * sqrval
+    print(somaimg.shape)
+    macwe = somasnake.MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=2)
+    macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
+    num_iters = 10
+    # Iterate.
+    for i in range(num_iters):
+    #     # Evolve.
+        macwe.step()
+    print(macwe.smoothing)
     # macwe = somasnake.MorphACWE(img, smoothing=1, lambda1=1, lambda2=2)
     # macwe.levelset = circle_levelset(img.shape, (30, 50, 80), 25)
 
