@@ -142,23 +142,13 @@ if args.trace:
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
-    # A small test case of importing soma library 
-    x = 3
-    # y = soma.cube.cube_value(3)
-    y = scube.cube_value(3)
-    print('x to the power of 3 is {}'.format(y))
     print('the dim 1 is {0}; the dim 2 is {1}; the dim 3 is {2}'.format(img.shape[0], img.shape[1], img.shape[2]))
-    sphere = circle_levelset((6,6), (3,3), 2)
-    print(sphere)
     ratioxz = img.shape[0] / img.shape[2]
     ratioyz = img.shape[1] / img.shape[2]
-    print('the ratioxz is {0}, the ratioyz is {1}'.format(ratioxz, ratioyz))
-    print('the maximum element is {0}'.format(max(ratioxz, ratioyz)))
-    print('the soma radius is {0}'.format(somaradius))
+    print('the ratioxz is {first:2.1f}, the ratioyz is {second:2.1f}'.format(first=ratioxz,second=ratioyz))
     sqrval = np.floor(min((somaradius**0.5 * max(ratioxz, ratioyz)), somaradius))
     print('the value of sqrval {0}'.format(sqrval))
     startpt = maxdpt - 3 * sqrval
-    print(startpt)
     # To constrain the soma growth region inside the cubic region
     # Python index start from 0 
     startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
@@ -170,19 +160,9 @@ if args.trace:
     endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
     startpt = startpt.astype(int)
     endpt = endpt.astype(int)
-    # will be deleted in the future : start
-    kvpairs = []
-    for key, value in vars(args).items():
-        if key not in ['file', 'outfile']: 
-            kvpairs.append(key + ':' + str(value))
-
-    outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
-    print('The current outswcfile', args.file)
-    # will be deleted in the future : end
-    outputsomaimgfile = '/home/donghao/Desktop/case2soma' + '.tif'
     img = loadimg(args.file)
-    print('img type', img.dtype)
-    print('image shape is', img.shape)
+    # print('img type', img.dtype, 'image shape is', img.shape)
+    outputsomaimgfile = '/home/donghao/Desktop/case2somaregion' + '.tif'
     somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
     writetiff3d(outputsomaimgfile, somaimg)
     
@@ -191,30 +171,29 @@ if args.trace:
     centerpt[0] = 3 * sqrval
     centerpt[1] = 3 * sqrval
     centerpt[2] = 3 * sqrval
-    print(somaimg.shape)
     macwe = somasnake.MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
-    num_iters = 10
+    # num_iters = 10
     # Iterate.
-    for i in range(num_iters):
-    #     # Evolve.
-        macwe.step()
-    print(macwe.smoothing)
-    # macwe.autoconvg()
+    # for i in range(num_iters):
+    # #     # Evolve.
+    #     macwe.step()
+    # print(macwe.smoothing)
+    macwe.autoconvg()
     
-    somavol = macwe._u 
-    print('somavol size is ', somavol.shape)
+    somavol = macwe._u
+    print('startpt is', startpt, 'endpt is', endpt)
+    print('somavol size is', somavol.shape)
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
-    print('fullsomaimg size is ', fullsomaimg.shape)
-    print('startpt', startpt, 'endpt', endpt)
+    # print('fullsomaimg size is ', fullsomaimg.shape)
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = somavol * 40
-    print('fullsomaimg', fullsomaimg.shape)
+    # print('fullsomaimg', fullsomaimg.shape)
     fullsomaimg.astype(int)
     fullsomaimg = fullsomaimg.astype(np.uint8)
-    print('fullsomaimg type', fullsomaimg.shape)
-    fullsomafile = '/home/donghao/Desktop/case2somafull' + '.tif'
+    # print('fullsomaimg type', fullsomaimg.shape)
+    fullsomafile = '/home/donghao/Desktop/case2somamask.tif'
     writetiff3d(fullsomafile, fullsomaimg)
-    writetiff3d('/home/donghao/Desktop/case2right.tif', img)
+    writetiff3d('/home/donghao/Desktop/case2imgsomaloc.tif', img)
     
 
     # if args.speed in ['ssm', 'ssmske']:
