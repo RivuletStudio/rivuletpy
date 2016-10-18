@@ -150,7 +150,7 @@ class MorphACWE(object):
     def step(self):
         """Perform a single step of the morphological Chan-Vese evolution."""
         # Assign attributes to local variables for convenience.
-        print('The step function of MorphACWE class has been called')
+        # print('The step function of MorphACWE class has been called')
         u = self._u
         
         if u is None:
@@ -177,14 +177,46 @@ class MorphACWE(object):
         # Smoothing.
         for i in range(self.smoothing):
             res = curvop(res)
-        
+        # print('The current volume of {}'.format(np.sum(res)))
         self._u = res
     
     def run(self, iterations):
         """Run several iterations of the morphological Chan-Vese method."""
         for i in range(iterations):
             self.step()
-    
+    def autoconvg(self):
+        """Soma detection converges by itself."""
+        # autoconvg is the abbreviation of automatic convergence
+        iterations = 2
+        # The following vector is used for storing values of the number of foreground voxels 
+        foreground_num = np.zeros(iterations)
+        # The following vector is initialised for storing forward difference
+        forward_diff_store = np.zeros(iterations)
+        # This is the initilization 
+        for i in range(iterations):
+            self.step()
+            u = self._u
+            volu = sum(u[u>0])            
+            # print('The current volume is ', volu)
+            foreground_num[i] = volu
+            print('The value of foreground_num[i]', foreground_num[i])
+            if i > 0:
+                diff_step = foreground_num[i] - foreground_num[i-1]
+                forward_diff_store[i-1] = diff_step
+                if i > 6:
+                    cur_slider_diff = np.sum(forward_diff_store[i-6:i-1])
+                    print('The value of cur_slider_diff', cur_slider_diff)
+                    # conditionone = np.absolute(cur_slider_diff) < 20
+                    # print('conditionone', conditionone)
+                    # conditiontwo = np.absolute(cur_slider_diff) < (0.1*foreground_num[i])
+                    # print('conditiontwo', conditiontwo)
+                    # condition = conditionone | conditiontwo
+                    # print('condition', condition)
+                    # if condition:
+                    #     break
+                    if np.absolute(cur_slider_diff) < 20 | (np.absolute(cur_slider_diff) < (0.1*foreground_num[i])):
+                        print('The automatic converge is working')
+                        break
 
 class MorphGAC(object):
     """Morphological GAC based on the Geodesic Active Contours."""
