@@ -192,10 +192,16 @@ if args.trace:
     fullsomaimg = fullsomaimg.astype(np.uint8)
     # print('fullsomaimg type', fullsomaimg.shape)
     fullsomafile = '/home/donghao/Desktop/case2somamask.tif'
+    fullsomaimg = np.swapaxes(fullsomaimg, 0, 1)
+    for z in range(fullsomaimg.shape[-1]): # Flip the image upside down
+        fullsomaimg[:,:,z] = np.flipud(fullsomaimg[:,:,z])
     writetiff3d(fullsomafile, fullsomaimg)
+    img = np.swapaxes(img, 0, 1)
+    for z in range(img.shape[-1]): # Flip the image upside down
+        img[:,:,z] = np.flipud(img[:,:,z])
     writetiff3d('/home/donghao/Desktop/case2imgsomaloc.tif', img)
     
-
+    # print('', os.path.splitext()[0])
     # if args.speed in ['ssm', 'ssmske']:
     #     if not args.silence: print('--SSM with GVF...')
     #     dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
