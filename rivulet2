@@ -162,9 +162,8 @@ if args.trace:
     endpt = endpt.astype(int)
     img = loadimg(args.file)
     # print('img type', img.dtype, 'image shape is', img.shape)
-    outputsomaimgfile = '/home/donghao/Desktop/case2somaregion' + '.tif'
     somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
-    writetiff3d(outputsomaimgfile, somaimg)
+    writetiff3d((os.path.splitext(args.file)[0] + 'somaregion.tif'), somaimg)
     
     # Morphological ACWE. Initialization of the level-set.
     centerpt = np.arange(3)
@@ -183,7 +182,7 @@ if args.trace:
     
     somavol = macwe._u
     print('startpt is', startpt, 'endpt is', endpt)
-    print('somavol size is', somavol.shape)
+    print('soma region size is', somavol.shape)
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
     # print('fullsomaimg size is ', fullsomaimg.shape)
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = somavol * 40
@@ -191,17 +190,17 @@ if args.trace:
     fullsomaimg.astype(int)
     fullsomaimg = fullsomaimg.astype(np.uint8)
     # print('fullsomaimg type', fullsomaimg.shape)
-    fullsomafile = '/home/donghao/Desktop/case2somamask.tif'
     fullsomaimg = np.swapaxes(fullsomaimg, 0, 1)
     for z in range(fullsomaimg.shape[-1]): # Flip the image upside down
         fullsomaimg[:,:,z] = np.flipud(fullsomaimg[:,:,z])
-    writetiff3d(fullsomafile, fullsomaimg)
-    img = np.swapaxes(img, 0, 1)
-    for z in range(img.shape[-1]): # Flip the image upside down
-        img[:,:,z] = np.flipud(img[:,:,z])
-    writetiff3d('/home/donghao/Desktop/case2imgsomaloc.tif', img)
+    writetiff3d((os.path.splitext(args.file)[0] + 'somamask.tif'), fullsomaimg)
+
+    # The following four lines will be deleted in the future
+    # img = np.swapaxes(img, 0, 1)
+    # for z in range(img.shape[-1]): # Flip the image upside down
+    #     img[:,:,z] = np.flipud(img[:,:,z])
+    # writetiff3d((os.path.splitext(args.file)[0] + 'imgsomaloc.tif'), img)
     
-    # print('', os.path.splitext()[0])
     # if args.speed in ['ssm', 'ssmske']:
     #     if not args.silence: print('--SSM with GVF...')
     #     dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
