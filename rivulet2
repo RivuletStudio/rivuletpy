@@ -9,10 +9,10 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
-# from soma.cube import cube_value
 from soma.tests import circle_levelset
-import soma.cube as scube
-import soma.morphsnakes as somasnake
+from soma import morphsnakes
+# from rivuletpy.soma import soma_detect
+
 try:
     from skimage import filters
 except ImportError:
@@ -89,6 +89,7 @@ if args.trace:
     somaradius = dt.max()
     print('DT max:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    # soma_detect(img, somapos, args.soma_threshold)
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
 
@@ -170,10 +171,10 @@ if args.trace:
     centerpt[0] = 3 * sqrval
     centerpt[1] = 3 * sqrval
     centerpt[2] = 3 * sqrval
-    macwe = somasnake.MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
+    macwe = morphsnakes.MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
     # num_iters = 10
-    # Iterate.
+    # The following code is used for the given number of iterations
     # for i in range(num_iters):
     # #     # Evolve.
     #     macwe.step()
@@ -190,68 +191,71 @@ if args.trace:
     fullsomaimg.astype(int)
     fullsomaimg = fullsomaimg.astype(np.uint8)
     # print('fullsomaimg type', fullsomaimg.shape)
-    fullsomaimg = np.swapaxes(fullsomaimg, 0, 1)
-    for z in range(fullsomaimg.shape[-1]): # Flip the image upside down
-        fullsomaimg[:,:,z] = np.flipud(fullsomaimg[:,:,z])
-    writetiff3d((os.path.splitext(args.file)[0] + 'somamask.tif'), fullsomaimg)
+    xxxfullsomaimg = np.swapaxes(fullsomaimg, 0, 1)
+    for z in range(xxxfullsomaimg.shape[-1]): # Flip the image upside down
+        xxxfullsomaimg[:,:,z] = np.flipud(xxxfullsomaimg[:,:,z])
+    writetiff3d((os.path.splitext(args.file)[0] + 'somamask.tif'), xxxfullsomaimg)
+    del xxxfullsomaimg
 
     # The following four lines will be deleted in the future
-    # img = np.swapaxes(img, 0, 1)
-    # for z in range(img.shape[-1]): # Flip the image upside down
-    #     img[:,:,z] = np.flipud(img[:,:,z])
-    # writetiff3d((os.path.splitext(args.file)[0] + 'imgsomaloc.tif'), img)
-    
-    # if args.speed in ['ssm', 'ssmske']:
-    #     if not args.silence: print('--SSM with GVF...')
-    #     dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
-    #     img = dt > filters.threshold_otsu(dt)
-    #     dt = skfmm.distance(img, dx=5e-2)
+    xxximg = np.swapaxes(img, 0, 1)
+    for z in range(xxximg.shape[-1]): # Flip the image upside down
+        xxximg[:,:,z] = np.flipud(xxximg[:,:,z])
+    writetiff3d((os.path.splitext(args.file)[0] + 'imgsomaloc.tif'), xxximg)
+    del xxximg
 
-    # if args.speed in ['ske', 'ssmske']:
-    #     if not args.silence: print('--Skelontising...')
-    #     if args.speed == 'ske':
-    #         dt = skeletonize_3d(img > 0)
-    #     elif args.speed == 'ssmske':
-    #         dt = skeletonize_3d(dt > 0.15)
+    if args.speed in ['ssm', 'ssmske']:
+        if not args.silence: print('--SSM with GVF...')
+        dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
+        print('')
+        img = dt > filters.threshold_otsu(dt)
+        dt = skfmm.distance(img, dx=5e-2)
 
-    #     if not args.silence: print('--Reverse DT...')
-    #     dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-    #     dt[dt > 0.04] = 0.04
-    #     dt = dt.max() - dt
+    if args.speed in ['ske', 'ssmske']:
+        if not args.silence: print('--Skelontising...')
+        if args.speed == 'ske':
+            dt = skeletonize_3d(img > 0)
+        elif args.speed == 'ssmske':
+            dt = skeletonize_3d(dt > 0.15)
 
-    # # Fast Marching
-    # if not args.silence: print('--FM...')
-    # t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+        if not args.silence: print('--Reverse DT...')
+        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
+        dt[dt > 0.04] = 0.04
+        dt = dt.max() - dt
 
-    # # Iterative Back Tracking with Erasing
-    # if not args.silence: print('--Start Backtracking...')
-    # swc = iterative_backtrack(t, img, somapos, somaradius, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
+    # Fast Marching
+    if not args.silence: print('--FM...')
+    t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
-    # # Clean SWC 
-    # if args.clean:
-    #     # This will only keep the largest connected component of the graph in swc
-    #     print('Cleaning swc')
-    #     swc = cleanswc(swc, args.radius) 
-    # elif not args.radius:
-    #     swc[:, 5] = 1
+    # Iterative Back Tracking with Erasing
+    if not args.silence: print('--Start Backtracking...')
+    swc = iterative_backtrack(t, img, somapos, somaradius, fullsomaimg, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
-    # if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
-    #     swc_x = swc[:, 2].copy()
-    #     swc_y = swc[:, 3].copy()
-    #     swc[:, 2] = swc_y
-    #     swc[:, 3] = swc_x
+    # Clean SWC 
+    if args.clean:
+        # This will only keep the largest connected component of the graph in swc
+        print('Cleaning swc')
+        swc = cleanswc(swc, args.radius) 
+    elif not args.radius:
+        swc[:, 5] = 1
 
-    # ## Save the final swc
-    # if args.outfile:
-    #     outswcfile = args.outfile
-    # else:
-    #     # Make the long file name
-    #     kvpairs = []
-    #     for key, value in vars(args).items():
-    #         if key not in ['file', 'outfile']: 
-    #             kvpairs.append(key + ':' + str(value))
+    if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
+        swc_x = swc[:, 2].copy()
+        swc_y = swc[:, 3].copy()
+        swc[:, 2] = swc_y
+        swc[:, 3] = swc_x
 
-    #     outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+    ## Save the final swc
+    if args.outfile:
+        outswcfile = args.outfile
+    else:
+        # Make the long file name
+        kvpairs = []
+        for key, value in vars(args).items():
+            if key not in ['file', 'outfile']: 
+                kvpairs.append(key + ':' + str(value))
 
-    # saveswc(outswcfile, swc)
+        outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+
+    saveswc(outswcfile, swc)
 

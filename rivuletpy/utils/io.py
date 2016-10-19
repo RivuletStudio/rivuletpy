@@ -28,6 +28,9 @@ def loadtiff3d(filepath):
     stack = []
     for sample in tiff.iter_images():
         stack.append(np.rot90(np.fliplr(np.flipud(sample))))
+        # stack.append(sample)
+        # stack.append(np.rot90((np.fliplr(sample))))
+
 
     out = np.dstack(stack)
     tiff.close()
@@ -43,7 +46,7 @@ def writetiff3d(filepath, block):
         pass
 
     tiff = TIFF.open(filepath, mode='w')
-    block = np.flipud(block)
+    # block = np.flipud(block)
     
     for z in range(block.shape[2]):
         tiff.write_image(block[:,:,z], compression=None)

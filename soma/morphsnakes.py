@@ -196,7 +196,7 @@ class MorphACWE(object):
         for i in range(iterations):
             self.step()
             u = self._u
-            volu = sum(u[u>0])            
+            volu = sum(u[u>0])
             foreground_num[i] = volu
             if i > 0:
                 diff_step = foreground_num[i] - foreground_num[i-1]
