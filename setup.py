@@ -2,7 +2,7 @@ import numpy as np
 from distutils.core import setup, Extension
 from os.path import join
 
-packages = ['rivuletpy',]
+packages = ['rivuletpy', 'rivuletpy.utils', 'filtering']
 
 ext_modules = [Extension('msfm',
                         sources = [join('rivuletpy', 'msfm', 'msfmmodule.c'),
@@ -14,6 +14,8 @@ setup(name = 'rivuletpy',
       description = 'Single Neuron Reconstruction with the Rivulet2 algorithm',
       ext_modules = ext_modules,
       include_dirs = [np.get_include()], #Add Include path of numpy
+      packages = packages,
+      scripts = ['ubuntu_setup.sh',],
       # url='http://adamlamers.com',
       author='Siqi Liu',
       author_email='lsqshr at gmail dot com')
