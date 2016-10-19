@@ -9,9 +9,7 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
-from soma.tests import circle_levelset
-from soma import morphsnakes
-# from rivuletpy.soma import soma_detect
+from rivuletpy.soma import *
 
 try:
     from skimage import filters
@@ -171,7 +169,7 @@ if args.trace:
     centerpt[0] = 3 * sqrval
     centerpt[1] = 3 * sqrval
     centerpt[2] = 3 * sqrval
-    macwe = morphsnakes.MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
+    macwe = MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
     # num_iters = 10
     # The following code is used for the given number of iterations

@@ -5,6 +5,7 @@ morphsnakes
 ===========
 
 This is a Python implementation of the algorithms introduced in the paper
+The original package is adjusted for soma detection by donghao zhang and siqi liu.
 
   Márquez-Neila, P., Baumela, L., Álvarez, L., "A morphological approach
   to curvature-based evolution of curves and surfaces". IEEE Transactions
@@ -77,6 +78,13 @@ def SI(u):
         _aux[i] = binary_erosion(u, P[i])
     
     return _aux.max(0)
+
+def circle_levelset(shape, center, sqradius, scalerow=1.0):
+    """Build a binary function with a circle as the 0.5-levelset."""
+    grid = np.mgrid[list(map(slice, shape))].T - center
+    phi = sqradius - np.sqrt(np.sum((grid.T)**2, 0))
+    u = np.float_(phi > 0)
+    return u
 
 def IS(u):
     """IS operator."""
