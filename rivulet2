@@ -9,6 +9,8 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
+import skfmm
+import msfm
 
 try:
     from skimage import filters
@@ -44,6 +46,10 @@ parser.add_argument('--ssmiter', type=int, default=20, help='The number of itera
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
 parser.set_defaults(radius=False)
+
+parser.add_argument('--msfm', dest='msfm', action='store_true')
+parser.add_argument('--no-msfm', dest='msfm', action='store_false')
+parser.set_defaults(msfm=True)
 
 parser.add_argument('--speed', type=str, default='ssm', help='The type of speed image to use (dt, ssm, ske, ssmske)')
 
@@ -158,12 +164,17 @@ if args.trace:
         dt = dt.max() - dt
 
     # Fast Marching
-    if not args.silence: print('--FM...')
-    t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+    if args.msfm:
+        if not args.silence: print('--MSFM...')
+        t = msfm.run(makespeed(dt), somapos, False, True)
+    else:
+        if not args.silence: print('--FM...')
+        t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, somapos, somaradius, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
+    swc = iterative_backtrack(t, img, somapos, somaradius,
+     render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
     # Clean SWC 
     if args.clean:
