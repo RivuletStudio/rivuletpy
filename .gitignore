@@ -8,3 +8,5 @@
 *.nii.gz
 build/*
 scripts/recon_my_tif.sh*
+deb_dist/*
+/MANIFEST

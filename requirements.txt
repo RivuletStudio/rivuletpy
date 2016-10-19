@@ -1,3 +1,7 @@
+numpy>=1.11.1
+scipy
+Cython
+git+https://github.com/pearu/pylibtiff.git
 scikit-fmm
 scikit-image
 progressbar2
