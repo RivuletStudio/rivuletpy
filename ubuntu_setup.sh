@@ -13,7 +13,10 @@ sudo pip3 install scipy; # Needs to be installed outside of requirements
 sudo pip3 install Cython; # Needs to be installed outside of requirements
 sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtiff from its github master branch
 sudo pip3 install -r requirements.txt; # Install the requirements.txt friendly packages
+sudo pip3 install . --upgrade;
 
-chmod +x rivulet2
-chmod +x tracejson
-chmod +x compareswc
+chmod +x rivulet2;
+chmod +x tracejson;
+chmod +x compareswc;
+echo "PATH=$PATH:$(pwd)" >> ~/.bashrc; # Append the current path to PATH
+source ~/.bashrc
