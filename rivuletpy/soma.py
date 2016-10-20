@@ -411,3 +411,61 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
     
     # Return the last levelset.
     return msnake.levelset
+def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2):
+    """
+    Automatic detection of soma volume.
+
+    Parameters
+    ----------
+    img : grayscale neuron image.
+        the type of neuron image is numpy uint8
+        the dimension of neuron image is 3 
+        the neuron image is array-like
+    somaradius : the approximate value of soma radius estimated from distance transform
+        the type of somaradius is float64
+        somaradius is just a float number
+    somapos : the coordinate of estimated soma centroid 
+        the type of somapos is int64
+        the shape of somapos is (3,)
+        somapos is array-like
+    """
+    print('the type of img', img.dtype, 'the shape of img ', img.shape)
+    print('the type of somapos', somapos.dtype, 'the shape of somapos', somapos.shape)
+    print('the type of somaradius', somaradius.dtype, 'the shape of somaradius', somaradius.shape)
+    print('the value of soma_lambda1', lambda1)
+    # print('the dim 1 is {0}; the dim 2 is {1}; the dim 3 is {2}'.format(img.shape[0], img.shape[1], img.shape[2]))
+    ratioxz = img.shape[0] / img.shape[2]
+    ratioyz = img.shape[1] / img.shape[2]
+    print('the ratioxz is {first:2.1f}, the ratioyz is {second:2.1f}'.format(first=ratioxz,second=ratioyz))
+    sqrval = np.floor(min((somaradius**0.5 * max(ratioxz, ratioyz)), somaradius))
+    # print('the value of sqrval {0}'.format(sqrval))
+    startpt = somapos - 3 * sqrval
+    # # To constrain the soma growth region inside the cubic region
+    # Python index start from 0 
+    startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
+    startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
+    startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
+    endpt = somapos + 3 * sqrval
+    endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
+    endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
+    endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
+    startpt = startpt.astype(int)
+    endpt = endpt.astype(int)
+    somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
+    
+    # # Morphological ACWE. Initialization of the level-set.
+    centerpt = np.arange(3)
+    centerpt[0] = 3 * sqrval
+    centerpt[1] = 3 * sqrval
+    centerpt[2] = 3 * sqrval
+    macwe = MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
+    macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
+    macwe.autoconvg()
+    # Initialise soma mask image 
+    fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
+    # the soma mask image contains only two values so each element is either 0 or 40
+    fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
+    fullsomaimg.astype(int)
+    fullsomaimg = fullsomaimg.astype(np.uint8)
+
+    return fullsomaimg
