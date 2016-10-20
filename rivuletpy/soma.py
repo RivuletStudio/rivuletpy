@@ -143,6 +143,7 @@ class MorphACWE(object):
         self.smoothing = smoothing
         self.lambda1 = lambda1
         self.lambda2 = lambda2
+        print('the value of lambda1', lambda1)
         
         self.data = data
     
@@ -411,7 +412,7 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
     
     # Return the last levelset.
     return msnake.levelset
-def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2):
+def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, iterations):
     """
     Automatic detection of soma volume.
 
@@ -428,11 +429,18 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2):
         the type of somapos is int64
         the shape of somapos is (3,)
         somapos is array-like
+    soma_lambda1 : a float number controls the weight of internal energy
+    soma_lambda2 : a float number controls the weight of external energy
+    soma : a logic value determines using automatic converge criteria to iterate or not
+    iterations : manually set the number of iterations required for the soma
+        the type of iterations is int
     """
     print('the type of img', img.dtype, 'the shape of img ', img.shape)
     print('the type of somapos', somapos.dtype, 'the shape of somapos', somapos.shape)
     print('the type of somaradius', somaradius.dtype, 'the shape of somaradius', somaradius.shape)
     print('the value of soma_lambda1', lambda1)
+    print('the logic value of soma', soma)
+    print('the number of iterations', iterations)
     # print('the dim 1 is {0}; the dim 2 is {1}; the dim 3 is {2}'.format(img.shape[0], img.shape[1], img.shape[2]))
     ratioxz = img.shape[0] / img.shape[2]
     ratioyz = img.shape[1] / img.shape[2]
@@ -454,13 +462,16 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2):
     somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
     
     # # Morphological ACWE. Initialization of the level-set.
-    centerpt = np.arange(3)
-    centerpt[0] = 3 * sqrval
-    centerpt[1] = 3 * sqrval
-    centerpt[2] = 3 * sqrval
-    macwe = MorphACWE(somaimg, smoothing=1, lambda1=1, lambda2=1.5)
+    centerpt = np.ones(3) * sqrval
+    macwe = MorphACWE(somaimg, smoothing, lambda1, lambda2)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
-    macwe.autoconvg()
+    if soma:
+        macwe.autoconvg()
+    elif (~soma):
+        for i in range(iterations):
+            macwe.step()
+
+    
     # Initialise soma mask image 
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
     # the soma mask image contains only two values so each element is either 0 or 40
