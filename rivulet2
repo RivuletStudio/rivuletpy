@@ -99,7 +99,8 @@ if args.trace:
 if args.filter:
     if not args.silence: print('--Filtering with filter: ', args.filtertype)
     radii = np.arange(args.rlow, args.rhigh, args.rstep)
-    img, _, _ = response(img.astype('float'), rsptype=args.filtertype, radii=np.asarray(radii), rho=args.rho, memory_save=False)
+    img, _, _ = response(img.astype('float'), rsptype=args.filtertype,
+                                      radii=np.asarray(radii), rho=args.rho, memory_save=False)
 
     # Save the filtered image by default
     nib.save(nib.Nifti1Image(img, np.eye(4)), '_'.join([args.file,str(args.rlow), str(args.rhigh), 
@@ -174,7 +175,8 @@ if args.trace:
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
     swc = iterative_backtrack(t, img, somapos, somaradius,
-     render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
+                                              render=args.render, silence=args.silence, 
+                                              eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
     # Clean SWC 
     if args.clean:
