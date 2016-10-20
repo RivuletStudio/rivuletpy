@@ -143,7 +143,6 @@ class MorphACWE(object):
         self.smoothing = smoothing
         self.lambda1 = lambda1
         self.lambda2 = lambda2
-        print('the value of lambda1', lambda1)
         
         self.data = data
     
@@ -435,16 +434,9 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     iterations : manually set the number of iterations required for the soma
         the type of iterations is int
     """
-    print('the type of img', img.dtype, 'the shape of img ', img.shape)
-    print('the type of somapos', somapos.dtype, 'the shape of somapos', somapos.shape)
-    print('the type of somaradius', somaradius.dtype, 'the shape of somaradius', somaradius.shape)
-    print('the value of soma_lambda1', lambda1)
-    print('the logic value of soma', soma)
-    print('the number of iterations', iterations)
     # print('the dim 1 is {0}; the dim 2 is {1}; the dim 3 is {2}'.format(img.shape[0], img.shape[1], img.shape[2]))
     ratioxz = img.shape[0] / img.shape[2]
     ratioyz = img.shape[1] / img.shape[2]
-    print('the ratioxz is {first:2.1f}, the ratioyz is {second:2.1f}'.format(first=ratioxz,second=ratioyz))
     sqrval = np.floor(min((somaradius**0.5 * max(ratioxz, ratioyz)), somaradius))
     # print('the value of sqrval {0}'.format(sqrval))
     startpt = somapos - 3 * sqrval
@@ -457,26 +449,27 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
     endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
     endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
+    # Convert type to int for indexing
     startpt = startpt.astype(int)
     endpt = endpt.astype(int)
+    # Extract soma region for fast soma detection
     somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
-    
-    # # Morphological ACWE. Initialization of the level-set.
     centerpt = np.ones(3) * sqrval
+    # Morphological ACWE. Initialization of the level-set.
     macwe = MorphACWE(somaimg, smoothing, lambda1, lambda2)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
     if soma:
+        # automatic soma detection
         macwe.autoconvg()
     elif (~soma):
+        # input the iteration number manually
         for i in range(iterations):
             macwe.step()
-
-    
     # Initialise soma mask image 
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
     # the soma mask image contains only two values so each element is either 0 or 40
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
     fullsomaimg.astype(int)
+    # convert to uint8 so the soma mask image can be saved
     fullsomaimg = fullsomaimg.astype(np.uint8)
-
     return fullsomaimg

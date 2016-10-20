@@ -97,7 +97,9 @@ if args.trace:
     somaradius = dt.max()
     print('DT max:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    # conduct soma detection and generate soma mask 
     somamask = soma_detect(img, somapos, somaradius, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma, args.soma_iterations)
+    # save the soma mask if required
     if args.soma_mask:
         writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask);
     marchmap = np.ones(img.shape)
