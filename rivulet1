@@ -42,7 +42,7 @@ parser.add_argument('--no-trace', dest='trace', action='store_false', help='Skip
 parser.set_defaults(trace=True)
 
 parser.add_argument('--gap', type=int, default=30, help='The gap threshold for Rivulet1. Default 15')
-parser.add_argument('--wiring', type=int, default=1.8 help='The wiring threshold for Rivulet1. Default 1.2')
+parser.add_argument('--wiring', type=int, default=1.8, help='The wiring threshold for Rivulet1. Default 1.2')
 parser.add_argument('--length', type=int, default=4, help='The length threshold for Rivulet1. Default 4')
 
 parser.add_argument('--radius', dest='radius', action='store_true')
