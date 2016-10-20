@@ -148,7 +148,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
                 if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
                     notmoving = True
-                    # print('==Not Moving - Velocity:', velocity)
                     # Render a brown node at stopping point since not moving
                     if render:
                         ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
@@ -173,7 +172,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
             except ValueError:
                 valueerror = True
-                # print('== Value ERR - Velocity:', velocity, 'Point:', endpt)
                 # Render a pink node at value error 
                 if render:
                     ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
@@ -250,7 +248,6 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     return swc
 
 
-
 def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, length=4, render=False, silence=True):
     '''
     Trace the segmented image with a single neuron using Rivulet1 algorithm.
@@ -320,7 +317,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
                 endpt_b = bimg[endptint[0], endptint[1], endptint[2]]
                 gapctr = 0 if endpt_b else gapctr + 1
                 if gapctr > gap: 
-                    # print('gap!')
                     break # Stop tracing if gap is too big
                 fgctr += endpt_b
 
@@ -368,7 +364,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
 
                 if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
                     notmoving = True
-                    # print('==Not Moving - Velocity:', velocity)
                     # Render a brown node at stopping point since not moving
                     if render:
                         ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
@@ -384,7 +379,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
 
             except ValueError:
                 valueerror = True
-                # print('== Value ERR - Velocity:', velocity, 'Point:', endpt)
                 # Render a pink node at value error 
                 if render:
                     ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
@@ -429,11 +423,9 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             connectid = None
 
         if cf < 0.3:
-            # print('cf low!')
             continue
 
         # if len(branch) < length: # Check the confidence of this branch
-        #     print('length!')
         #     continue 
 
         swc = add2swc(swc, branch, rlist, connectid)
@@ -616,22 +608,17 @@ def get_subtree_nodeids(swc, node):
     subtreeids = np.array([])
 
     # Find children
-    # print('-- Node here:', node)
     chidx = np.argwhere(node[0] == swc[:, 6])
 
     # Recursion stops when there this node is a leaf with no children, return itself 
     if chidx.size == 0:
-        # print('== No Child, returning', node[0])
         return node[0]
     else:
-        # print('== Got child')
         # Get the node ids of each children
         for c in chidx:
             subids = get_subtree_nodeids(swc, swc[c, :].squeeze())
-            # print('==Trying to append', subtreeids, subids, node[0])
             subtreeids = np.hstack((subtreeids, subids, node[0]))
 
-    # print('==Returning:', subtreeids)
     return subtreeids
 
 
@@ -653,9 +640,11 @@ class Node(object):
         other.__links.add(self)
 
 
-# The function to look for connected components.
-# https://breakingcode.wordpress.com/2013/04/08/finding-connected-components-in-a-graph/
 def connected_components(nodes):
+    '''
+    The function to look for connected components.
+    Reference: https://breakingcode.wordpress.com/2013/04/08/finding-connected-components-in-a-graph/
+    '''
 
     # List of connected components found. The order is random.
     result = []
@@ -765,7 +754,6 @@ def confidence_cut(swc, img, marginsize=3):
 
         if conf_forward[-1] < 0.5: # Dump immediately if the forward confidence is too low
             id2dump.extend([b[0] for b in branch])
-            print(id2dump)
             continue
 
         if len(branch) <= 2*marginsize: # The branch is too short for confidence cut, leave it
@@ -836,5 +824,3 @@ def conf_forward(path, img):
             conf_forward[i] = branchvox[:i].sum() / (i+1)
 
         return conf_forward
-
-
