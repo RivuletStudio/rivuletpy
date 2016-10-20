@@ -1,4 +1,5 @@
-import os, math, progressbar
+import os, math
+from tqdm import tqdm
 import numpy as np
 from random import random
 from collections import Counter
@@ -57,20 +58,22 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
 
     # Start tracing loop
     nforeground = bimg.sum()
-    converage = 0.0
+    coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: bar = progressbar.ProgressBar(max_value=nforeground)
+    if not silence: pbar = tqdm(total=nforeground)
     velocity = None
+    coveredctr_old = 0
 
-    while converage < config['coverage']:
+    while coverage < config['coverage']:
         iteridx += 1
-        coveredctr = np.logical_and(tt<0, bimg > 0).sum() 
-        converage =  coveredctr / nforeground
+        coveredctr_new = np.logical_and(tt<0, bimg > 0).sum() 
+        coverage =  coveredctr_new / nforeground
+        if not silence: pbar.update(coveredctr_new - coveredctr_old)
+        coveredctr_old = coveredctr_new
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
-        if not silence: bar.update(coveredctr)
 
         # Trace it back to maxd 
         branch = [srcpt,]
@@ -242,6 +245,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     # Add soma node to the result swc
     somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
     swc = np.vstack((somanode, swc))
+    pbar.close() # Close the progress bar
 
     return swc
 
@@ -278,20 +282,22 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
 
     # Start tracing loop
     nforeground = bimg.sum()
-    converage = 0.0
+    coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: bar = progressbar.ProgressBar(max_value=nforeground)
+    if not silence: pbar = tqdm(total=nforeground)
     velocity = None
+    coveredctr_old = 0
 
-    while converage < config['coverage']:
+    while coverage < config['coverage']:
         iteridx += 1
-        coveredctr = np.logical_and(tt<0, bimg > 0).sum() 
-        converage =  coveredctr / nforeground
+        coveredctr_new = np.logical_and(tt<0, bimg > 0).sum() 
+        coverage =  coveredctr_new / nforeground
+        if not silence: pbar.update(coveredctr_new - coveredctr_old)
+        coveredctr_old = coveredctr_new
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(), tt.shape)).astype('float64')
-        if not silence: bar.update(coveredctr)
 
         # Trace it back to maxd 
         branch = [srcpt,]
