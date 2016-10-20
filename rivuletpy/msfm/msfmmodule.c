@@ -82,7 +82,6 @@ static PyObject* msfm_run(PyObject* self, PyObject* args) {
   msfm3d(F, Fdims_int, sp, spdims_int, secondobj, crossobj, T, Y);
   PyObject* npT = PyArray_New(&PyArray_Type, 3, Fdims, NPY_DOUBLE, 0, 0, sizeof(npy_double), NPY_F_CONTIGUOUS, 0);
   memcpy(PyArray_DATA(npT), T, nvox * sizeof(double));
-  Py_INCREF(npT);
 
   // Skip the Y output for now
   // PyObject* npY =
@@ -95,6 +94,7 @@ static PyObject* msfm_run(PyObject* self, PyObject* args) {
   Py_DECREF(Farr);
   Py_DECREF(sparr);
   Py_INCREF(npT);
+  free(T);
   free(Y); // Y is not used for now
 
   return npT;
