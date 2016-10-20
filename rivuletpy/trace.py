@@ -1,11 +1,9 @@
-import os
-import math
+import os, math, progressbar
+import numpy as np
 from random import random
 from collections import Counter
-import numpy as np
 from scipy import ndimage 
 from scipy.spatial.distance import cdist
-import progressbar
 from scipy.interpolate import RegularGridInterpolator 
 from skimage.morphology import skeletonize_3d
 import skfmm
