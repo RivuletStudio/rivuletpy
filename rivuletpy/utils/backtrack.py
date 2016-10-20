@@ -88,6 +88,25 @@ def fibonacci_sphere(samples=1, randomize=True):
     return points
 
 
+def match_r1(swc, pos, radius, wiring):
+    '''
+    The node match used by Rivulet1 which uses a wiring threshold
+    Deprecated in the standard Rivulet pipeline 
+    Used only for experiments
+    '''
+    # Find the closest ground truth node 
+    nodes = swc[:, 2:5]
+    distlist = np.squeeze(cdist(pos.reshape(1,3), nodes))
+    if distlist.size == 0:
+        return False, -2
+    minidx = distlist.argmin()
+    minnode = swc[minidx, 2:5]
+
+    # See if either of them can cover each other with a ball of their own radius
+    mindist = np.linalg.norm(pos - minnode)
+    return radius > wiring * mindist or swc[minidx, 5] * wiring > mindist, minidx
+
+
 def match(swc, pos, radius): 
     # Find the closest ground truth node 
     nodes = swc[:, 2:5]
