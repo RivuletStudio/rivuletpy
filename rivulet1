@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# Script to run Rivulet1 algorithm. This script is deprecated. Used only for experiments
 
 import os
 import argparse
@@ -9,7 +10,6 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
-from rivuletpy.soma import *
 import skfmm
 import msfm
 
@@ -23,16 +23,7 @@ parser.add_argument('--file', type=str, default=None, required=True, help='The i
 parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
 parser.add_argument('--groundtruth', type=str, default=None, required=False, help='The ground truth file. A image file (*.tif, *.nii, *.mat). If given, the precision, recall and F1 will be inserted to the start of the swc file')
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
-
-# Arguments for soma detection
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
-parser.add_argument('--soma_iterations', type=int, default=-1, help='The number of iterations for soma snake')
-parser.add_argument('--soma_smoothing', type=int, default=1, help='The number of iterations for making soma a sphere')
-parser.add_argument('--soma_lambda1', type=float, default=1, help='The weight of internal energy')
-parser.add_argument('--soma_lambda2', type=float, default=1.5, help='The weight of external energy')
-parser.add_argument('--somasaveim', dest='soma', action='store_true')
-parser.add_argument('--no-somasaveim', dest='soma', action='store_false')
-parser.set_defaults(soma=False)
 
 # Arguments for filtering
 parser.add_argument('--filter', dest='filter', action='store_true')
@@ -50,8 +41,9 @@ parser.add_argument('--trace', dest='trace', action='store_true', help='Run trac
 parser.add_argument('--no-trace', dest='trace', action='store_false', help='Skip the tracing with rivulet 2')
 parser.set_defaults(trace=True)
 
-
-parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
+parser.add_argument('--gap', type=int, default=30, help='The gap threshold for Rivulet1. Default 15')
+parser.add_argument('--wiring', type=int, default=1.8, help='The wiring threshold for Rivulet1. Default 1.2')
+parser.add_argument('--length', type=int, default=4, help='The length threshold for Rivulet1. Default 4')
 
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
@@ -60,8 +52,6 @@ parser.set_defaults(radius=False)
 parser.add_argument('--msfm', dest='msfm', action='store_true')
 parser.add_argument('--no-msfm', dest='msfm', action='store_false')
 parser.set_defaults(msfm=True)
-
-parser.add_argument('--speed', type=str, default='ssm', help='The type of speed image to use (dt, ssm, ske, ssmske)')
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
@@ -102,14 +92,6 @@ if args.trace:
     somaradius = dt.max()
     print('DT max:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-
-    # Conduct soma detection and generate soma mask 
-    somamask = soma_detect(img, somapos, somaradius, args.soma_smoothing, 
-                        args.soma_lambda1, args.soma_lambda2, args.soma, args.soma_iterations)
-    
-    # Save the soma mask if required
-    if args.soma:
-        writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask);
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
 
@@ -117,8 +99,7 @@ if args.trace:
 if args.filter:
     if not args.silence: print('--Filtering with filter: ', args.filtertype)
     radii = np.arange(args.rlow, args.rhigh, args.rstep)
-    img, _, _ = response(img.astype('float'), rsptype=args.filtertype,
-                                      radii=np.asarray(radii), rho=args.rho, memory_save=False)
+    img, _, _ = response(img.astype('float'), rsptype=args.filtertype, radii=np.asarray(radii), rho=args.rho, memory_save=False)
 
     # Save the filtered image by default
     nib.save(nib.Nifti1Image(img, np.eye(4)), '_'.join([args.file,str(args.rlow), str(args.rhigh), 
@@ -158,31 +139,11 @@ if args.trace:
 
     dt = skfmm.distance(img, dx=5e-2) # Boundary DT
 
-    # if not args.filter: 
-    # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
+    # if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
-
-    if args.speed in ['ssm', 'ssmske']:
-        if not args.silence: print('--SSM with GVF...')
-        dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
-        print('')
-        img = dt > filters.threshold_otsu(dt)
-        dt = skfmm.distance(img, dx=5e-2)
-
-    if args.speed in ['ske', 'ssmske']:
-        if not args.silence: print('--Skelontising...')
-        if args.speed == 'ske':
-            dt = skeletonize_3d(img > 0)
-        elif args.speed == 'ssmske':
-            dt = skeletonize_3d(dt > 0.15)
-
-        if not args.silence: print('--Reverse DT...')
-        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-        dt[dt > 0.04] = 0.04
-        dt = dt.max() - dt
 
     # Fast Marching
     if args.msfm:
@@ -194,10 +155,9 @@ if args.trace:
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, somapos, somaradius, somamask,
-                                              render=args.render, silence=args.silence, 
-                                              eraseratio=1.7 if args.speed=='ssm' else 1.5)
-
+    swc = iterative_backtrack_r1(t, bimg, somapos, somaradius,
+                                                   gap=args.gap, wiring=args.wiring, length=args.length,
+                                                   render=args.render, silence=args.silence)
 
     # Clean SWC 
     if args.clean:

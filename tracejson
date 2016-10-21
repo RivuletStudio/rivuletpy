@@ -17,8 +17,8 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
         print('-- Working on dataset', datasetname)
         for imgid, img in dataset.items():
             print('---- Working on image', imgid)
-            outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r2.swc'
             if method is 'rivulet2':
+                outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r2.swc'
                 cmd = 'python3 rivulet2 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
                 if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
                 # Parameters for different methods
@@ -27,12 +27,13 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
                     ssmiter = img['misc']['rivulet2']['ssmiter'] if 'ssmiter' in img['misc']['rivulet2'] else 40
                     cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
 
-                if 'groundtruth' in img: 
-                    comparecmd = 'python3 compareswc --target %s --groundtruth %s' % (os.path.join(root, outpath), os.path.join(root, img['groundtruth']))
-                else:
-                    comparecmd = ''
             else:
                 raise Exception('Method %s not implemented yet' % method)
+                
+            if 'groundtruth' in img: 
+                comparecmd = 'python3 compareswc --target %s --groundtruth %s' % (os.path.join(root, outpath), os.path.join(root, img['groundtruth']))
+            else:
+                comparecmd = ''
 
             if pbsfile is not None: # Add the options for pbs 
                 cmd = 'qsub -N %s -v rivuletcmd=\'%s\',comparecmd=\'%s\' %s' % (str(imgid), cmd, comparecmd, pbsfile)

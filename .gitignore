@@ -6,3 +6,5 @@
 *.npy
 *.nii
 *.nii.gz
+build/*
+scripts/recon_my_tif.sh*
