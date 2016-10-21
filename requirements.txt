@@ -1,4 +1,4 @@
 scikit-fmm
 scikit-image
-progressbar2
+tqdm
 nibabel
