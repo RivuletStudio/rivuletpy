@@ -61,7 +61,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: pbar = tqdm(total=nforeground)
+    if not silence: pbar = tqdm(total=nforeground * config['coverage'])
     velocity = None
     coveredctr_old = 0
 
@@ -285,7 +285,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
     coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: pbar = tqdm(total=nforeground)
+    if not silence: pbar = tqdm(total=nforeground * config['coverage'])
     velocity = None
     coveredctr_old = 0
 
@@ -306,7 +306,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
         notmoving =False 
         valueerror = False 
         gapctr = 0 # Count continous steps on background
-        fgctr = 0 # Count how many steps are made on foreground in this branch
+        # fgctr = 0 # Count how many steps are made on foreground in this branch
         steps_after_reach = 0
         outofbound = reachedsoma = False
         line_color = [random(), random(), random()]
@@ -322,7 +322,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
                 gapctr = 0 if endpt_b else gapctr + 1
                 if gapctr > gap: 
                     break # Stop tracing if gap is too big
-                fgctr += endpt_b
+                # fgctr += endpt_b
 
                 # Compute the online confidence
                 # online_voxsum += endpt_b
@@ -393,10 +393,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             branch.append(endpt) # Add the newly traced node to current branch
             srcpt = endpt # Shift forward
 
-        # Check forward confidence 
-        # cf = conf_forward(branch, bimg)
-        cf = fgctr / len(branch)
-
         ## Erase it from the timemap
         rlist = []
         for node in branch:
@@ -426,15 +422,15 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
         else:
             connectid = None
 
-        if cf < 0.3:
+        cf = conf_vox(branch, bimg)
+        print('cf:', cf)
+        if cf < 0.1:
+            print('dump due to cf:', cf, 'length:', len(branch))
             continue
 
-        # if len(branch) < length: # Check the confidence of this branch
-        #     continue 
-
         swc = add2swc(swc, branch, rlist, connectid)
-        if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop
-        if valueerror: swc[-1, 1] = 256 # Some weired colour for unexpected stop
+        # if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop
+        # if valueerror: swc[-1, 1] = 256 # Some weired colour for unexpected stop
 
     # After all tracing iterations, check all unconnected nodes
     for nodeidx in range(swc.shape[0]):
@@ -445,13 +441,32 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             if connect: swc[nodeidx, -1] = swc2consider[minidx, 0]
 
     # Prune short leaves 
-    swc = prune_leaves(swc, bimg, length, 0.5)
+    swc = prune_leaves(swc, bimg, length, 0.)
 
     # Add soma node to the result swc
     somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
     swc = np.vstack((somanode, swc))
 
     return swc
+
+
+def conf_vox(branch, bimg):
+    '''
+    The confidence score used in Rivulet1. 
+        The propotion of foreground voxels on a branch. Repeatant voxels will only be counted once
+
+    Parameters
+    ----------------
+    branch: list of 1 X 3 np.ndarray 
+    bimg: the binary image (3D np.ndarray)
+    '''
+    voxhash = {}
+    for node in branch:
+        nodevox = tuple([math.floor(x) for x in node])
+        voxhash[nodevox] = bimg[nodevox[0], nodevox[1], nodevox[2]]
+
+    foresum = np.sum(np.asarray(list(voxhash.values())))
+    return foresum / len(voxhash)
 
 
 def gd(srcpt, ginterp, t, stepsize):
