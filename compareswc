@@ -14,6 +14,7 @@ args = parser.parse_args()
 # The results will be written to the front of the swc file
 swc1 = loadswc(args.target) # Load the ground truth
 swc2 = loadswc(args.groundtruth) # Load the ground truth
+swc2[:, 5] = 1
 
 # PRECISION + RECALL
 (precision, recall, f1), prswc = precision_recall(swc1, swc2) # Run precision&recall metrics
@@ -37,6 +38,7 @@ saveswc(fpath+'.connect-err1.swc', swc1)
 for i in midx2: 
     swc2[i, 1] = 2
     swc2[i, 5] = 4
+
 saveswc(fpath+'.connect-err2.swc', swc2)
 
 metrics = {}

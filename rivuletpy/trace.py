@@ -22,7 +22,7 @@ def makespeed(dt, threshold=0):
     return F
 
 
-def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False, eraseratio=1.1):
+def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, silence=False, eraseratio=1.1):
     ''' 
     Trace the segmented image with a single neuron using Rivulet2 algorithm.
 
@@ -37,7 +37,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     eraseratio  :  The ratio to enlarge the inital surface of the branch erasing
     '''
 
-    config = {'length':6, 'coverage':0.98, 'gap':15}
+    config = {'coverage':0.98, 'gap':15}
 
     # Get the gradient of the Time-crossing map
     dx, dy, dz = distgradient(t.astype('float64'))
@@ -61,7 +61,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
     coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: pbar = tqdm(total=nforeground * config['coverage'])
+    if not silence: pbar = tqdm(total=math.floor(nforeground * config['coverage']))
     velocity = None
     coveredctr_old = 0
 
@@ -144,7 +144,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                         break
 
                 # If the velocity is too small, sprint a bit with the momentum
-                if np.linalg.norm(velocity) <= 0.5 and len(branch) >= config['length']:
+                if np.linalg.norm(velocity) <= 0.5 and len(branch) >= length:
                     endpt = srcpt + (branch[-1] - branch[-4])
 
                 if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
@@ -205,7 +205,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
         startidx = [math.floor(p) for p in branch[0]]
         endidx = [math.floor(p) for p in branch[-1]]
 
-        if len(branch) > config['length'] and tt[endidx[0], endidx[1], endidx[2]] < tt[startidx[0], startidx[1], startidx[2]]:
+        if len(branch) > length and tt[endidx[0], endidx[1], endidx[2]] < tt[startidx[0], startidx[1], startidx[2]]:
             erase_region = np.logical_and(tt[endidx[0], endidx[1], endidx[2]] <= tt, tt <= tt[startidx[0], startidx[1], startidx[2]])
             erase_region = np.logical_and(bb, erase_region)
         else:
@@ -240,7 +240,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, render=False, silence=False
                 swc[nodeidx, -1] = swc2consider[minidx, 0]
 
     # Prune short leaves 
-    swc = prune_leaves(swc, bimg, config['length'], 0.5)
+    swc = prune_leaves(swc, bimg, length, 0.5)
 
     # Add soma node to the result swc
     somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
@@ -285,7 +285,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
     coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: pbar = tqdm(total=nforeground * config['coverage'])
+    if not silence: pbar = tqdm(total=math.floor(nforeground * config['coverage']))
     velocity = None
     coveredctr_old = 0
 
@@ -423,9 +423,9 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             connectid = None
 
         # Dump due to low confidence
-        cf = conf_vox(branch, bimg)
-        if cf < 0.1:
-            continue
+        # cf = conf_vox(branch, bimg)
+        # if cf < 0.1:
+        #     continue
 
         swc = add2swc(swc, branch, rlist, connectid)
         # if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop

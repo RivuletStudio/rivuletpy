@@ -2,7 +2,8 @@ import numpy as np
 from scipy.special import jv # Bessel Function of the first kind
 from scipy.linalg import eig
 from scipy.fftpack import fftn, ifftn, ifft
-import progressbar
+# import progressbar
+from tqdm import tqdm
 from scipy.ndimage import filters as fi
 import math
 
@@ -17,8 +18,8 @@ import math
 def response(img, rsptype='oof', **kwargs):
     eps = 1e-12
     rsp = np.zeros(img.shape)
-    bar = progressbar.ProgressBar(max_value=kwargs['radii'].size)
-    bar.update(0)
+    # bar = progressbar.ProgressBar(max_value=kwargs['radii'].size)
+    # bar.update(0)
 
     W = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3)) # Eigen values to save
     V = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3, 3)) # Eigen vectors to save
@@ -28,7 +29,7 @@ def response(img, rsptype='oof', **kwargs):
     elif rsptype == 'bg':
         rsptensor = bgtensor(img, kwargs['radii'], kwargs['rho'])
 
-    for i, tensorfield in enumerate(rsptensor):
+    for i, tensorfield in tqdm(enumerate(rsptensor)):
         # Make the tensor from tensorfield
         f11, f12, f13, f22, f23, f33 = tensorfield
         tensor = np.stack((f11, f12, f13, f12, f22, f23, f13, f23, f33), axis=-1)
@@ -84,7 +85,7 @@ def response(img, rsptype='oof', **kwargs):
         del tensorfield
         del feat
         del cond
-        bar.update(i+1)
+        # bar.update(i+1)
 
     return rsp, V, W
 

@@ -42,6 +42,7 @@ parser.set_defaults(trace=True)
 
 
 parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
+parser.add_argument('--length', type=int, default=6, help='The length of leaves to prune. Default 6')
 
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
@@ -176,7 +177,7 @@ if args.trace:
     if not args.silence: print('--Start Backtracking...')
     swc = iterative_backtrack(t, img, somapos, somaradius,
                                               render=args.render, silence=args.silence, 
-                                              eraseratio=1.7 if args.speed=='ssm' else 1.5)
+                                              eraseratio=1.7 if args.speed=='ssm' else 1.5, length=args.length)
 
     # Clean SWC 
     if args.clean:
