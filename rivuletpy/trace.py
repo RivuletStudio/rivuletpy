@@ -64,7 +64,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, somaimg, render=False, sile
     coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: pbar = tqdm(total=nforeground)
+    if not silence: pbar = tqdm(total=nforeground * config['coverage'])
     velocity = None
     coveredctr_old = 0
 
@@ -279,7 +279,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
 
     bounds = t.shape
     tt = t.copy()
-    tt[bimg <= 0] = -2
+    tt[bimg == 0] = -2
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
 
     if render:
@@ -292,7 +292,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
     coverage = 0.0
     iteridx = 0
     swc = None
-    if not silence: pbar = tqdm(total=nforeground)
+    if not silence: pbar = tqdm(total=nforeground * config['coverage'])
     velocity = None
     coveredctr_old = 0
 
@@ -312,9 +312,9 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
         touched = False
         notmoving =False 
         valueerror = False 
-        gapctr = 0 # Count continous steps on background
-        fgctr = 0 # Count how many steps are made on foreground in this branch
-        steps_after_reach = 0
+        # gapctr = 0 # Count continous steps on background
+        gapdist = 0. # The distance of the gap measured in voxel space
+        # steps_after_reach = 0
         outofbound = reachedsoma = False
         line_color = [random(), random(), random()]
 
@@ -322,18 +322,19 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
                 endptint = [math.floor(p) for p in endpt]
+                endptint_ceil = [math.ceil(p) for p in endpt]
                 velocity = endpt - srcpt
+                velnorm = np.linalg.norm(velocity)
 
                 # See if it travels too far on the background
-                endpt_b = bimg[endptint[0], endptint[1], endptint[2]]
-                gapctr = 0 if endpt_b else gapctr + 1
-                if gapctr > gap: 
+                endpt_b = bimg[endptint[0], endptint[1], endptint[2]] or bimg[endptint_ceil[0], endptint_ceil[1], endptint_ceil[2]]
+                # print('')
+                # gapctr = 0 if endpt_b else gapctr + 1
+                gapdist = 0 if endpt_b > 0 else gapdist + velnorm
+                # if gapdist > 0:
+                #     print('gap:', gapdist)
+                if gapdist > gap: 
                     break # Stop tracing if gap is too big
-                fgctr += endpt_b
-
-                # Compute the online confidence
-                # online_voxsum += endpt_b
-                # online_confidence = online_voxsum / (len(branch) + 1)
 
                 if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
@@ -370,7 +371,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
                     break
 
                 # # If the velocity is too small, sprint a bit with the momentum
-                if np.linalg.norm(velocity) <= 0.5 and len(branch) >= length:
+                if velnorm <= 0.5 and len(branch) >= length:
                     endpt = srcpt + (branch[-1] - branch[-4])
 
                 if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
@@ -400,10 +401,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             branch.append(endpt) # Add the newly traced node to current branch
             srcpt = endpt # Shift forward
 
-        # Check forward confidence 
-        # cf = conf_forward(branch, bimg)
-        cf = fgctr / len(branch)
-
         ## Erase it from the timemap
         rlist = []
         for node in branch:
@@ -421,7 +418,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             bb[X, Y, Z] = 1
 
         erase_region = bb.astype('bool')
-
         if np.count_nonzero(erase_region) > 0:
             tt[erase_region] = -1
         bb.fill(0)
@@ -433,15 +429,14 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
         else:
             connectid = None
 
-        if cf < 0.3:
+        # Dump due to low confidence
+        cf = conf_vox(branch, bimg)
+        if cf < 0.1:
             continue
 
-        # if len(branch) < length: # Check the confidence of this branch
-        #     continue 
-
         swc = add2swc(swc, branch, rlist, connectid)
-        if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop
-        if valueerror: swc[-1, 1] = 256 # Some weired colour for unexpected stop
+        # if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop
+        # if valueerror: swc[-1, 1] = 256 # Some weired colour for unexpected stop
 
     # After all tracing iterations, check all unconnected nodes
     for nodeidx in range(swc.shape[0]):
@@ -452,13 +447,32 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             if connect: swc[nodeidx, -1] = swc2consider[minidx, 0]
 
     # Prune short leaves 
-    swc = prune_leaves(swc, bimg, length, 0.5)
+    swc = prune_leaves(swc, bimg, length, 0.)
 
     # Add soma node to the result swc
     somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
     swc = np.vstack((somanode, swc))
 
     return swc
+
+
+def conf_vox(branch, bimg):
+    '''
+    The confidence score used in Rivulet1. 
+        The propotion of foreground voxels on a branch. Repeatant voxels will only be counted once
+
+    Parameters
+    ----------------
+    branch: list of 1 X 3 np.ndarray 
+    bimg: the binary image (3D np.ndarray)
+    '''
+    voxhash = {}
+    for node in branch:
+        nodevox = tuple([math.floor(x) for x in node])
+        voxhash[nodevox] = bimg[nodevox[0], nodevox[1], nodevox[2]]
+
+    foresum = np.sum(np.asarray(list(voxhash.values())))
+    return foresum / len(voxhash)
 
 
 def gd(srcpt, ginterp, t, stepsize):

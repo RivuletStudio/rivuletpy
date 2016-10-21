@@ -16,17 +16,26 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
     for datasetname, dataset in dataidx['data'].items():
         print('-- Working on dataset', datasetname)
         for imgid, img in dataset.items():
-            print('---- Working on image', imgid)
-            if method is 'rivulet2':
+            print('---- Working on image', imgid, 'with method ', method)
+            if method == 'rivulet2':
                 outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r2.swc'
                 cmd = 'python3 rivulet2 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
                 if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
                 # Parameters for different methods
-                if 'rivulet2' in img['misc']:
-                    speed = img['misc']['rivulet2']['speed'] if 'speed' in img['misc']['rivulet2'] else 'dt'
-                    ssmiter = img['misc']['rivulet2']['ssmiter'] if 'ssmiter' in img['misc']['rivulet2'] else 40
+                if method in img['misc']:
+                    speed = img['misc'][method]['speed'] if 'speed' in img['misc'][method] else 'dt'
+                    ssmiter = img['misc'][method]['ssmiter'] if 'ssmiter' in img['misc'][method] else 40
                     cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
-
+            elif method == 'rivulet1':
+                outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r1.swc'
+                cmd = 'python3 rivulet1 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
+                if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
+                # Parameters for different methods
+                if method in img['misc']:
+                    gap = img['misc'][method]['gap'] if 'gap' in img['misc'][method] else 50
+                    wiring = img['misc'][method]['wiring'] if 'wiring' in img['misc'][method] else 1.8
+                    length = img['misc'][method]['length'] if 'length' in img['misc'][method] else 4
+                    cmd += ' --gap %s --wiring %d --length %d' % (gap, wiring, length)
             else:
                 raise Exception('Method %s not implemented yet' % method)
                 
@@ -38,7 +47,7 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
             if pbsfile is not None: # Add the options for pbs 
                 cmd = 'qsub -N %s -v rivuletcmd=\'%s\',comparecmd=\'%s\' %s' % (str(imgid), cmd, comparecmd, pbsfile)
             else:
-                cmd += comparecmd
+                cmd += ';' + comparecmd
                 
             print(cmd)
             os.system(cmd)

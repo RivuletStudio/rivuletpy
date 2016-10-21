@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.ndimage import gaussian_gradient_magnitude, gaussian_filter, sobel, gaussian_filter1d
 from scipy.ndimage.filters import laplace
-import progressbar
+from tqdm import tqdm 
 from functools import reduce
 from rivuletpy.utils.preprocessing import distgradient
 from scipy.interpolate import RegularGridInterpolator 
@@ -149,10 +149,7 @@ def gvf(f, mu=0.05, iterations=30, anisotropic=False,  ignore_second_term=False)
     v = dy.copy()
     w = dz.copy()
 
-    bar = progressbar.ProgressBar(max_value=iterations)
-    for i in range(iterations):
-        bar.update(i+1)
-
+    for i in tqdm(range(iterations)):
         # The boundary might not matter here
         # u = enforce_mirror_boundary(u)
         # v = enforce_mirror_boundary(v)

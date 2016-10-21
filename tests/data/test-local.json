@@ -1,15 +1,19 @@
-{  "rootpath": ".", 
-    "data":
-    {
-        "test_dataset":
-        {   
-            "test1":
-            {
-             "imagepath": "tests/data/test.tif",
-             "groundtruth": "tests/data/test-expected.swc",
-             "misc": 
-             {"threshold": 0}
-            }
+{
+  "data": {
+    "test_dataset": {
+      "test1": {
+        "groundtruth": "test-expected.swc",
+        "imagepath": "test.tif",
+        "misc": {
+          "threshold": 0,
+          "rivulet1": {
+            "gap": 70,
+            "length": 4,
+            "wiring": 2
+          }
         }
+      }
     }
+  },
+  "rootpath": "."
 }
