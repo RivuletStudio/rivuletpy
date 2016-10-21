@@ -23,15 +23,14 @@ parser.add_argument('--groundtruth', type=str, default=None, required=False, hel
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
 
 # Arguments for soma detection
-parser.add_argument('--somaauto', dest='soma', action='store_true')
-parser.add_argument('--no-somaauto', dest='soma', action='store_false')
-parser.set_defaults(soma=True)
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
-parser.add_argument('--soma_iterations', type=int, default=20, help='The number of iterations for soma snake')
+parser.add_argument('--soma_iterations', type=int, default=-1, help='The number of iterations for soma snake')
 parser.add_argument('--soma_smoothing', type=int, default=1, help='The number of iterations for making soma a sphere')
 parser.add_argument('--soma_lambda1', type=float, default=1, help='The weight of internal energy')
 parser.add_argument('--soma_lambda2', type=float, default=1.5, help='The weight of external energy')
-parser.add_argument('--soma_mask', type=bool, default=False, help='True : save the soma mask image; False : Discard the soma mask')
+parser.add_argument('--somasaveim', dest='soma', action='store_true')
+parser.add_argument('--no-somasaveim', dest='soma', action='store_false')
+parser.set_defaults(soma=False)
 
 # Arguments for filtering
 parser.add_argument('--filter', dest='filter', action='store_true')
@@ -97,10 +96,13 @@ if args.trace:
     somaradius = dt.max()
     print('DT max:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    # conduct soma detection and generate soma mask 
-    somamask = soma_detect(img, somapos, somaradius, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma, args.soma_iterations)
-    # save the soma mask if required
-    if args.soma_mask:
+
+    # Conduct soma detection and generate soma mask 
+    somamask = soma_detect(img, somapos, somaradius, args.soma_smoothing, 
+                        args.soma_lambda1, args.soma_lambda2, args.soma, args.soma_iterations)
+    
+    # Save the soma mask if required
+    if args.soma:
         writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask);
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
@@ -109,7 +111,8 @@ if args.trace:
 if args.filter:
     if not args.silence: print('--Filtering with filter: ', args.filtertype)
     radii = np.arange(args.rlow, args.rhigh, args.rstep)
-    img, _, _ = response(img.astype('float'), rsptype=args.filtertype, radii=np.asarray(radii), rho=args.rho, memory_save=False)
+    img, _, _ = response(img.astype('float'), rsptype=args.filtertype,
+                         radii=np.asarray(radii), rho=args.rho, memory_save=False)
 
     # Save the filtered image by default
     nib.save(nib.Nifti1Image(img, np.eye(4)), '_'.join([args.file,str(args.rlow), str(args.rhigh), 
@@ -149,13 +152,12 @@ if args.trace:
 
     dt = skfmm.distance(img, dx=5e-2) # Boundary DT
 
-    # if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
+    # if not args.filter: 
+    # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
     dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
-
-
 
     if args.speed in ['ssm', 'ssmske']:
         if not args.silence: print('--SSM with GVF...')
@@ -182,7 +184,8 @@ if args.trace:
 
     # Iterative Back Tracking with Erasing
     if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, somapos, somaradius, somamask, render=args.render, silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
+    swc = iterative_backtrack(t, img, somapos, somaradius, somamask, render=args.render,
+                                 silence=args.silence, eraseratio=1.7 if args.speed=='ssm' else 1.5)
 
     # Clean SWC 
     if args.clean:

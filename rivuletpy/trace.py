@@ -14,6 +14,7 @@ def makespeed(dt, threshold=0):
     F[F<=threshold] = 1e-10
     return F
 
+
 def iterative_backtrack(t, bimg, somapt, somaradius, somaimg, render=False, silence=False, eraseratio=1.1):
     '''Trace the 3d tif with a single neuron using Rivulet algorithm'''
     config = {'length':6, 'coverage':0.98, 'gap':15}
@@ -28,6 +29,8 @@ def iterative_backtrack(t, bimg, somapt, somaradius, somaimg, render=False, sile
     bounds = t.shape
     tt = t.copy()
     tt[bimg <= 0] = -2
+
+    # Label all voxels of soma with -3
     tt[somaimg > 0] = -3
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
 
@@ -85,7 +88,10 @@ def iterative_backtrack(t, bimg, somapt, somaradius, somaimg, render=False, sile
                 online_voxsum += endpt_b
                 online_confidence = online_voxsum / (len(branch) + 1)
 
-                if (tt[endptint[0], endptint[1], endptint[2]] == -3) | (np.linalg.norm(somapt - endpt) < somaradius):
+                # Reach somatic area or the distance between the somatic centroid
+                # And traced point is less than somatic radius
+                if (tt[endptint[0], endptint[1], endptint[2]] == -3) | \
+                 (np.linalg.norm(somapt - endpt) < somaradius):
                 # if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
 
