@@ -272,7 +272,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
 
     bounds = t.shape
     tt = t.copy()
-    tt[bimg <= 0] = -2
+    tt[bimg == 0] = -2
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
 
     if render:
@@ -305,9 +305,9 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
         touched = False
         notmoving =False 
         valueerror = False 
-        gapctr = 0 # Count continous steps on background
-        # fgctr = 0 # Count how many steps are made on foreground in this branch
-        steps_after_reach = 0
+        # gapctr = 0 # Count continous steps on background
+        gapdist = 0. # The distance of the gap measured in voxel space
+        # steps_after_reach = 0
         outofbound = reachedsoma = False
         line_color = [random(), random(), random()]
 
@@ -315,18 +315,19 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
                 endptint = [math.floor(p) for p in endpt]
+                endptint_ceil = [math.ceil(p) for p in endpt]
                 velocity = endpt - srcpt
+                velnorm = np.linalg.norm(velocity)
 
                 # See if it travels too far on the background
-                endpt_b = bimg[endptint[0], endptint[1], endptint[2]]
-                gapctr = 0 if endpt_b else gapctr + 1
-                if gapctr > gap: 
+                endpt_b = bimg[endptint[0], endptint[1], endptint[2]] or bimg[endptint_ceil[0], endptint_ceil[1], endptint_ceil[2]]
+                # print('')
+                # gapctr = 0 if endpt_b else gapctr + 1
+                gapdist = 0 if endpt_b > 0 else gapdist + velnorm
+                # if gapdist > 0:
+                #     print('gap:', gapdist)
+                if gapdist > gap: 
                     break # Stop tracing if gap is too big
-                # fgctr += endpt_b
-
-                # Compute the online confidence
-                # online_voxsum += endpt_b
-                # online_confidence = online_voxsum / (len(branch) + 1)
 
                 if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
@@ -363,7 +364,7 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
                     break
 
                 # # If the velocity is too small, sprint a bit with the momentum
-                if np.linalg.norm(velocity) <= 0.5 and len(branch) >= length:
+                if velnorm <= 0.5 and len(branch) >= length:
                     endpt = srcpt + (branch[-1] - branch[-4])
 
                 if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
@@ -410,7 +411,6 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
             bb[X, Y, Z] = 1
 
         erase_region = bb.astype('bool')
-
         if np.count_nonzero(erase_region) > 0:
             tt[erase_region] = -1
         bb.fill(0)
@@ -422,10 +422,9 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
         else:
             connectid = None
 
+        # Dump due to low confidence
         cf = conf_vox(branch, bimg)
-        print('cf:', cf)
         if cf < 0.1:
-            print('dump due to cf:', cf, 'length:', len(branch))
             continue
 
         swc = add2swc(swc, branch, rlist, connectid)

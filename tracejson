@@ -35,7 +35,7 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
                     gap = img['misc'][method]['gap'] if 'gap' in img['misc'][method] else 50
                     wiring = img['misc'][method]['wiring'] if 'wiring' in img['misc'][method] else 1.8
                     length = img['misc'][method]['length'] if 'length' in img['misc'][method] else 4
-                    cmd += ' --gap %s --wiring%d --length %d' % (gap, wiring, length)
+                    cmd += ' --gap %s --wiring %d --length %d' % (gap, wiring, length)
             else:
                 raise Exception('Method %s not implemented yet' % method)
                 
