@@ -10,7 +10,7 @@ from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
 import skfmm
-import msfm
+import msfm # A C ported external module
 
 try:
     from skimage import filters
@@ -24,23 +24,7 @@ parser.add_argument('--groundtruth', type=str, default=None, required=False, hel
 parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
 
-# Arguments for filtering
-parser.add_argument('--filter', dest='filter', action='store_true')
-parser.add_argument('--no-filter', dest='filter', action='store_false')
-parser.set_defaults(filter=False)
-parser.add_argument('--filtertype', type=str, default='oof', help='The type of filter to use for filtering images (bg or oof); default: oof')
-parser.add_argument('--rlow', type=float, default=1., help='The lower bound of radius to try')
-parser.add_argument('--rhigh', type=float, default=2., help='The higher bound of radius to try')
-parser.add_argument('--rstep', type=float, default=0.5, help='The step size of trying radius')
-parser.add_argument('--rho', type=float, default=0.5, help='The step size of trying radius. Only used if filter type is bg')
-
-# Argument for tracing
-
-parser.add_argument('--trace', dest='trace', action='store_true', help='Run tracing with rivulet 2')
-parser.add_argument('--no-trace', dest='trace', action='store_false', help='Skip the tracing with rivulet 2')
-parser.set_defaults(trace=True)
-
-
+# Args for tracing
 parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
 parser.add_argument('--length', type=int, default=6, help='The length of leaves to prune. Default 6')
 
@@ -52,16 +36,11 @@ parser.add_argument('--msfm', dest='msfm', action='store_true')
 parser.add_argument('--no-msfm', dest='msfm', action='store_false')
 parser.set_defaults(msfm=True)
 
-parser.add_argument('--speed', type=str, default='ssm', help='The type of speed image to use (dt, ssm, ske, ssmske)')
+parser.add_argument('--speed', type=str, default='ssm', help='The type of speed image to use (dt, ssm)')
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
 parser.set_defaults(clean=False)
-
-parser.add_argument('--rotateswc90', dest='rotateswc90', action='store_true')
-parser.add_argument('--no-rotateswc90', dest='rotateswc90', action='store_false')
-parser.set_defaults(rotateswc90=False)
-
 
 # MISC
 parser.add_argument('--silence', dest='silence', action='store_true')
@@ -71,139 +50,96 @@ parser.set_defaults(silence=False)
 parser.add_argument('--render', dest='render', action='store_true')
 parser.add_argument('--no-render', dest='render', action='store_false')
 parser.set_defaults(render=False)
-
 args = parser.parse_args()
 
-img = loadimg(args.file)
-
 ## Get the soma radius if image is about to be filtered before tracing
-if args.trace:  
-    # Prepare variables for fastmarching
-    ## Distance Transform
-    if args.soma_threshold < 0:
-        try:
-            from skimage import filters
-        except ImportError:
-            from skimage import filter as filters
-        args.soma_threshold = filters.threshold_otsu(img)
+# Prepare variables for fastmarching
+## Distance Transform
+img = loadimg(args.file)
+if args.soma_threshold < 0:
+    try:
+        from skimage import filters
+    except ImportError:
+        from skimage import filter as filters
+    args.soma_threshold = filters.threshold_otsu(img)
 
-    if not args.silence: print('--DT to get soma location with threshold:', args.soma_threshold)
-    bimg = (img > args.soma_threshold).astype('int') # Segment image
-    dt = skfmm.distance(bimg, dx=1) # Boundary DT
-    somaradius = dt.max()
-    print('DT max:', somaradius)
-    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    marchmap = np.ones(img.shape)
-    marchmap[somapos[0], somapos[1], somapos[2]] = -1
+if not args.silence: print('--DT to get soma location with threshold:', args.soma_threshold)
+bimg = (img > args.soma_threshold).astype('int') # Segment image
+dt = skfmm.distance(bimg, dx=1) # Boundary DT
+somaradius = dt.max()
+print('DT max:', somaradius)
+somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+marchmap = np.ones(img.shape)
+marchmap[somapos[0], somapos[1], somapos[2]] = -1
 
-## Filter
-if args.filter:
-    if not args.silence: print('--Filtering with filter: ', args.filtertype)
-    radii = np.arange(args.rlow, args.rhigh, args.rstep)
-    img, _, _ = response(img.astype('float'), rsptype=args.filtertype,
-                                      radii=np.asarray(radii), rho=args.rho, memory_save=False)
+## Trace 
+if args.threshold < 0:
+    args.threshold = filters.threshold_otsu(img)
+    if not args.silence: print('--Otus for threshold: ', args.threshold)
+else:
+    print('--Using the user threshold:', args.threshold)
 
-    # Save the filtered image by default
-    nib.save(nib.Nifti1Image(img, np.eye(4)), '_'.join([args.file,str(args.rlow), str(args.rhigh), 
-                            str(args.rstep), str(args.rho), '.rps.nii.gz']))
+img = (img > args.threshold).astype('int') # Segment image
 
-    if not args.silence: print('--End Filtering: ', args.filtertype)
+if not args.silence: print('--Boundary DT...')
 
-## Trace
-if args.trace:
-    ## Distance Transform
-    if args.threshold < 0:
-        args.threshold = filters.threshold_otsu(img)
-        if not args.silence: print('--Otus for threshold: ', args.threshold)
-    else:
-        print('--Using the user threshold:', args.threshold)
+dt = skfmm.distance(img, dx=5e-2) # Boundary DT
 
-    img = (img > args.threshold).astype('int') # Segment image
+# if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
+dtmax = dt.max()
+maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+marchmap = np.ones(img.shape)
+marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
-    if not args.silence: print('--Boundary DT...')
+if args.speed == 'ssm':
+    if not args.silence: print('--SSM with GVF...')
+    dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
+    img = dt > filters.threshold_otsu(dt)
+    dt = skfmm.distance(img, dx=5e-2)
 
-    # If the image is filtered, there is like to be a large hole in the middle of the soma
-    # Make a ball with radius 1.5 *dtmax to rewrite the segmented image
-    if args.filter: 
-        gx, gy, gz = np.meshgrid(np.arange(img.shape[0]), np.arange(img.shape[1]), np.arange(img.shape[2]))
-        griddist = np.linalg.norm((gx.flatten() - maxdpt[0], gy.flatten() - maxdpt[1], gz.flatten() - maxdpt[2]))
-        include_region =  griddist <= 1.5*dtmax
-        gx = gx[include_region]
-        gy = gy[include_region]
-        gz = gz[include_region]
-        img[gx, gy, gz] = bimg[gx, gy, gz]
-        del bimg
-        del gx
-        del gy
-        del gz
-        del include_region
-        del griddist
+    if not args.silence: print('--Reverse DT...')
+    dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
+    dt[dt > 0.04] = 0.04
+    dt = dt.max() - dt
 
-    dt = skfmm.distance(img, dx=5e-2) # Boundary DT
+# Fast Marching
+if args.msfm:
+    if not args.silence: print('--MSFM...')
+    t = msfm.run(makespeed(dt), somapos, False, True)
+else:
+    if not args.silence: print('--FM...')
+    t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
-    # if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
-    dtmax = dt.max()
-    maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    marchmap = np.ones(img.shape)
-    marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
+# Iterative Back Tracking with Erasing
+if not args.silence: print('--Start Backtracking...')
+swc = iterative_backtrack(t, img, somapos, somaradius,
+                                          render=args.render, silence=args.silence, 
+                                          eraseratio=1.7 if args.speed=='ssm' else 1.5, length=args.length)
 
-    if args.speed in ['ssm', 'ssmske']:
-        if not args.silence: print('--SSM with GVF...')
-        dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
-        img = dt > filters.threshold_otsu(dt)
-        dt = skfmm.distance(img, dx=5e-2)
+# Clean SWC 
+if args.clean:
+    # This will only keep the largest connected component of the graph in swc
+    print('Cleaning swc')
+    swc = cleanswc(swc, args.radius) 
+elif not args.radius:
+    swc[:, 5] = 1
 
-    if args.speed in ['ske', 'ssmske']:
-        if not args.silence: print('--Skelontising...')
-        if args.speed == 'ske':
-            dt = skeletonize_3d(img > 0)
-        elif args.speed == 'ssmske':
-            dt = skeletonize_3d(dt > 0.15)
+if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
+    swc_x = swc[:, 2].copy()
+    swc_y = swc[:, 3].copy()
+    swc[:, 2] = swc_y
+    swc[:, 3] = swc_x
 
-        if not args.silence: print('--Reverse DT...')
-        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-        dt[dt > 0.04] = 0.04
-        dt = dt.max() - dt
+## Save the final swc
+if args.outfile:
+    outswcfile = args.outfile
+else:
+    # Make the long file name
+    kvpairs = []
+    for key, value in vars(args).items():
+        if key not in ['file', 'outfile']: 
+            kvpairs.append(key + ':' + str(value))
 
-    # Fast Marching
-    if args.msfm:
-        if not args.silence: print('--MSFM...')
-        t = msfm.run(makespeed(dt), somapos, False, True)
-    else:
-        if not args.silence: print('--FM...')
-        t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+    outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
 
-    # Iterative Back Tracking with Erasing
-    if not args.silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, somapos, somaradius,
-                                              render=args.render, silence=args.silence, 
-                                              eraseratio=1.7 if args.speed=='ssm' else 1.5, length=args.length)
-
-    # Clean SWC 
-    if args.clean:
-        # This will only keep the largest connected component of the graph in swc
-        print('Cleaning swc')
-        swc = cleanswc(swc, args.radius) 
-    elif not args.radius:
-        swc[:, 5] = 1
-
-    if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
-        swc_x = swc[:, 2].copy()
-        swc_y = swc[:, 3].copy()
-        swc[:, 2] = swc_y
-        swc[:, 3] = swc_x
-
-    ## Save the final swc
-    if args.outfile:
-        outswcfile = args.outfile
-    else:
-        # Make the long file name
-        kvpairs = []
-        for key, value in vars(args).items():
-            if key not in ['file', 'outfile']: 
-                kvpairs.append(key + ':' + str(value))
-
-        outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
-
-    saveswc(outswcfile, swc)
-
+saveswc(outswcfile, swc)

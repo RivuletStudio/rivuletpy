@@ -29,7 +29,8 @@ def response(img, rsptype='oof', **kwargs):
     elif rsptype == 'bg':
         rsptensor = bgtensor(img, kwargs['radii'], kwargs['rho'])
 
-    for i, tensorfield in tqdm(enumerate(rsptensor)):
+    pbar = tqdm(total=len(kwargs['radii']))
+    for i, tensorfield in enumerate(rsptensor):
         # Make the tensor from tensorfield
         f11, f12, f13, f22, f23, f33 = tensorfield
         tensor = np.stack((f11, f12, f13, f12, f22, f23, f13, f23, f33), axis=-1)
@@ -85,7 +86,7 @@ def response(img, rsptype='oof', **kwargs):
         del tensorfield
         del feat
         del cond
-        # bar.update(i+1)
+        pbar.update(1)
 
     return rsp, V, W
 

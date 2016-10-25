@@ -1,5 +1,7 @@
 #!bin/bash
 # This script will globally setup the dependencies for rivuletpy
+# Should be able to work on a refresh Ubuntu>14 image from scratch
+# Can be tweaked to install locally with virtualenv
 
 # Setup the dependencies for scipy and pip3
 sudo apt-get -y install libblas-dev liblapack-dev libatlas-base-dev gfortran;
@@ -15,13 +17,18 @@ sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtif
 sudo pip3 install -r requirements.txt; # Install the requirements.txt friendly packages
 sudo pip3 install . --upgrade;
 
+# Disabled adding running permission, in case your default python3 is not at /bin/usr/python3
 # chmod +x rivulet2;
 # chmod +x tracejson;
 # chmod +x compareswc;
+# chmod +x anifilter;
+
 sed -i '/^alias rivulet2=/d' ~/.bashrc;
 sed -i '/^alias tracejson=/d' ~/.bashrc;
 sed -i '/^alias compareswc=/d' ~/.bashrc;
+sed -i '/^alias anifilter=/d' ~/.bashrc;
 echo "alias rivulet2=\"python3 $(pwd)/rivulet2\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias tracejson=\"python3 $(pwd)/tracejson\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias compareswc=\"python3 $(pwd)/compareswc\";" >> ~/.bashrc; # Append the current path to PATH
+echo "alias anifilter=\"python3 $(pwd)/anifilter\";" >> ~/.bashrc; # Append the current path to PATH
 bash ~/.bashrc;

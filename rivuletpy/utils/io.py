@@ -43,6 +43,7 @@ def writetiff3d(filepath, block):
         pass
 
     tiff = TIFF.open(filepath, mode='w')
+    block = np.swapaxes(block, 0, 1)
     block = np.flipud(block)
     
     for z in range(block.shape[2]):

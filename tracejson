@@ -36,6 +36,16 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
                     wiring = img['misc'][method]['wiring'] if 'wiring' in img['misc'][method] else 1.8
                     length = img['misc'][method]['length'] if 'length' in img['misc'][method] else 4
                     cmd += ' --gap %s --wiring %d --length %d' % (gap, wiring, length)
+            elif method == 'ooffilter':
+                outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.oof.tif'
+                cmd = 'python3 anifilter --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
+                if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
+                # Parameters for different methods
+                if method in img['misc']:
+                    rlow = img['misc'][method]['rlow'] if 'rlow' in img['misc'][method] else 1.0
+                    rhigh = img['misc'][method]['rhigh'] if 'rhigh' in img['misc'][method] else 2.0
+                    rstep = img['misc'][method]['rstep'] if 'rstep' in img['misc'][method] else 0.2
+                    cmd += ' --rlow %f --rhigh %f --rstep %f' % (rlow, rhigh, rstep)
             else:
                 raise Exception('Method %s not implemented yet' % method)
                 

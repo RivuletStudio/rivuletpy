@@ -1,0 +1,97 @@
+#!/usr/bin/python3
+
+import argparse
+import nibabel as nib
+from rivuletpy.utils.io import *
+from filtering.anisotropic import response
+import skfmm
+
+try:
+    from skimage import filters
+except ImportError:
+    from skimage import filter as filters
+from skimage import exposure
+
+parser = argparse.ArgumentParser(description='Arguments to perform the anisotropic filter on the input image.')
+parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
+parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
+
+# Arguments for filtering
+parser.add_argument('--soma', dest='soma', action='store_true')
+parser.add_argument('--no-soma', dest='soma', action='store_false')
+parser.set_defaults(soma=True)
+parser.add_argument('--threshold', type=float, default=-1, 
+    help='The thresohld to get the segmentation for soma detection. If not provided, the threshold will be decided via otsu thresholding (not reliable for noisy images). ')
+parser.add_argument('--filtertype', type=str, default='oof', 
+	help='The type of filter to use for filtering images (bg or oof); bf for Bi-Gaussian filter, oof for Optimal Oriented Flux filter. default: oof')
+parser.add_argument('--rlow', type=float, default=1., help='The lower bound of radius to try')
+parser.add_argument('--rhigh', type=float, default=2., help='The higher bound of radius to try')
+parser.add_argument('--rstep', type=float, default=0.2, help='The step size of trying radius')
+parser.add_argument('--rho', type=float, default=0.5, help='The rho value for the BG filter. Only used if filter type is bg')
+args = parser.parse_args()
+
+img = loadimg(args.file)
+imgdtype = img.dtype
+# Get the soma detection with the original image
+if args.soma:
+    if args.threshold < 0:
+        try:
+            from skimage import filters
+        except ImportError:
+            from skimage import filter as filters
+        threshold = filters.threshold_otsu(img)
+    else:
+        threshold = args.threshold
+
+    print('--DT to get soma location with threshold:', threshold)
+    bimg = (img > threshold).astype('int') # Segment image
+    dt = skfmm.distance(bimg, dx=1) # Boundary DT
+    somaradius = dt.max()
+    print('Soma radius:', somaradius)
+    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    marchmap = np.ones(img.shape)
+    marchmap[somapos[0], somapos[1], somapos[2]] = -1
+
+# Anisotropic filtering
+print('--Filtering with filter: ', args.filtertype)
+img = loadimg(args.file)
+radii = np.arange(args.rlow, args.rhigh, args.rstep)
+img, _, _ = response(img.astype('float'), rsptype=args.filtertype,
+                                  radii=np.asarray(radii), rho=args.rho, memory_save=False)
+img = img / img.max() * 255
+print('--End Filtering: ', args.filtertype, '...')
+
+# If the image is filtered, there is like to be a large hole in the middle of the soma
+# Make a ball with radius 1.5 *dtmax to rewrite the segmented image
+if args.soma:
+    print('--Replacing soma region of the filtered image')
+    gx, gy, gz = np.meshgrid(np.arange(img.shape[0]), np.arange(img.shape[1]), np.arange(img.shape[2]))
+    gx = gx.flatten()
+    gy = gy.flatten()
+    gz = gz.flatten()
+    griddist = np.linalg.norm(np.vstack((gx - somapos[0], gy - somapos[1], gz - somapos[2])), axis=0)
+    print('==griddist shape:', griddist.shape)
+    include_region =  griddist <= 2 * somaradius
+    print('include_region shape:', include_region.shape)
+    gx = gx[include_region]
+    gy = gy[include_region]
+    gz = gz[include_region]
+    print('==gx shape after indexing:', gx.shape)
+    print('==gy shape after indexing:', gy.shape)
+    print('==gz shape after indexing:', gz.shape)
+    img[gx, gy, gz] = bimg[gx, gy, gz] * 255 # Replace the soma area with the soma mask
+
+# Save the filtered image by default
+if args.outfile:
+    outfile = args.outfile
+else:
+    # Make the long file name
+    kvpairs = []
+    for key, value in vars(args).items():
+        if key not in ['file', 'outfile']: 
+            kvpairs.append(key + ':' + str(value))
+
+    outfile = args.file + '_' + '_'.join(kvpairs) +'.tif'
+
+img = np.ceil(img).astype(imgdtype)
+writetiff3d(outfile, img)
