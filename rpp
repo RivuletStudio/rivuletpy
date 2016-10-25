@@ -1,0 +1,90 @@
+#!/usr/bin/python3
+# The preprocessing pipeline of Rivulet2
+import argparse
+import os, random, string, subprocess
+from pathlib import Path
+import nibabel as nib
+from rivuletpy.utils.io import *
+from filtering.thresholding import suppress
+import skfmm
+from scipy.ndimage.filters import gaussian_filter, median_filter
+
+try:
+    from skimage import filters
+except ImportError:
+    from skimage import filter as filters
+from skimage import exposure
+
+def anisotropic_enhance(img):
+    '''
+    Using the anisodiff_littlequick plugin of Vaa3D to perform the preprocessing
+    To use this option, add the following 2 lines in ~/.bashrc
+    export V3DPATH=PATH/2/Vaa3Droot;
+    export LD_LIBRARY=$LD_LIBRARY:$V3DPATH;
+    '''
+
+    my_env = os.environ.copy()
+    N = 10
+    tmpfile = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N)) + '.tif'
+    writetiff3d(tmpfile, img) # Save the img to a tmp path
+    cmd = subprocess.Popen([my_env['V3DPATH']+'/vaa3d', '-x', 'anisodiff_littlequick', '-f', 'anisodiff_littlequick_func', '-i', tmpfile])
+    cmd.wait()
+    # Check if the little quick was successful
+    if not Path(tmpfile+'_anisodiff.raw').is_file():
+        raise Exception('V3D Anisotropic Diffusion Failed!')
+
+    # Convert .raw to tif with v3d
+    tmptif = tmpfile+'_anisodiff.raw.tif'
+    cmd = subprocess.Popen([my_env['V3DPATH']+'/vaa3d', '-x', 'convert_file_format', '-f', 'convert_format', '-i', tmpfile+'_anisodiff.raw', '-o', tmptif])
+    cmd.wait()
+
+    # Load it back to python
+    result = loadimg(tmptif)
+    os.remove(tmpfile)
+    os.remove(tmpfile+'_anisodiff.raw') 
+    os.remove(tmptif)
+    return result
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Arguments to perform a simple preprocessing pipeline.')
+    parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
+    parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
+
+    # Arguments for filtering
+    parser.add_argument('--threshold', type=float, default=0, 
+        help='The thresohld to suppress the weak signals. Voxels values  <= threshold will be set 0). ')
+    parser.add_argument('--pipeline', type=str, default='TAT', 
+        help='A string with the pipeline components to run in order. T for thresholding; A for anisotropic diffusion (VED); G for Gaussian Filtering; M for median filtering.')
+    parser.add_argument('--sigma', type=float, default=3., required=False, help='The sigma value used for gaussian filter. Default 3.0')
+    parser.add_argument('--median_size', type=float, default=3., required=False, help='The window size used for median filter. Default 3.0')
+    args = parser.parse_args()
+
+    img = loadimg(args.file)
+    imgtype = img.dtype
+    for c in args.pipeline:
+        if c == 'T':
+            img = suppress(img, args.threshold)
+        elif c == 'G':
+            img = gaussian_filter(img, args.sigma)
+            # img = img - img.min()
+            # img = img * 255 / img.max()
+            # img = exposure.rescale_intensity(img, in_range=(0, 255))
+        elif c == 'M':
+            img = median_filter(img, args.median_size)
+        elif c == 'A':
+            img = anisotropic_enhance(img)
+        else:
+            raise Exception('Pipeline %s not defined. Valid options are T/G/M/A')
+
+    if args.outfile:
+        outfile = args.outfile
+    else:
+        basename, _ = os.path.splitext(args.file)
+        outfile = basename + '.pp.tif'
+
+    # img = np.flipud(img) # Needed to show in v3d
+    img = np.ceil(img)
+    writetiff3d(outfile, img.astype(imgtype))
+    img[img>args.threshold] =  200
+    writetiff3d(outfile+'.seg.tif', img)

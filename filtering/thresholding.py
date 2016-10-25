@@ -39,3 +39,8 @@ def fuzzy(img, level=128, p=2):
         yager[i] = gsum ** 1/p 
 
     return yager.argmin() * step + low, yager # The chosen threshold with least fuzziness
+
+
+def suppress(img, threshold):
+    img[img <= threshold] = 0
+    return img
