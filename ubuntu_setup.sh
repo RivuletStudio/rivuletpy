@@ -19,16 +19,18 @@ sudo pip3 install . --upgrade;
 
 # Disabled adding running permission, in case your default python3 is not at /bin/usr/python3
 # chmod +x rivulet2;
-# chmod +x tracejson;
+# chmod +x rjson;
 # chmod +x compareswc;
 # chmod +x anifilter;
 
 sed -i '/^alias rivulet2=/d' ~/.bashrc;
-sed -i '/^alias tracejson=/d' ~/.bashrc;
+sed -i '/^alias rjson=/d' ~/.bashrc;
 sed -i '/^alias compareswc=/d' ~/.bashrc;
 sed -i '/^alias anifilter=/d' ~/.bashrc;
+sed -i '/^alias rpp=/d' ~/.bashrc;
 echo "alias rivulet2=\"python3 $(pwd)/rivulet2\";" >> ~/.bashrc; # Append the current path to PATH
-echo "alias tracejson=\"python3 $(pwd)/tracejson\";" >> ~/.bashrc; # Append the current path to PATH
+echo "alias rjson=\"python3 $(pwd)/rjson\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias compareswc=\"python3 $(pwd)/compareswc\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias anifilter=\"python3 $(pwd)/anifilter\";" >> ~/.bashrc; # Append the current path to PATH
+echo "alias rpp=\"python3 $(pwd)/rpp\";" >> ~/.bashrc; # Append the current path to PATH
 bash ~/.bashrc;

@@ -5,9 +5,10 @@ import os, random, string, subprocess
 from pathlib import Path
 import nibabel as nib
 from rivuletpy.utils.io import *
-from filtering.thresholding import suppress
+from filtering.thresholding import suppress, rescale
 import skfmm
 from scipy.ndimage.filters import gaussian_filter, median_filter
+from filtering.morphology import ssm
 
 try:
     from skimage import filters
@@ -49,36 +50,50 @@ def anisotropic_enhance(img):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments to perform a simple preprocessing pipeline.')
     parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-    parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
+    parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
 
     # Arguments for filtering
-    parser.add_argument('--threshold', type=float, default=0, 
+    parser.add_argument('--threshold', type=float, default=[0,], nargs='+',
         help='The thresohld to suppress the weak signals. Voxels values  <= threshold will be set 0). ')
-    parser.add_argument('--pipeline', type=str, default='TAT', 
+    parser.add_argument('--pipeline', type=str, default='TA', 
         help='A string with the pipeline components to run in order. T for thresholding; A for anisotropic diffusion (VED); G for Gaussian Filtering; M for median filtering.')
-    parser.add_argument('--sigma', type=float, default=3., required=False, help='The sigma value used for gaussian filter. Default 3.0')
-    parser.add_argument('--median_size', type=float, default=3., required=False, help='The window size used for median filter. Default 3.0')
+    parser.add_argument('--sigma', type=float, default=[3.,], nargs='+', required=False, help='The sigma value used for gaussian filter. Default 3.0')
+    parser.add_argument('--median_size', type=float, default=[3.,], nargs='+', required=False, help='The window size used for median filter. Default 3.0')
+    parser.add_argument('--ssmiter', type=int, default=20, required=False, help='The window size used for median filter. Default 3.0')
     args = parser.parse_args()
 
     img = loadimg(args.file)
     imgtype = img.dtype
+    lastthreshold = args.threshold[0]
     for c in args.pipeline:
         if c == 'T':
-            img = suppress(img, args.threshold)
+            if len(args.threshold) != 0:
+                lastthreshold = args.threshold.pop()
+            img = suppress(img, lastthreshold)
         elif c == 'G':
-            img = gaussian_filter(img, args.sigma)
-            # img = img - img.min()
-            # img = img * 255 / img.max()
-            # img = exposure.rescale_intensity(img, in_range=(0, 255))
+            if len(args.sigma) != 0:
+                lastsigma = args.sigma.pop()
+            img = gaussian_filter(img, lastsigma)
         elif c == 'M':
-            img = median_filter(img, args.median_size)
+            if len(args.median_size) != 0:
+                lastmediansz = args.median_size.pop()
+            img = median_filter(img, lastmediansz)
         elif c == 'A':
             img = anisotropic_enhance(img)
+        elif c == 'O':
+            threshold = filters.threshold_otsu(img)
+            img[img<=threshold] = 0
+        elif c == 'D':
+            img = skfmm.distance((img > 0).astype('int'), dx=1) # Boundary DT
+            img = rescale(img)
+        elif c == 'S':
+            img = ssm(img, anisotropic=True, iterations=args.ssmiter)
+            img = rescale(img)
         else:
             raise Exception('Pipeline %s not defined. Valid options are T/G/M/A')
 
-    if args.outfile:
-        outfile = args.outfile
+    if args.out:
+        outfile = args.out
     else:
         basename, _ = os.path.splitext(args.file)
         outfile = basename + '.pp.tif'
@@ -86,5 +101,7 @@ if __name__ == '__main__':
     # img = np.flipud(img) # Needed to show in v3d
     img = np.ceil(img)
     writetiff3d(outfile, img.astype(imgtype))
-    img[img>args.threshold] =  200
+    print('--binarising using threshold:', lastthreshold)
+    img[img>0] = 180
     writetiff3d(outfile+'.seg.tif', img)
+    print('--rpp finished')

@@ -14,7 +14,7 @@ from skimage import exposure
 
 parser = argparse.ArgumentParser(description='Arguments to perform the anisotropic filter on the input image.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-parser.add_argument('--outfile', type=str, default=None, required=False, help='The name of the output file')
+parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
 
 # Arguments for filtering
 parser.add_argument('--soma', dest='soma', action='store_true')
@@ -82,8 +82,8 @@ if args.soma:
     img[gx, gy, gz] = bimg[gx, gy, gz] * 255 # Replace the soma area with the soma mask
 
 # Save the filtered image by default
-if args.outfile:
-    outfile = args.outfile
+if args.out:
+    outfile = args.out
 else:
     # Make the long file name
     kvpairs = []

@@ -44,3 +44,13 @@ def fuzzy(img, level=128, p=2):
 def suppress(img, threshold):
     img[img <= threshold] = 0
     return img
+
+
+def rescale(img):
+    '''
+    Rescale image intensities linearly to 0~255
+    '''
+    img -= img.min()
+    img / img.max()
+    img *= 255
+    return img

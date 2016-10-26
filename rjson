@@ -3,6 +3,7 @@
 import sys
 import json
 import os
+import subprocess
 import argparse
 
 def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
@@ -17,18 +18,23 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
         print('-- Working on dataset', datasetname)
         for imgid, img in dataset.items():
             print('---- Working on image', imgid, 'with method ', method)
+            if 'threshold' in img['misc']: 
+                threshold = img['misc']['threshold']
+            else:
+                threshold = 0
+
             if method == 'rivulet2':
-                outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r2.swc'
-                cmd = 'python3 rivulet2 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
-                if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
+                out = img['out'] if 'out' in img else img['imagepath'] + '.r2.swc'
+                cmd = 'python3 rivulet2 --file %s --out %s' % (os.path.join(root, img['imagepath']), os.path.join(root, out))
+                cmd += ' --' + 'threshold' + ' ' + str(threshold)
                 # Parameters for different methods
                 if method in img['misc']:
                     speed = img['misc'][method]['speed'] if 'speed' in img['misc'][method] else 'dt'
                     ssmiter = img['misc'][method]['ssmiter'] if 'ssmiter' in img['misc'][method] else 40
                     cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
             elif method == 'rivulet1':
-                outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.r1.swc'
-                cmd = 'python3 rivulet1 --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
+                out = img['out'] if 'out' in img else img['imagepath'] + '.r1.swc'
+                cmd = 'python3 rivulet1 --file %s --out %s' % (os.path.join(root, img['imagepath']), os.path.join(root, out))
                 if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
                 # Parameters for different methods
                 if method in img['misc']:
@@ -37,20 +43,33 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
                     length = img['misc'][method]['length'] if 'length' in img['misc'][method] else 4
                     cmd += ' --gap %s --wiring %d --length %d' % (gap, wiring, length)
             elif method == 'ooffilter':
-                outpath = img['outpath'] if 'outpath' in img else img['imagepath'] + '.oof.tif'
-                cmd = 'python3 anifilter --file %s --outfile %s' % (os.path.join(root, img['imagepath']), os.path.join(root, outpath))
+                out = img['out'] if 'out' in img else img['imagepath'] + '.oof.tif'
+                cmd = 'python3 anifilter --file %s --out %s' % (os.path.join(root, img['imagepath']), os.path.join(root, out))
                 if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
                 # Parameters for different methods
                 if method in img['misc']:
                     rlow = img['misc'][method]['rlow'] if 'rlow' in img['misc'][method] else 1.0
                     rhigh = img['misc'][method]['rhigh'] if 'rhigh' in img['misc'][method] else 2.0
                     rstep = img['misc'][method]['rstep'] if 'rstep' in img['misc'][method] else 0.2
-                    cmd += ' --rlow %f --rhigh %f --rstep %f' % (rlow, rhigh, rstep)
+            elif method == 'rpp':
+                out = img['out'] if 'out' in img else img['imagepath'] + '.pp.tif'
+                cmd = 'python3 rpp --file %s --out %s' % (os.path.join(root, img['imagepath']), os.path.join(root, out))
+                # Parameters for different methods
+                if method in img['misc']:
+                    pipeline = img['misc'][method]['pipeline'] if 'pipeline' in img['misc'][method] else 'T'
+                    sigma = img['misc'][method]['sigma'] if 'sigma' in img['misc'][method] else 1.0
+                    median_size = img['misc'][method]['median_size'] if 'median_size' in img['misc'][method] else 2.0
+                    # threshold = img['misc'][method]['threshold'] if 'threshold' in img['misc'][method] else 0.0
+                    cmd += ' --sigma %f --median_size %f --threshold %f --pipeline %s' % (sigma, median_size, threshold, pipeline) 
+            elif method == 'app2':
+                my_env = os.environ.copy()
+                out = img['out'] if 'out' in img else img['imagepath'] + '.app2.swc'
+                cmd = my_env['V3DPATH']+'/vaa3d -x vn2 -f app2 -i ' + os.path.join(root, img['imagepath']) + ' -o ' + os.path.join(root, out) + ' -p  NULL 0 0 ' + str(threshold) + ' 1 1 1 4 0 0 0'
             else:
                 raise Exception('Method %s not implemented yet' % method)
                 
-            if 'groundtruth' in img: 
-                comparecmd = 'python3 compareswc --target %s --groundtruth %s' % (os.path.join(root, outpath), os.path.join(root, img['groundtruth']))
+            if 'groundtruth' in img and method in ('rivulet2', 'rivulet1', 'app2'): 
+                comparecmd = 'python3 compareswc --target %s --groundtruth %s' % (os.path.join(root, out), os.path.join(root, img['groundtruth']))
             else:
                 comparecmd = ''
 
@@ -60,7 +79,11 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2'):
                 cmd += ';' + comparecmd
                 
             print(cmd)
+            # pcmd = subprocess.Popen([cmd,])
+            # pcmd.wait()
             os.system(cmd)
+
+            print('--rjson finished')
 
 parser = argparse.ArgumentParser(description='Arguments for tracing files index with a .json file.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input json file. Pls see ./tests/data/test.json for example.')
