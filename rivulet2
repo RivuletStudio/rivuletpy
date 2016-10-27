@@ -67,7 +67,7 @@ if not args.silence: print('--DT to get soma location with threshold:', args.som
 bimg = (img > args.soma_threshold).astype('int') # Segment image
 dt = skfmm.distance(bimg, dx=1) # Boundary DT
 somaradius = dt.max()
-print('DT max:', somaradius)
+if not args.silence: print('DT max:', somaradius)
 somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
 marchmap = np.ones(img.shape)
 marchmap[somapos[0], somapos[1], somapos[2]] = -1
@@ -77,7 +77,7 @@ if args.threshold < 0:
     args.threshold = filters.threshold_otsu(img)
     if not args.silence: print('--Otus for threshold: ', args.threshold)
 else:
-    print('--Using the user threshold:', args.threshold)
+    if not args.silence: print('--Using the user threshold:', args.threshold)
 
 img = (img > args.threshold).astype('int') # Segment image
 
@@ -124,11 +124,11 @@ if args.clean:
 elif not args.radius:
     swc[:, 5] = 1
 
-if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
-    swc_x = swc[:, 2].copy()
-    swc_y = swc[:, 3].copy()
-    swc[:, 2] = swc_y
-    swc[:, 3] = swc_x
+# if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
+#     swc_x = swc[:, 2].copy()
+#     swc_y = swc[:, 3].copy()
+#     swc[:, 2] = swc_y
+#     swc[:, 3] = swc_x
 
 ## Save the final swc
 if args.out:

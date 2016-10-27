@@ -245,7 +245,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
     # Add soma node to the result swc
     somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
     swc = np.vstack((somanode, swc))
-    pbar.close() # Close the progress bar
+    if not silence: pbar.close() # Close the progress bar
 
     return swc
 

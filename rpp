@@ -103,5 +103,5 @@ if __name__ == '__main__':
     writetiff3d(outfile, img.astype(imgtype))
     print('--binarising using threshold:', lastthreshold)
     img[img>0] = 180
-    writetiff3d(outfile+'.seg.tif', img)
+    writetiff3d(os.path.splitext(outfile)[0]+'.seg.tif', img)
     print('--rpp finished')
