@@ -9,8 +9,7 @@ from rivuletpy.utils.preprocessing import *
 from rivuletpy.utils.io import *
 from filtering.anisotropic import response
 from filtering.morphology import ssm
-import skfmm
-import msfm # A C ported external module
+import skfmm, msfm
 
 try:
     from skimage import filters
@@ -123,12 +122,6 @@ if args.clean:
     swc = cleanswc(swc, args.radius) 
 elif not args.radius:
     swc[:, 5] = 1
-
-# if args.rotateswc90: # Rotate swc 90 degree to be shown in Vaa3D
-#     swc_x = swc[:, 2].copy()
-#     swc_y = swc[:, 3].copy()
-#     swc[:, 2] = swc_y
-#     swc[:, 3] = swc_x
 
 ## Save the final swc
 if args.out:
