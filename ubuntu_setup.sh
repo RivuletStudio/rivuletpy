@@ -26,11 +26,13 @@ sudo pip3 install . --upgrade;
 sed -i '/^alias rivulet2=/d' ~/.bashrc;
 sed -i '/^alias rjson=/d' ~/.bashrc;
 sed -i '/^alias compareswc=/d' ~/.bashrc;
-sed -i '/^alias anifilter=/d' ~/.bashrc;
+# sed -i '/^alias anifilter=/d' ~/.bashrc;
 sed -i '/^alias rpp=/d' ~/.bashrc;
+sed -i '/^alias rswc=/d' ~/.bashrc;
 echo "alias rivulet2=\"python3 $(pwd)/rivulet2\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias rjson=\"python3 $(pwd)/rjson\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias compareswc=\"python3 $(pwd)/compareswc\";" >> ~/.bashrc; # Append the current path to PATH
-echo "alias anifilter=\"python3 $(pwd)/anifilter\";" >> ~/.bashrc; # Append the current path to PATH
+# echo "alias anifilter=\"python3 $(pwd)/anifilter\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias rpp=\"python3 $(pwd)/rpp\";" >> ~/.bashrc; # Append the current path to PATH
+echo "alias rswc=\"python3 $(pwd)/rswc\";" >> ~/.bashrc; # Append the current path to PATH
 bash ~/.bashrc;
