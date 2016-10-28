@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+
+from rivuletpy.utils.swc import cleanswc, flipswc
+from rivuletpy.utils.io import loadswc, saveswc
+import argparse
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
+	parser.add_argument('--file', type=str, default=None, help='The file to filter')
+	parser.add_argument('--radius', dest='radius', action='store_true')
+	parser.add_argument('--no-radius', dest='radius', action='store_false')
+	parser.set_defaults(radius=True)
+	parser.add_argument('--overwrite', dest='overwrite', action='store_true')
+	parser.add_argument('--no-overwrite', dest='overwrite', action='store_false')
+	parser.set_defaults(overwrite=True)
+	parser.add_argument('--action', type=str, default=None, help='The processing of swc to perform.')
+	args = parser.parse_args()
+
+	swc = loadswc(args.file) # Read in the swc
+	outfile = args.file if args.overwrite else os.path.splitext(args.file)[0] + '.' + args.action + '.swc'  # Make the output path
+
+	if args.action == 'clean':
+		outswc = cleanswc(swc, args.radius)
+	elif args.action == 'flip':
+		outswc = flipswc(swc)
+
+	saveswc(outfile, outswc)
+
