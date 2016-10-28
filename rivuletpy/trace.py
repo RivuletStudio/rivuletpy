@@ -7,7 +7,7 @@ from scipy import ndimage
 from scipy.spatial.distance import cdist
 from scipy.interpolate import RegularGridInterpolator 
 from skimage.morphology import skeletonize_3d
-import skfmm,msfm
+import skfmm, msfm
 
 from .utils.preprocessing import distgradient
 # from .utils.swc import cleanswc
