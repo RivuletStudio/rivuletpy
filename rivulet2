@@ -43,16 +43,11 @@ img = loadimg(args.file)
 swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
 	args.silence, args.clean, args.radius, args.render)
 
-## Save the final swc
+# Save the final swc
 if args.out:
     outswcfile = args.out
-else:
-    # Make the long file name
-    kvpairs = []
-    for key, value in vars(args).items():
-        if key not in ['file', 'outfile']: 
-            kvpairs.append(key + ':' + str(value))
-
+else: # Make the long file name
+    kvpairs = [key + ':' + str(value) for key, value in vars(args).items() if key not in ['file', 'outfile']]
     outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
 
 saveswc(outswcfile, swc)
