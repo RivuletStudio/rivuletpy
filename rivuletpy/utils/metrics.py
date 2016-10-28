@@ -2,7 +2,7 @@ from collections import deque
 import numpy as np
 from scipy.spatial.distance import cdist
 
-def precision_recall(swc1, swc2, dist1=4, dist2=2):
+def precision_recall(swc1, swc2, dist1=4, dist2=4):
     '''
     Calculate the precision, recall and F1 score between swc1 and swc2 (ground truth)
     It generates a new swc file with node types indicating the agreement between two input swc files
@@ -95,7 +95,7 @@ def gaussian_distance(swc1, swc2, sigma=2.):
     return M1, M2
 
 
-def connectivity_distance(swc1, swc2, sigma=2.):
+def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
     '''
     The connectivity metrics of NetMets. 
     Returns (midx1, midx2): the indices of nodes in each swc that have connection errors
@@ -142,10 +142,38 @@ def connectivity_distance(swc1, swc2, sigma=2.):
     id_idx_hash2 = {}
     for i in range(swc2.shape[0]): id_idx_hash2[swc2[i, 0]] = i
 
-    midx1 = [ id_idx_hash1[id] for id in mid1 ] # Mistake coloured nodes in edges of dg1
-    midx2 = [ id_idx_hash2[id] for id in mid2 ] # Mistake coloured nodes in edges of dg2
+    midx1 = [ int(id_idx_hash1[id]) for id in mid1 ] # Mistake coloured nodes in edges of dg1
+    midx2 = [ int(id_idx_hash2[id]) for id in mid2 ] # Mistake coloured nodes in edges of dg2
+
+    # Filter out the midx of nodes on leaf segments
+    if ignore_leaf:
+        leafidx1 = find_leaf_idx(swc1)
+        midx1 = set(midx1) - set(leafidx1)
+        leafidx2 = find_leaf_idx(swc2)
+        midx2 = set(midx2) - set(leafidx2)
 
     return midx1, midx2
+
+
+def find_leaf_idx(swc):
+    # The degree of a node is the number of children + 1 except the root
+    degree  = np.zeros(swc.shape[0])
+    for i  in range(swc.shape[0]):
+        degree[i] = np.count_nonzero(swc[:, -1] == swc[i, 0]) + 1
+
+    # A node is a leaf node if it is parent to no other node
+    leaf_segment_idx = []
+    leaf_node_idx = np.where(degree == 1)[0]
+    for idx in leaf_node_idx:
+        # Add its parent to the leaf segment idx list if its parent degree < 3
+        nodeidx = idx
+        while degree[nodeidx] < 3:
+            leaf_segment_idx.append(int(nodeidx))
+            if swc[nodeidx, -1] < 0:
+                break
+            nodeidx = np.where(swc[:, 0] == swc[nodeidx, -1])[0]
+
+    return leaf_segment_idx
 
 
 def build_graph_from_swc(swc):

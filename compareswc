@@ -22,9 +22,9 @@ fpath, _ = os.path.splitext(args.target)
 saveswc(fpath+'.node-compare.swc', prswc) # Save the compare swc resulted from precision & recall
 print('Precision: %.2f\tRecall: %.2f\tF1: %.2f' % (precision, recall, f1))
 
-# GAUSSIAN DISTANCE
-gd1, gd2 = gaussian_distance(swc1, swc2, args.sigma)
-print('G1 (FPR): %.2f\tG2 (FNR): %.2f' % (gd1.mean(), gd2.mean()))
+# GAUSSIAN DISTANCE: Not used for now
+# gd1, gd2 = gaussian_distance(swc1, swc2, args.sigma)
+# print('G1 (FPR): %.2f\tG2 (FNR): %.2f' % (gd1.mean(), gd2.mean()))
 
 # CONECTIVITY ERRORS 
 midx1, midx2 = connectivity_distance(swc1, swc2, args.sigma)
@@ -43,7 +43,7 @@ saveswc(fpath+'.connect-err2.swc', swc2)
 
 metrics = {}
 metrics['PRF'] = {'precision': precision, 'recall': recall, 'f1': f1}
-metrics['NetMetsGeometry'] = {'G1': gd1.mean(), 'G2': gd2.mean()}
+# metrics['NetMetsGeometry'] = {'G1': gd1.mean(), 'G2': gd2.mean()}
 metrics['NetMetsConectivity'] = {'C1': len(midx1), 'C2': len(midx2)}
 
 with open(fpath+'.metrics.json', 'w') as f:
