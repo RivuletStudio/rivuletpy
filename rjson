@@ -23,6 +23,7 @@ class imgThread (threading.Thread):
         doimg(self.imgid, self.img, self.method, self.root)
         self.sema.release()
         print ('Exiting ' + self.name + ' with image ' + self.imgid)
+        
 
 def doimg(imgid, img, method, root):
     print('---- Working on image', imgid, 'with method ', method)
@@ -30,6 +31,10 @@ def doimg(imgid, img, method, root):
         threshold = img['misc']['threshold']
     else:
         threshold = 0
+
+    # Make the v3d safe cmd
+    my_env = os.environ.copy()
+    v3dcmd = "export DISPLAY=:30;Xvfb :30 -auth /dev/null & %s/vaa3d" % my_env['V3DPATH']
 
     if method == 'rivulet2':
         out = img['out'] if 'out' in img else img['imagepath'] + '.r2.swc'
@@ -47,7 +52,7 @@ def doimg(imgid, img, method, root):
         if 'threshold' in img['misc']: cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
         # Parameters for different methods
         if method in img['misc']:
-            gap = img['misc'][method]['gap'] if 'gap' in img['misc'][method] else 50
+            gap = img['misc'][method]['gap'] if 'gap' in img['misc'][method] else 150
             wiring = img['misc'][method]['wiring'] if 'wiring' in img['misc'][method] else 1.8
             length = img['misc'][method]['length'] if 'length' in img['misc'][method] else 4
             cmd += ' --gap %s --wiring %d --length %d' % (gap, wiring, length)
@@ -68,12 +73,15 @@ def doimg(imgid, img, method, root):
             pipeline = img['misc'][method]['pipeline'] if 'pipeline' in img['misc'][method] else 'T'
             sigma = img['misc'][method]['sigma'] if 'sigma' in img['misc'][method] else 1.0
             median_size = img['misc'][method]['median_size'] if 'median_size' in img['misc'][method] else 2.0
+            ssmiter = img['misc'][method]['ssmiter'] if 'ssmiter' in img['misc'][method] else 20
             # threshold = img['misc'][method]['threshold'] if 'threshold' in img['misc'][method] else 0.0
-            cmd += ' --sigma %f --median_size %f --threshold %f --pipeline %s' % (sigma, median_size, threshold, pipeline) 
+            cmd += ' --sigma %f --median_size %f --threshold %f --pipeline %s --ssmiter %d' % (sigma, median_size, threshold, pipeline, ssmiter) 
     elif method == 'app2':
-        my_env = os.environ.copy()
         out = img['out'] if 'out' in img else img['imagepath'] + '.app2.swc'
-        cmd = my_env['V3DPATH']+'/vaa3d -x vn2 -f app2 -i ' + os.path.join(root, img['imagepath']) + ' -o ' + os.path.join(root, out) + ' -p  NULL 0 0 ' + str(threshold) + ' 1 1 1 4 0 0 0'
+        cmd = v3dcmd + ' -x vn2 -f app2 -i ' + os.path.join(root, img['imagepath']) + ' -o ' + os.path.join(root, out) + ' -p  NULL 0 0 ' + str(threshold) + ' 1 1 1 4 0 0 0'
+    elif method == 'smart':
+        out = img['out'] if 'out' in img else img['imagepath'] + '.smart.swc'
+        cmd = v3dcmd + ' -x smartTrace -f smartTrace -i ' + os.path.join(root, img['imagepath']) + ' -o ' + os.path.join(root, out)
     else:
         raise Exception('Method %s not implemented yet' % method)
         
