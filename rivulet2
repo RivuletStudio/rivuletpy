@@ -1,20 +1,8 @@
 #!/usr/bin/python3
 
-import os
-import argparse
-import nibabel as nib
-
-from rivuletpy.trace import *
-from rivuletpy.utils.preprocessing import *
+import os, argparse
+from rivuletpy.trace import r2
 from rivuletpy.utils.io import *
-from filtering.anisotropic import response
-from filtering.morphology import ssm
-import skfmm, msfm
-
-try:
-    from skimage import filters
-except ImportError:
-    from skimage import filter as filters
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
@@ -51,77 +39,9 @@ parser.add_argument('--no-render', dest='render', action='store_false')
 parser.set_defaults(render=False)
 args = parser.parse_args()
 
-## Get the soma radius if image is about to be filtered before tracing
-# Prepare variables for fastmarching
-## Distance Transform
 img = loadimg(args.file)
-if args.soma_threshold < 0:
-    try:
-        from skimage import filters
-    except ImportError:
-        from skimage import filter as filters
-    args.soma_threshold = filters.threshold_otsu(img)
-
-if not args.silence: print('--DT to get soma location with threshold:', args.soma_threshold)
-bimg = (img > args.soma_threshold).astype('int') # Segment image
-dt = skfmm.distance(bimg, dx=1) # Boundary DT
-somaradius = dt.max()
-if not args.silence: print('DT max:', somaradius)
-somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-marchmap = np.ones(img.shape)
-marchmap[somapos[0], somapos[1], somapos[2]] = -1
-
-## Trace 
-if args.threshold < 0:
-    args.threshold = filters.threshold_otsu(img)
-    if not args.silence: print('--Otus for threshold: ', args.threshold)
-else:
-    if not args.silence: print('--Using the user threshold:', args.threshold)
-
-img = (img > args.threshold).astype('int') # Segment image
-
-if not args.silence: print('--Boundary DT...')
-
-dt = skfmm.distance(img, dx=5e-2) # Boundary DT
-
-# if not args.filter: # The soma location and radius can only be used if the image is not filtered (might be hole in soma)
-dtmax = dt.max()
-maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-marchmap = np.ones(img.shape)
-marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
-
-if args.speed == 'ssm':
-    if not args.silence: print('--SSM with GVF...')
-    dt = ssm(dt, anisotropic=True, iterations=args.ssmiter)
-    img = dt > filters.threshold_otsu(dt)
-    dt = skfmm.distance(img, dx=5e-2)
-
-    if not args.silence: print('--Reverse DT...')
-    dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-    dt[dt > 0.04] = 0.04
-    dt = dt.max() - dt
-
-# Fast Marching
-if args.msfm:
-    if not args.silence: print('--MSFM...')
-    t = msfm.run(makespeed(dt), somapos, False, True)
-else:
-    if not args.silence: print('--FM...')
-    t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
-
-# Iterative Back Tracking with Erasing
-if not args.silence: print('--Start Backtracking...')
-swc = iterative_backtrack(t, img, somapos, somaradius,
-                                          render=args.render, silence=args.silence, 
-                                          eraseratio=1.7 if args.speed=='ssm' else 1.5, length=args.length)
-
-# Clean SWC 
-if args.clean:
-    # This will only keep the largest connected component of the graph in swc
-    print('Cleaning swc')
-    swc = cleanswc(swc, args.radius) 
-elif not args.radius:
-    swc[:, 5] = 1
+swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
+	args.silence, args.clean, args.radius, args.render)
 
 ## Save the final swc
 if args.out:

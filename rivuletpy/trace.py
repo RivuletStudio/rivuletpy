@@ -7,10 +7,85 @@ from scipy import ndimage
 from scipy.spatial.distance import cdist
 from scipy.interpolate import RegularGridInterpolator 
 from skimage.morphology import skeletonize_3d
-import skfmm
+import skfmm,msfm
 
 from .utils.preprocessing import distgradient
 # from .utils.swc import cleanswc
+
+
+def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, render=False):
+    '''
+    The main entry for rivulet2 tracing algorithm
+    '''
+
+    if threshold < 0:
+        try:
+            from skimage import filters
+        except ImportError:
+            from skimage import filter as filters
+        threshold = filters.threshold_otsu(img)
+
+    if not silence: print('--DT to get soma location with threshold:', threshold)
+    bimg = (img > threshold).astype('int') # Segment image
+    dt = skfmm.distance(bimg, dx=1) # Boundary DT
+    somaradius = dt.max()
+    if not silence: print('DT max:', somaradius)
+    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    marchmap = np.ones(img.shape)
+    marchmap[somapos[0], somapos[1], somapos[2]] = -1
+
+    ## Trace 
+    if threshold < 0:
+        threshold = filters.threshold_otsu(img)
+        if not silence: print('--Otus for threshold: ', threshold)
+    else:
+        if not silence: print('--Using the user threshold:', threshold)
+
+    img = (img > threshold).astype('int') # Segment image
+
+    if not silence: print('--Boundary DT...')
+
+    dt = skfmm.distance(img, dx=5e-2) # Boundary DT
+    dtmax = dt.max()
+    maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    marchmap = np.ones(img.shape)
+    marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
+
+    if speed == 'ssm':
+        if not silence: print('--SSM with GVF...')
+        dt = ssm(dt, anisotropic=True, iterations=ssmiter)
+        img = dt > filters.threshold_otsu(dt)
+        dt = skfmm.distance(img, dx=5e-2)
+
+        if not silence: print('--Reverse DT...')
+        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
+        dt[dt > 0.04] = 0.04
+        dt = dt.max() - dt
+
+    # Fast Marching
+    if is_msfm:
+        if not silence: print('--MSFM...')
+        t = msfm.run(makespeed(dt), somapos, False, True)
+    else:
+        if not silence: print('--FM...')
+        t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+
+    # Iterative Back Tracking with Erasing
+    if not silence: print('--Start Backtracking...')
+    swc = iterative_backtrack(t, img, somapos, somaradius,
+                                              render=render, silence=silence, 
+                                              eraseratio=1.7 if speed=='ssm' else 1.5, length=5)
+
+    # Clean SWC 
+    if clean:
+        # This will only keep the largest connected component of the graph in swc
+        print('Cleaning swc')
+        swc = cleanswc(swc, radius) 
+    elif not radius:
+        swc[:, 5] = 1
+
+    return swc
+
 
 def makespeed(dt, threshold=0):
     '''
