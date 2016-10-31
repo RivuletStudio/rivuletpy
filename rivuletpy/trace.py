@@ -3,17 +3,14 @@ from tqdm import tqdm
 import numpy as np
 from random import random
 from collections import Counter
-from scipy import ndimage 
 from scipy.spatial.distance import cdist
 from scipy.interpolate import RegularGridInterpolator 
-from skimage.morphology import skeletonize_3d
 import skfmm, msfm
-
 from .utils.preprocessing import distgradient
 # from .utils.swc import cleanswc
 
 
-def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, render=False):
+def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, render=False, fast=False):
     '''
     The main entry for rivulet2 tracing algorithm
     '''
@@ -29,7 +26,7 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     bimg = (img > threshold).astype('int') # Segment image
     dt = skfmm.distance(bimg, dx=1) # Boundary DT
     somaradius = dt.max()
-    if not silence: print('DT max:', somaradius)
+    if not silence: print('-- Soma radius:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1

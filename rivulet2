@@ -3,6 +3,8 @@
 import os, argparse
 from rivuletpy.trace import r2
 from rivuletpy.utils.io import *
+from rivuletpy.utils.preprocessing import crop
+from scipy.ndimage.interpolation import zoom
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
@@ -30,6 +32,8 @@ parser.add_argument('--no-clean', dest='clean', action='store_false')
 parser.set_defaults(clean=False)
 
 # MISC
+
+parser.add_argument('-z', '--zoom_factor', type=float, default=1., help='The factor to zoom the image to speed up the whole thing. Default 1.')
 parser.add_argument('--silence', dest='silence', action='store_true')
 parser.add_argument('--no-silence', dest='silence', action='store_false')
 parser.set_defaults(silence=False)
@@ -43,22 +47,43 @@ parser.add_argument('--no-riveal', dest='riveal', action='store_false')
 parser.set_defaults(riveal=False)
 
 args = parser.parse_args()
-
 img = loadimg(args.file)
-swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
-    args.silence, args.clean, args.radius, args.render)
+img, crop_region = crop(img, args.threshold) # Crop by default
+
+if args.zoom_factor != 1.: 
+    if not args.silence: print('-- Zooming image to %.2f of original size' % args.zoom_factor)
+    img = zoom(img, args.zoom_factor)
+
+# Run rivulet2 for the first time
+swc = r2(img, threshold=args.threshold, 
+                  speed=args.speed, 
+                  is_msfm=args.msfm, 
+                  ssmiter=args.ssmiter, 
+                  silence=args.silence, 
+                  clean=args.clean, 
+                  radius=args.radius, 
+                  render=args.render)
 
 if args.riveal:
     from filtering.riveal import riveal
-    img = riveal(img, swc)
+    img = riveal(img, swc, conf, t)
     swc = r2(img, 0.5, args.speed, args.msfm, args.ssmiter, 
-        args.silence, args.clean, args.radius, args.render)
+        args.silence, args.clean, args.radius, args.render, args.fast)
+
+if args.zoom_factor != 1.: # Pad the swc back to original space
+    swc[:, 2:5] *= 1. / args.zoom_factor
+
+# Pad the swc back
+swc[:, 2] += crop_region[0,0]
+swc[:, 3] += crop_region[1,0]
+swc[:, 4] += crop_region[2,0]
 
 # Save the final swc
 if args.out:
     outswcfile = args.out
 else: # Make the long file name
-    kvpairs = [key + ':' + str(value) for key, value in vars(args).items() if key not in ['file', 'outfile']]
-    outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+    # kvpairs = [key + ':' + str(value) for key, value in vars(args).items() if key not in ['file', 'outfile']]
+    # outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+    outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
 
 saveswc(outswcfile, swc)
