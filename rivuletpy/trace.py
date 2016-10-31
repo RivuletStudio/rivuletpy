@@ -5,9 +5,32 @@ from random import random
 from collections import Counter
 from scipy.spatial.distance import cdist
 from scipy.interpolate import RegularGridInterpolator 
+from scipy.ndimage.morphology import generate_binary_structure
+from scipy.ndimage import binary_dilation
 import skfmm, msfm
 from .utils.preprocessing import distgradient
 # from .utils.swc import cleanswc
+
+class Soma(object):
+    def __init__(self, pos, radius, mask=None):
+        self.pos = pos
+        self.radius = radius
+        self.mask = None
+
+    def make_soma_mask(self, bimg):
+        '''
+        Make soma binary mask with the original binary image and its radius and position
+        '''
+
+        # Make a ball like mask with 2 X somaradius 
+        ballvolume = np.zeros(bimg.shape)
+        ballvolume[self.pos[0], self.pos[1], self.pos[2]] = 1
+        stt = generate_binary_structure(3,1)
+        for i in range(math.ceil(self.radius) * 3):
+            ballvolume = binary_dilation(ballvolume, structure=stt)
+
+        # Make the soma mask with the intersection between the ball area and the original binary
+        self.mask = np.logical_and(ballvolume, bimg)
 
 
 def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, render=False, fast=False):
@@ -30,6 +53,10 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
+
+    # Make the soma object
+    soma = Soma(somapos, somaradius*2)
+    soma.make_soma_mask(bimg)
 
     ## Trace 
     if threshold < 0:
@@ -81,7 +108,8 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     elif not radius:
         swc[:, 5] = 1
 
-    return swc
+
+    return swc,  None, soma
 
 
 def makespeed(dt, threshold=0):

@@ -10,7 +10,7 @@ from keras.layers import Convolution2D, MaxPooling2D
 from keras.optimizers import SGD
 from rivuletpy.utils.swc import flipswc
 
-def riveal(img, swc, K=9, a=6, nsample=1e4, epoch=20):
+def riveal(img, swc, K=9, a=6, nsample=5e4, epoch=20):
     print('== oiginal image size: ', img.shape)
     # Pad the image and swc
     margin = 2 * K

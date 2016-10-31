@@ -57,14 +57,19 @@ if args.zoom_factor != 1.:
     img = zoom(img, args.zoom_factor)
 
 # Run rivulet2 for the first time
-swc = r2(img, threshold=args.threshold, 
-                  speed=args.speed, 
-                  is_msfm=args.msfm, 
-                  ssmiter=args.ssmiter, 
-                  silence=args.silence, 
-                  clean=args.clean, 
-                  radius=args.radius, 
-                  render=args.render)
+swc, conf, soma = r2(img, threshold=args.threshold, 
+                                  speed=args.speed, 
+                                  is_msfm=args.msfm, 
+                                  ssmiter=args.ssmiter, 
+                                  silence=args.silence, 
+                                  clean=args.clean, 
+                                  radius=args.radius, 
+                                  render=args.render)
+
+# Save soma rescaled_soma_mask for inspection
+somafile = os.path.splitext(args.file)[0] + '.soma.tif'
+rescaled_soma_mask = rescale(soma.mask.astype('int'))
+writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
 
 if args.riveal:
     from filtering.riveal import riveal
@@ -72,11 +77,12 @@ if args.riveal:
 
     # Save the riveal result for inspection
     outimgpath = os.path.splitext(args.file)[0] + '.rv.tif'
-    rescaledimg = rescale(img)
-    writetiff3d(outimgpath, rescaledimg.astype(imgdtype))
+    img = rescale(img)
+    img[soma.mask] = rescaled_soma_mask[soma.mask]
+    writetiff3d(outimgpath, img.astype(imgdtype))
 
     # Run rivulet2 for the second time
-    swc = r2(img, threshold=-1, 
+    swc, _, _ = r2(img, threshold=-1, 
                       speed=args.speed, 
                       is_msfm=args.msfm, 
                       ssmiter=args.ssmiter, 
@@ -97,8 +103,6 @@ swc[:, 4] += crop_region[2,0]
 if args.out:
     outswcfile = args.out
 else: # Make the long file name
-    # kvpairs = [key + ':' + str(value) for key, value in vars(args).items() if key not in ['file', 'outfile']]
-    # outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
     outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
 
 saveswc(outswcfile, swc)
