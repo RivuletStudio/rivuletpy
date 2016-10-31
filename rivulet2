@@ -3,7 +3,6 @@
 import os, argparse
 from rivuletpy.trace import r2
 from rivuletpy.utils.io import *
-from filtering.riveal import riveal
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
 parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
@@ -50,6 +49,7 @@ swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter,
     args.silence, args.clean, args.radius, args.render)
 
 if args.riveal:
+    from filtering.riveal import riveal
     img = riveal(img, swc)
     swc = r2(img, 0.5, args.speed, args.msfm, args.ssmiter, 
         args.silence, args.clean, args.radius, args.render)

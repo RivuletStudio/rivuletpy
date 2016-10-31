@@ -3,18 +3,35 @@
 # Should be able to work on a refresh Ubuntu>14 image from scratch
 # Can be tweaked to install locally with virtualenv
 
-# Setup the dependencies for scipy and pip3
+# -- Setup the dependencies for scipy and pip3
 sudo apt-get -y install libblas-dev liblapack-dev libatlas-base-dev gfortran;
 sudo apt-get -y install python3-pip;
 sudo apt-get -y install python3-matplotlib; # Matplotlib easier to install from ubuntu repo 
 
-# Install pip packages
+# -- Install pip packages
 sudo pip3 install numpy==1.11.1 --upgrade; # Needs to be installed outside of requirements
 sudo pip3 install numpy --upgrade;
 sudo pip3 install scipy; # Needs to be installed outside of requirements
 sudo pip3 install Cython; # Needs to be installed outside of requirements
 sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtiff from its github master branch
-sudo pip3 install -r requirements.txt; # Install the requirements.txt friendly packages
+
+# -- Get TensorFlow + Keras 
+# NOTE: Comment this area if you do not use riveal for machine learning enhanced tracing
+# NOTE: You need to setup the newest cuda driver + cuda toolkit 8.0
+
+# Ubuntu/Linux 64-bit, CPU only, Python 3.5
+# export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0rc1-cp35-cp35m-linux_x86_64.whl
+
+# Ubuntu/Linux 64-bit, GPU enabled, Python 3.5
+# Requires CUDA toolkit 8.0 and CuDNN v5. For other versions, see "Install from sources" below.
+export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow-0.11.0rc1-cp35-cp35m-linux_x86_64.whl
+sudo pip3 install --upgrade $TF_BINARY_URL # Install tensorflow
+sudo pip3 install https://github.com/fchollet/keras.git; # Install keras from its github master branch
+
+# -- Install the requirements.txt friendly packages
+sudo pip3 install -r requirements.txt; 
+
+# -- Install rivuletpy finally
 sudo pip3 install . --upgrade;
 
 # Disabled adding running permission, in case your default python3 is not at /bin/usr/python3
