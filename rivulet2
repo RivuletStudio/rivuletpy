@@ -4,6 +4,7 @@ import os, argparse
 from rivuletpy.trace import r2
 from rivuletpy.utils.io import *
 from rivuletpy.utils.preprocessing import crop
+from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
@@ -48,6 +49,7 @@ parser.set_defaults(riveal=False)
 
 args = parser.parse_args()
 img = loadimg(args.file)
+imgdtype = img.dtype
 img, crop_region = crop(img, args.threshold) # Crop by default
 
 if args.zoom_factor != 1.: 
@@ -66,9 +68,22 @@ swc = r2(img, threshold=args.threshold,
 
 if args.riveal:
     from filtering.riveal import riveal
-    img = riveal(img, swc, conf, t)
-    swc = r2(img, 0.5, args.speed, args.msfm, args.ssmiter, 
-        args.silence, args.clean, args.radius, args.render, args.fast)
+    img = riveal(img, swc)
+
+    # Save the riveal result for inspection
+    outimgpath = os.path.splitext(args.file)[0] + '.rv.tif'
+    rescaledimg = rescale(img)
+    writetiff3d(outimgpath, rescaledimg.astype(imgdtype))
+
+    # Run rivulet2 for the second time
+    swc = r2(img, threshold=-1, 
+                      speed=args.speed, 
+                      is_msfm=args.msfm, 
+                      ssmiter=args.ssmiter, 
+                      silence=args.silence, 
+                      clean=args.clean, 
+                      radius=args.radius, 
+                      render=args.render)
 
 if args.zoom_factor != 1.: # Pad the swc back to original space
     swc[:, 2:5] *= 1. / args.zoom_factor
