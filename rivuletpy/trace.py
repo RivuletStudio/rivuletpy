@@ -37,7 +37,7 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
     somaradius = dt.max()
     print('DT max:', somaradius)
-    soma_smoothing = 20 # The maximum number of smooth iterations 
+    soma_smoothing = 1 # The maximum number of smooth iterations 
     soma_lambda1 = 1 # The weight of internal energy 
     soma_lambda2 = 1.5 # The weight of external energy
     somaflag = bool(True) # Use the automatic converge 
@@ -47,14 +47,14 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     somabimg = somabimg.astype(np.uint8)
     somamask = soma.soma_detect(somabimg, somapos, somaradius, soma_smoothing, 
                         soma_lambda1, soma_lambda2, somaflag, soma_iterations)
-    bimg = bimg * 50
-    bimg = bimg.astype(np.uint8)
-    writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_bimg.tif', bimg);
+    # bimg = bimg * 50
+    # bimg = bimg.astype(np.uint8)
+    # writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_bimg.tif', bimg);
 
     
     # # Save the soma mask if required
     if somaflag:
-        writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_soma.tif', somamask);
+        writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/7_soma.tif', somamask);
     
     ## Trace 
     if threshold < 0:

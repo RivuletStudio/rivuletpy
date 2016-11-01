@@ -58,6 +58,7 @@ _aux = np.zeros((0))
 
 def SI(u):
     """SI operator."""
+    print('SI operator has been called')    
     global _aux
     if np.ndim(u) == 2:
         P = _P2
@@ -85,6 +86,7 @@ def circle_levelset(shape, center, sqradius, scalerow=1.0):
 
 def IS(u):
     """IS operator."""
+    print('IS operator has been called')
     global _aux
     if np.ndim(u) == 2:
         P = _P2
@@ -184,9 +186,11 @@ class MorphACWE(object):
         res[aux < 0] = 1
         res[aux > 0] = 0
         
+        res = IS(res)
         # Smoothing.
         for i in range(self.smoothing):
             res = curvop(res)
+            print('The number i is ', i)
         self._u = res
     
     
@@ -200,7 +204,7 @@ class MorphACWE(object):
         """Soma detection converges by itself."""
         
         # Autoconvg is the abbreviation of automatic convergence
-        iterations = 30
+        iterations = 200
         
         # The following vector is used for storing values of the number of foreground voxels 
         foreground_num = np.zeros(iterations)
@@ -494,7 +498,7 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     
     # # Extract soma region for fast soma detection
     somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
-    writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_somabox.tif', somaimg)
+    # writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_somabox.tif', somaimg)
     centerpt = np.zeros(3)
     centerpt[0] = somaimg.shape[0] / 2
     centerpt[1] = somaimg.shape[1] / 2
