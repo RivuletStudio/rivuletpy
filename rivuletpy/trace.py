@@ -8,6 +8,8 @@ from scipy.spatial.distance import cdist
 from scipy.interpolate import RegularGridInterpolator 
 from skimage.morphology import skeletonize_3d
 import skfmm,msfm
+from . import soma
+from .utils.io import writetiff3d
 
 from .utils.preprocessing import distgradient
 # from .utils.swc import cleanswc
@@ -33,7 +35,25 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
+    somaradius = dt.max()
+    print('DT max:', somaradius)
+    soma_smoothing = 20 # The maximum number of smooth iterations 
+    soma_lambda1 = 1 # The weight of internal energy 
+    soma_lambda2 = 1.5 # The weight of external energy
+    somaflag = bool(True) # Use the automatic converge 
+    soma_iterations = 5 # Manually set the number of iterations 
+    # Conduct soma detection and generate soma mask
+    somamask = soma.soma_detect(img, somapos, somaradius, soma_smoothing, 
+                        soma_lambda1, soma_lambda2, somaflag, soma_iterations)
+    bimg = bimg * 50
+    bimg = bimg.astype(np.uint8)
+    writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_bimg.tif', bimg);
 
+    
+    # # Save the soma mask if required
+    if somaflag:
+        writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_soma.tif', somamask);
+    
     ## Trace 
     if threshold < 0:
         threshold = filters.threshold_otsu(img)
@@ -51,40 +71,44 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
-    if speed == 'ssm':
-        if not silence: print('--SSM with GVF...')
-        dt = ssm(dt, anisotropic=True, iterations=ssmiter)
-        img = dt > filters.threshold_otsu(dt)
-        dt = skfmm.distance(img, dx=5e-2)
+    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
 
-        if not silence: print('--Reverse DT...')
-        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-        dt[dt > 0.04] = 0.04
-        dt = dt.max() - dt
 
-    # Fast Marching
-    if is_msfm:
-        if not silence: print('--MSFM...')
-        t = msfm.run(makespeed(dt), somapos, False, True)
-    else:
-        if not silence: print('--FM...')
-        t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
 
-    # Iterative Back Tracking with Erasing
-    if not silence: print('--Start Backtracking...')
-    swc = iterative_backtrack(t, img, somapos, somaradius,
-                                              render=render, silence=silence, 
-                                              eraseratio=1.7 if speed=='ssm' else 1.5, length=5)
+    # if speed == 'ssm':
+    #     if not silence: print('--SSM with GVF...')
+    #     dt = ssm(dt, anisotropic=True, iterations=ssmiter)
+    #     img = dt > filters.threshold_otsu(dt)
+    #     dt = skfmm.distance(img, dx=5e-2)
 
-    # Clean SWC 
-    if clean:
-        # This will only keep the largest connected component of the graph in swc
-        print('Cleaning swc')
-        swc = cleanswc(swc, radius) 
-    elif not radius:
-        swc[:, 5] = 1
+    #     if not silence: print('--Reverse DT...')
+    #     dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
+    #     dt[dt > 0.04] = 0.04
+    #     dt = dt.max() - dt
 
-    return swc
+    # # Fast Marching
+    # if is_msfm:
+    #     if not silence: print('--MSFM...')
+    #     t = msfm.run(makespeed(dt), somapos, False, True)
+    # else:
+    #     if not silence: print('--FM...')
+    #     t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+
+    # # Iterative Back Tracking with Erasing
+    # if not silence: print('--Start Backtracking...')
+    # swc = iterative_backtrack(t, img, somapos, somaradius,
+    #                                           render=render, silence=silence, 
+    #                                           eraseratio=1.7 if speed=='ssm' else 1.5, length=5)
+
+    # # Clean SWC 
+    # if clean:
+    #     # This will only keep the largest connected component of the graph in swc
+    #     print('Cleaning swc')
+    #     swc = cleanswc(swc, radius) 
+    # elif not radius:
+    #     swc[:, 5] = 1
+
+    # return swc
 
 
 def makespeed(dt, threshold=0):
@@ -98,7 +122,8 @@ def makespeed(dt, threshold=0):
     return F
 
 
-def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, silence=False, eraseratio=1.1):
+def iterative_backtrack(t, bimg, soma, length=6, render=False, silence=False, eraseratio=1.1):
+
     ''' 
     Trace the segmented image with a single neuron using Rivulet2 algorithm.
 
@@ -125,6 +150,9 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
     bounds = t.shape
     tt = t.copy()
     tt[bimg <= 0] = -2
+
+    # Label all voxels of soma with -3
+    tt[somaimg > 0] = -3
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
 
     if render:
@@ -181,7 +209,11 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
                 online_voxsum += endpt_b
                 online_confidence = online_voxsum / (len(branch) + 1)
 
-                if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
+                # Reach somatic area or the distance between the somatic centroid
+                # And traced point is less than somatic radius
+                if (tt[endptint[0], endptint[1], endptint[2]] == -3) | \
+                 (np.linalg.norm(somapt - endpt) < somaradius):
+                # if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
 
                     # Render a yellow node at fork point
