@@ -192,7 +192,7 @@ def makecnn(in_shape, K):
     model.add(Dense(64))
     model.add(LeakyReLU())
     model.add(Dense(64))
-    model.add(LeakyReLU())
+    # model.add(LeakyReLU())
     model.add(Dense(1))
     model.add(Activation('linear'))
     return model

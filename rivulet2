@@ -55,6 +55,9 @@ parser.add_argument('--riveal', dest='riveal', action='store_true')
 parser.add_argument('--no-riveal', dest='riveal', action='store_false')
 parser.set_defaults(riveal=False)
 
+parser.add_argument('--riveal_iter', type=int, default=1.,
+                    help='The iterations of riveal to run. Default 1.')
+
 parser.add_argument('--debug', dest='debug', action='store_true')
 parser.add_argument('--no-debug', dest='debug', action='store_false')
 parser.set_defaults(debug=False)
@@ -89,28 +92,29 @@ if args.riveal:
     from filtering.riveal import riveal
     # At least you need to zero mask the background
     img[img <= args.threshold] = 0.
-    
-    img = riveal(img, swc)
-    img[soma.mask] = 1
 
-    # Save the riveal result for inspection
-    outimgpath = os.path.splitext(args.file)[0] + '.rv.tif'
-    rescaled_img = rescale(img)
-    writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
+    for i in range(args.riveal_iter):
+        img = riveal(img, swc)
+        img[soma.mask] = 1
 
-    outimgpath = os.path.splitext(args.file)[0] + '.rvseg.tif'
-    rescaled_img = rescale((img > 0.1).astype('int'))
-    writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
+        # Save the riveal result for inspection
+        outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
+        rescaled_img = rescale(img)
+        writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
 
-    # Run rivulet2 for the second time
-    swc, _ = r2(img, threshold=0.5,
-                speed=args.speed,
-                is_msfm=args.msfm,
-                ssmiter=args.ssmiter,
-                silence=args.silence,
-                clean=args.clean,
-                radius=args.radius,
-                render=args.render)
+        outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
+        rescaled_img = rescale((img > 0.1).astype('int'))
+        writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
+
+        # Run rivulet2 for the second time
+        swc, _ = r2(img, threshold=0.5,
+                    speed=args.speed,
+                    is_msfm=args.msfm,
+                    ssmiter=args.ssmiter,
+                    silence=args.silence,
+                    clean=args.clean,
+                    radius=args.radius,
+                    render=args.render)
 
 if args.zoom_factor != 1.:  # Pad the swc back to original space
     swc[:, 2:5] *= 1. / args.zoom_factor
