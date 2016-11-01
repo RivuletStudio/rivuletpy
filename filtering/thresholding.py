@@ -46,11 +46,16 @@ def suppress(img, threshold):
     return img
 
 
-def rescale(img):
+def rescale(img, overwrite=False):
     '''
     Rescale image intensities linearly to 0~255
     '''
-    img -= img.min()
-    img / img.max()
-    img *= 255
-    return img
+    if not overwrite:
+        result = img.copy()
+    else:
+        result = img
+
+    # result -= result.min()
+    result / result.max()
+    result *= 255
+    return result

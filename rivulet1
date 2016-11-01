@@ -19,10 +19,10 @@ except ImportError:
     from skimage import filter as filters
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
-parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
+parser.add_argument('-f', '--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
+parser.add_argument('-o', '--out', type=str, default=None, required=False, help='The name of the output file')
 parser.add_argument('--groundtruth', type=str, default=None, required=False, help='The ground truth file. A image file (*.tif, *.nii, *.mat). If given, the precision, recall and F1 will be inserted to the start of the swc file')
-parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
+parser.add_argument('-t', '--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
 parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
 
 # Arguments for filtering

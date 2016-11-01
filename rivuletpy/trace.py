@@ -36,6 +36,7 @@ class Soma(object):
 def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, render=False, fast=False):
     '''
     The main entry for rivulet2 tracing algorithm
+    Note: the returned swc has 8 columns where the 8-th column is the online confidence
     '''
 
     if threshold < 0:
@@ -103,13 +104,12 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     # Clean SWC 
     if clean:
         # This will only keep the largest connected component of the graph in swc
-        print('Cleaning swc')
+        print('-- Cleaning swc')
         swc = cleanswc(swc, radius) 
     elif not radius:
         swc[:, 5] = 1
 
-
-    return swc,  None, soma
+    return swc, soma
 
 
 def makespeed(dt, threshold=0):
@@ -178,6 +178,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
 
         # Trace it back to maxd 
         branch = [srcpt,]
+        branch_conf = [1,]
         reached = False
         touched = False
         notmoving =False 
@@ -282,6 +283,7 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
                 break 
 
             branch.append(endpt) # Add the newly traced node to current branch
+            branch_conf.append(online_confidence)
             srcpt = endpt # Shift forward
 
         # Check forward confidence 
@@ -326,29 +328,32 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
         if cf[-1] < 0.5 or low_online_conf: # Check the confidence of this branch
             continue 
 
-        swc = add2swc(swc, branch, rlist, connectid)
-        if notmoving: swc[-1, 1] = 128 # Some weired colour for unexpected stop
-        if valueerror: swc[-1, 1] = 256 # Some weired colour for unexpected stop
+        for i, node in enumerate(branch):
+            n = [math.floor(n) for n in node]
+            if tt[n[0], n[1], n[2]] == -2:
+                branch_conf[i] = 0
+
+        swc = add2swc(swc, branch, rlist, branch_conf, connectid)
 
     # After all tracing iterations, check all unconnected nodes
     for nodeidx in range(swc.shape[0]):
-        if swc[nodeidx, -1]  == -2:
+        if swc[nodeidx, 6]  == -2:
             # Find the closest node in swc, excluding the nodes traced earlier than this node in match
             swc2consider = swc[swc[:, 0] > swc[nodeidx, 0], :]
             connect, minidx = match(swc2consider, 
                                                      swc[nodeidx, 2:5], 3)
             if connect:
-                swc[nodeidx, -1] = swc2consider[minidx, 0]
+                swc[nodeidx, 6] = swc2consider[minidx, 0]
 
     # Prune short leaves 
     swc = prune_leaves(swc, bimg, length, 0.5)
 
     # Add soma node to the result swc
-    somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1])
+    somanode = np.asarray([0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1, 1.])
     swc = np.vstack((somanode, swc))
     if not silence: pbar.close() # Close the progress bar
 
-    return swc
+    return swc # The real swc and the confidence array
 
 
 def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, length=4, render=False, silence=True):
@@ -534,11 +539,11 @@ def iterative_backtrack_r1(t, bimg, somapt, somaradius, gap=8, wiring=1.5, lengt
 
     # After all tracing iterations, check all unconnected nodes
     for nodeidx in range(swc.shape[0]):
-        if swc[nodeidx, -1]  == -2:
+        if swc[nodeidx, 6]  == -2:
             # Find the closest node in swc, excluding the nodes traced earlier than this node in match
             swc2consider = swc[swc[:, 0] > swc[nodeidx, 0], :]
             connect, minidx = match_r1(swc2consider, swc[nodeidx, 2:5], 3, wiring)
-            if connect: swc[nodeidx, -1] = swc2consider[minidx, 0]
+            if connect: swc[nodeidx, 6] = swc2consider[minidx, 0]
 
     # Prune short leaves 
     swc = prune_leaves(swc, bimg, length, 0.)
@@ -659,6 +664,7 @@ def match_r1(swc, pos, radius, wiring):
     Deprecated in the standard Rivulet pipeline 
     Used only for experiments
     '''
+
     # Find the closest ground truth node 
     nodes = swc[:, 2:5]
     distlist = np.squeeze(cdist(pos.reshape(1,3), nodes))
@@ -673,7 +679,10 @@ def match_r1(swc, pos, radius, wiring):
 
 
 def match(swc, pos, radius): 
-    # Find the closest ground truth node 
+    '''
+    Find the closest ground truth node 
+    '''
+    
     nodes = swc[:, 2:5]
     distlist = np.squeeze(cdist(pos.reshape(1,3), nodes))
     if distlist.size == 0:
@@ -686,7 +695,12 @@ def match(swc, pos, radius):
     return radius > mindist or swc[minidx, 5] > mindist, minidx
 
 
-def add2swc(swc, path, radius, connectid = None):  
+def add2swc(swc, path, radius, branch_conf, connectid = None):  
+    '''
+    Add a branch to swc.
+    Note: This swc is special with N X 8 shape. The 8-th column is the online confidence
+    '''
+
     newbranch = np.zeros((len(path), 7))
     if swc is None: # It is the first branch to be added
         idstart = 1
@@ -707,13 +721,16 @@ def add2swc(swc, path, radius, connectid = None):
 
         newbranch[i] = np.asarray([id, nodetype, p[0], p[1], p[2], radius[i], pid])
 
+    branch_conf = np.reshape(np.asarray(branch_conf), (len(branch_conf), 1))
+    newbranch = np.hstack((newbranch, branch_conf))
+
     if swc is None:
         swc = newbranch
     else:
         # Check if any tail should be connected to its head
         head = newbranch[0]
         matched, minidx = match(swc, head[2:5], head[5])
-        if matched and swc[minidx, -1] is -2: swc[minidx, -1] = head[0]
+        if matched and swc[minidx, 6] is -2: swc[minidx, 6] = head[0]
         swc = np.vstack((swc, newbranch))
 
     return swc
@@ -723,78 +740,11 @@ def constrain_range(min, max, minlimit, maxlimit):
     return list(range(min if min > minlimit else minlimit, max if max < maxlimit else maxlimit))
 
 
-
-
-def confidence_cut(swc, img, marginsize=3):
-    '''
-    DEPRECATED FOR NOW
-    Confidence Cut on the leaves
-    For each leave,  if the total forward confidence is smaller than 0.5, the leave is dumped 
-    For leave with forward confidence > 0.5, find the cut point with the largest difference between
-    the forward and backward confidence
-    If the difference on the cut point > 0.5, make the cut here
-    '''
-
-    id2dump = [] 
-
-    # Find all the leaves
-    childctr = Counter(swc[:, -1])
-    leafidlist= [id for id in childctr if childctr[id] == 0]
-
-    for leafid in leafidlist: # Iterate each leaf node
-        nodeid = leafid 
-
-        branch = []
-        while True: # Get the leaf branch out
-            node = swc[swc[:, 0] == nodeid, :]
-            branch.append(node)
-            parentid = node[-1]
-            if childctr[parentid] is not 1: break # merged / unconnected
-            nodeid = parentid
-
-        # Forward confidence
-        conf_forward = np.zeros(shape=(len(branch), ))
-        branchvox = np.asarray([ img[math.floor(p[2]), math.floor(p[3]), math.floor(p[4])] for p in branch])
-        for i in range(len(branch, )):
-            conf_forward[i] = branchvox[:i].sum() / (i+1)
-
-        if conf_forward[-1] < 0.5: # Dump immediately if the forward confidence is too low
-            id2dump.extend([b[0] for b in branch])
-            continue
-
-        if len(branch) <= 2*marginsize: # The branch is too short for confidence cut, leave it
-            continue
-
-        # Backward confidence    
-        conf_backward = np.zeros(shape=(len(branch, )))
-        for i in range(len(path)):
-            conf_backward[i] = branchvox[i:].sum() / (len(path) - i)
-
-        # Find the node with highest confidence disagreement
-        confdiff = conf_backward - conf_forward
-        confdiff = confdiff[marginsize:-marginsize]
-
-        # A cut is needed 
-        if confdiff.max() > 0.5:
-            cutidx = confdiff.argmax() + marginsize
-            id2dump.extend([b[0] for b in branch[:cutpoint]])
-        
-    # Only keep the swc nodes not in the dump id list
-    cuttedswc = []
-    for nodeidx in range(swc.shape[0]):
-        if swc[nodeidx, 0] not in id2dump:
-            cuttedswc.append(swc[nodeidx, :])
-
-    cuttedswc = np.squeeze(np.dstack(cuttedswc)).T
-
-    return cuttedswc
-
-
 def prune_leaves(swc, img, length, conf):
 
     # Find all the leaves
-    childctr = Counter(swc[:, -1]) 
-    leafidlist= [id for id in swc[:, 0] if id not in swc[:, -1] ] # Does not work
+    childctr = Counter(swc[:, 6]) 
+    leafidlist= [id for id in swc[:, 0] if id not in swc[:, 6] ] # Does not work
     id2dump = []
 
     for leafid in leafidlist: # Iterate each leaf node
@@ -805,7 +755,7 @@ def prune_leaves(swc, img, length, conf):
             if node.size == 0:
                 break 
             branch.append(node)
-            parentid = node[-1]
+            parentid = node[6]
             if childctr[parentid] is not 1: break # merged / unconnected
             nodeid = parentid
 

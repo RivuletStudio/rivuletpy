@@ -44,10 +44,9 @@ def writetiff3d(filepath, block):
 
     tiff = TIFF.open(filepath, mode='w')
     block = np.swapaxes(block, 0, 1)
-    # block = np.flip(block, axis=1) # Only available for numpy > 1.12.0
-    
+
     for z in range(block.shape[2]):
-        tiff.write_image(np.flipud(block[:,:,z]), compression=None)
+        tiff.write_image(np.flipud(block[:, :, z]), compression=None)
     tiff.close()
 
 
@@ -69,6 +68,10 @@ def loadswc(filepath):
 
 
 def saveswc(filepath, swc):
+    if swc.shape[1] > 7:
+        swc = swc[:, :7]
+
     with open(filepath, 'w') as f:
         for i in range(swc.shape[0]):
-            print('%d %d %.3f %.3f %.3f %.3f %d' % tuple(swc[i, :].tolist()), file=f)
+            print('%d %d %.3f %.3f %.3f %.3f %d' %
+                  tuple(swc[i, :].tolist()), file=f)

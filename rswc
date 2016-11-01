@@ -6,7 +6,7 @@ import argparse
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Arguments for see anisotropic filters.')
-	parser.add_argument('--file', type=str, default=None, help='The file to filter')
+	parser.add_argument('-f', '--file', type=str, default=None, help='The file to filter')
 	parser.add_argument('--radius', dest='radius', action='store_true')
 	parser.add_argument('--no-radius', dest='radius', action='store_false')
 	parser.set_defaults(radius=True)

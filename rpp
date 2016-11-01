@@ -49,11 +49,11 @@ def anisotropic_enhance(img):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments to perform a simple preprocessing pipeline.')
-    parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-    parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
+    parser.add_argument('-f', '--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
+    parser.add_argument('-o', '--out', type=str, default=None, required=False, help='The name of the output file')
 
     # Arguments for filtering
-    parser.add_argument('--threshold', type=float, default=[0,], nargs='+',
+    parser.add_argument('-t', '--threshold', type=float, default=[0,], nargs='+',
         help='The thresohld to suppress the weak signals. Voxels values  <= threshold will be set 0). ')
     parser.add_argument('--pipeline', type=str, default='TA', 
         help='A string with the pipeline components to run in order. T for thresholding; A for anisotropic diffusion (VED); G for Gaussian Filtering; M for median filtering.')

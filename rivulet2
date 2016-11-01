@@ -1,22 +1,30 @@
 #!/usr/bin/python3
-
-import os, argparse
+import os
+import argparse
 from rivuletpy.trace import r2
-from rivuletpy.utils.io import *
+from rivuletpy.utils.io import loadimg, writetiff3d, saveswc
 from rivuletpy.utils.preprocessing import crop
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
+import time
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
-parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
-parser.add_argument('--groundtruth', type=str, default=None, required=False, help='The ground truth file. A image file (*.tif, *.nii, *.mat). If given, the precision, recall and F1 will be inserted to the start of the swc file')
-parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
-parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
+parser.add_argument('-f', '-f', '--file', type=str,
+                    default=None, required=True,
+                    help='The input file. A image file (*.tif, *.nii, *.mat).')
+parser.add_argument('-o', '--out',
+                    type=str, default=None, required=False,
+                    help='The name of the output file')
+parser.add_argument('-t', '--threshold', type=float, default=0,
+                    help='threshold to distinguish the foreground and background. Defulat 0. If threshold<0, otsu will be used.')
+parser.add_argument('-z', '--zoom_factor', type=float, default=1.,
+                    help='The factor to zoom the image to speed up the whole thing. Default 1.')
 
 # Args for tracing
-parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
-parser.add_argument('--length', type=int, default=6, help='The length of leaves to prune. Default 6')
+parser.add_argument('--ssmiter', type=int, default=20,
+                    help='The number of iterations to compute GVF for SSM. Default 20')
+parser.add_argument('--length', type=int, default=6,
+                    help='The length of leaves to prune. Default 6')
 
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
@@ -26,15 +34,15 @@ parser.add_argument('--msfm', dest='msfm', action='store_true')
 parser.add_argument('--no-msfm', dest='msfm', action='store_false')
 parser.set_defaults(msfm=True)
 
-parser.add_argument('--speed', type=str, default='dt', help='The type of speed image to use (dt, ssm)')
+parser.add_argument('--speed', type=str,
+                    default='dt',
+                    help='The type of speed image to use (dt, ssm)')
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
 parser.set_defaults(clean=False)
 
 # MISC
-
-parser.add_argument('-z', '--zoom_factor', type=float, default=1., help='The factor to zoom the image to speed up the whole thing. Default 1.')
 parser.add_argument('--silence', dest='silence', action='store_true')
 parser.add_argument('--no-silence', dest='silence', action='store_false')
 parser.set_defaults(silence=False)
@@ -47,24 +55,30 @@ parser.add_argument('--riveal', dest='riveal', action='store_true')
 parser.add_argument('--no-riveal', dest='riveal', action='store_false')
 parser.set_defaults(riveal=False)
 
+parser.add_argument('--debug', dest='debug', action='store_true')
+parser.add_argument('--no-debug', dest='debug', action='store_false')
+parser.set_defaults(debug=False)
+
 args = parser.parse_args()
+starttime = time.time()
 img = loadimg(args.file)
 imgdtype = img.dtype
-img, crop_region = crop(img, args.threshold) # Crop by default
+img, crop_region = crop(img, args.threshold)  # Crop by default
 
-if args.zoom_factor != 1.: 
-    if not args.silence: print('-- Zooming image to %.2f of original size' % args.zoom_factor)
+if args.zoom_factor != 1.:
+    if not args.silence:
+        print('-- Zooming image to %.2f of original size' % args.zoom_factor)
     img = zoom(img, args.zoom_factor)
 
 # Run rivulet2 for the first time
-swc, conf, soma = r2(img, threshold=args.threshold, 
-                                  speed=args.speed, 
-                                  is_msfm=args.msfm, 
-                                  ssmiter=args.ssmiter, 
-                                  silence=args.silence, 
-                                  clean=args.clean, 
-                                  radius=args.radius, 
-                                  render=args.render)
+swc, soma = r2(img, threshold=args.threshold,
+               speed=args.speed,
+               is_msfm=args.msfm,
+               ssmiter=args.ssmiter,
+               silence=args.silence,
+               clean=args.clean,
+               radius=args.radius,
+               render=args.render)
 
 # Save soma rescaled_soma_mask for inspection
 somafile = os.path.splitext(args.file)[0] + '.soma.tif'
@@ -73,36 +87,45 @@ writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
 
 if args.riveal:
     from filtering.riveal import riveal
+    # At least you need to zero mask the background
+    img[img <= args.threshold] = 0.
+    
     img = riveal(img, swc)
+    img[soma.mask] = 1
 
     # Save the riveal result for inspection
     outimgpath = os.path.splitext(args.file)[0] + '.rv.tif'
-    img = rescale(img)
-    img[soma.mask] = rescaled_soma_mask[soma.mask]
-    writetiff3d(outimgpath, img.astype(imgdtype))
+    rescaled_img = rescale(img)
+    writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
+
+    outimgpath = os.path.splitext(args.file)[0] + '.rvseg.tif'
+    rescaled_img = rescale((img > 0.1).astype('int'))
+    writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
 
     # Run rivulet2 for the second time
-    swc, _, _ = r2(img, threshold=-1, 
-                      speed=args.speed, 
-                      is_msfm=args.msfm, 
-                      ssmiter=args.ssmiter, 
-                      silence=args.silence, 
-                      clean=args.clean, 
-                      radius=args.radius, 
-                      render=args.render)
+    swc, _ = r2(img, threshold=0.5,
+                speed=args.speed,
+                is_msfm=args.msfm,
+                ssmiter=args.ssmiter,
+                silence=args.silence,
+                clean=args.clean,
+                radius=args.radius,
+                render=args.render)
 
-if args.zoom_factor != 1.: # Pad the swc back to original space
+if args.zoom_factor != 1.:  # Pad the swc back to original space
     swc[:, 2:5] *= 1. / args.zoom_factor
 
 # Pad the swc back
-swc[:, 2] += crop_region[0,0]
-swc[:, 3] += crop_region[1,0]
-swc[:, 4] += crop_region[2,0]
+swc[:, 2] += crop_region[0, 0]
+swc[:, 3] += crop_region[1, 0]
+swc[:, 4] += crop_region[2, 0]
 
 # Save the final swc
 if args.out:
     outswcfile = args.out
-else: # Make the long file name
+else:  # Make the long file name
     outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
 
 saveswc(outswcfile, swc)
+print('SWC saved to ' + outswcfile)
+print('-- Finshed: %.2f sec.' % (time.time() - starttime))
