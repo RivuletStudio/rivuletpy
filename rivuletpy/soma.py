@@ -200,7 +200,7 @@ class MorphACWE(object):
         """Soma detection converges by itself."""
         
         # Autoconvg is the abbreviation of automatic convergence
-        iterations = 200
+        iterations = 30
         
         # The following vector is used for storing values of the number of foreground voxels 
         foreground_num = np.zeros(iterations)
@@ -214,6 +214,7 @@ class MorphACWE(object):
             u = self._u
             volu = sum(u[u>0])
             foreground_num[i] = volu
+            print('The volume of volu :', volu)
             if i > 0:
                 # The variable diff_step is the current first order difference 
                 diff_step = foreground_num[i] - foreground_num[i-1]
@@ -222,8 +223,16 @@ class MorphACWE(object):
                     # The variable cur_slider_diff is the sum of sliding window
                     # The size of sliding window is 6
                     cur_slider_diff = np.sum(forward_diff_store[i-6:i-1])
-                    if np.absolute(cur_slider_diff) < 20 | \
-                     (np.absolute(cur_slider_diff) < (0.1*foreground_num[i])):
+                    print('the value of cur_slider_diff is', cur_slider_diff)
+                    volu_thres = 0.06*foreground_num[i]
+                    print('volu_thres :', volu_thres)
+                    convg_one = np.absolute(cur_slider_diff) < 20
+                    print('converge criteria one is :', convg_one)
+                    convg_two = np.absolute(cur_slider_diff) < (0.06*foreground_num[i])
+                    print('converge criteria two is :', convg_two)
+                    convg_criteria = np.logical_or(convg_one, convg_two)
+                    print('The final converged criteria is ', convg_criteria)
+                    if convg_criteria:
                         print('Perform the automatic converge')
                         break
 
