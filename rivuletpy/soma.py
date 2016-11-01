@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from .utils.io import writetiff3d
 
 """
 somasnakes
@@ -461,24 +462,36 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     """
     ratioxz = img.shape[0] / img.shape[2]
     ratioyz = img.shape[1] / img.shape[2]
-    sqrval = np.floor(min((somaradius**0.5 * max(ratioxz, ratioyz)), somaradius))
+    print('The ratioxz is ', ratioxz, 'The ratioyz is ', ratioyz)
+    sqrval = (somaradius**0.5 * max(ratioxz, ratioyz))
+    sqrval = np.floor(min(max(sqrval, 3), (somaradius**0.5)*6))
+    print('The replacesqrval is ', sqrval)
     startpt = somapos - 3 * sqrval
-    
-    # To constrain the soma growth region inside the cubic region
-    # Python index start from 0 
+    endpt = somapos + 3 * sqrval
+    print(startpt, endpt)
+
+    # # To constrain the soma growth region inside the cubic region
+    # # Python index start from 0 
     startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
     startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
     startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
-    endpt = somapos + 3 * sqrval
+
     endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
     endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
     endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
     startpt = startpt.astype(int) # Convert type to int for indexing 
     endpt = endpt.astype(int)
+    print(startpt, endpt)
     
-    # Extract soma region for fast soma detection
-    somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]].copy()
-    centerpt = np.ones(3) * sqrval
+    # # Extract soma region for fast soma detection
+    somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+    writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_somabox.tif', somaimg)
+    centerpt = np.zeros(3)
+    centerpt[0] = somaimg.shape[0] / 2
+    centerpt[1] = somaimg.shape[1] / 2
+    centerpt[2] = somaimg.shape[2] / 2
+    centerpt = np.floor(centerpt)
+    print(centerpt)
     
     # Morphological ACWE. Initialization of the level-set.
     macwe = MorphACWE(somaimg, smoothing, lambda1, lambda2)

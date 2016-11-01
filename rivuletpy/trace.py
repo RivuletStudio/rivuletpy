@@ -29,7 +29,7 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
 
     if not silence: print('--DT to get soma location with threshold:', threshold)
     bimg = (img > threshold).astype('int') # Segment image
-    dt = skfmm.distance(bimg, dx=1) # Boundary DT
+    dt = skfmm.distance(bimg, dx=1.1) # Boundary DT
     somaradius = dt.max()
     if not silence: print('DT max:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
