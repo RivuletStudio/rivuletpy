@@ -26,16 +26,16 @@ def swcradius(bimg, swc):
 
 def getradius(bimg, x, y, z):
     r = 0
-    x = math.floor(x)   
-    y = math.floor(y)   
-    z = math.floor(z)   
+    x = math.floor(x)
+    y = math.floor(y)
+    z = math.floor(z)
 
     while True:
         r += 1
         try:
-            if bimg[max(x-r, 0) : min(x+r+1, bimg.shape[0]),
-                    max(y-r, 0) : min(y+r+1, bimg.shape[1]), 
-                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < .6:
+            if bimg[max(x - r, 0):min(x + r + 1, bimg.shape[0]), max(y - r, 0):
+                    min(y + r + 1, bimg.shape[1]), max(z - r, 0):min(
+                        z + r + 1, bimg.shape[2])].sum() / (2 * r + 1)**3 < .6:
                 break
         except IndexError:
             break
@@ -48,8 +48,8 @@ def flipswc(swc, axis=1):
     Flip the swc according to one axis.
     Needed when the image was read in a wrong order
     '''
-    p = swc[:, 2+axis]
-    swc[:, 2+axis] = np.abs(p - p.max())
+    p = swc[:, 2 + axis]
+    swc[:, 2 + axis] = np.abs(p - p.max())
     return swc
 
 
