@@ -6,6 +6,7 @@ import time
 from rivuletpy.trace import r2
 from rivuletpy.utils.io import loadimg, writetiff3d, saveswc
 from rivuletpy.utils.preprocessing import crop
+from rivuletpy.utils.swc import reset_swc
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
 
@@ -90,7 +91,8 @@ if args.debug:
     rescaled_soma_mask = rescale(soma.mask.astype('int'))
     writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
     outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
-    saveswc(outswcfile, swc)
+    tswc = reset_swc(swc, crop_region, args.zoom_factor)
+    saveswc(outswcfile, tswc)
 
 if args.riveal:
     riveal_thr = 0.1
@@ -134,16 +136,10 @@ if args.riveal:
 
         if args.debug:
             outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
-            saveswc(outswcfile, swc)
+            tswc = reset_swc(swc, crop_region, args.zoom_factor)
+            saveswc(outswcfile, tswc)
 
-if args.zoom_factor != 1.:  # Pad the swc back to original space
-    swc[:, 2:5] *= 1. / args.zoom_factor
-
-# Pad the swc back
-swc[:, 2] += crop_region[0, 0]
-swc[:, 3] += crop_region[1, 0]
-swc[:, 4] += crop_region[2, 0]
-
+swc = reset_swc(swc, crop_region, args.zoom_factor)
 # Save the final swc
 if args.out:
     outswcfile = args.out
