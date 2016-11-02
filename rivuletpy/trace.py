@@ -10,6 +10,7 @@ from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import generate_binary_structure
 from scipy.ndimage import binary_dilation
 from .utils.preprocessing import distgradient
+from .utils.swc import getradius
 
 
 class Soma(object):
@@ -27,7 +28,7 @@ class Soma(object):
         ballvolume = np.zeros(bimg.shape)
         ballvolume[self.pos[0], self.pos[1], self.pos[2]] = 1
         stt = generate_binary_structure(3,1)
-        for i in range(math.ceil(self.radius) * 3):
+        for i in range(math.ceil(self.radius) * 2.5):
             ballvolume = binary_dilation(ballvolume, structure=stt)
 
         # Make the soma mask with the intersection between the ball area and the original binary
@@ -47,11 +48,13 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
             from skimage import filter as filters
         threshold = filters.threshold_otsu(img)
 
-    if not silence: print('--DT to get soma location with threshold:', threshold)
-    bimg = (img > threshold).astype('int') # Segment image
-    dt = skfmm.distance(bimg, dx=1) # Boundary DT
+    if not silence:
+        print('--DT to get soma location with threshold:', threshold)
+    bimg = (img > threshold).astype('int')  # Segment image
+    dt = skfmm.distance(bimg, dx=1)  # Boundary DT
     somaradius = dt.max()
-    if not silence: print('-- Soma radius:', somaradius)
+    if not silence:
+        print('-- Soma radius:', somaradius)
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
@@ -60,19 +63,22 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     soma = Soma(somapos, somaradius*2)
     soma.make_soma_mask(bimg)
 
-    ## Trace 
+    ## Trace
     if threshold < 0:
         threshold = filters.threshold_otsu(img)
-        if not silence: print('--Otus for threshold: ', threshold)
+        if not silence:
+            print('--Otus for threshold: ', threshold)
     else:
-        if not silence: print('--Using the user threshold:', threshold)
+        if not silence:
+            print('--Using the user threshold:', threshold)
 
-    img = (img > threshold).astype('int') # Segment image
+    img = (img > threshold).astype('int')  # Segment image
 
-    if not silence: print('--Boundary DT...')
+    if not silence:
+        print('--Boundary DT...')
 
-    dt = skfmm.distance(img, dx=5e-2) # Boundary DT
-    dtmax = dt.max()
+    dt = skfmm.distance(img, dx=5e-2)  # Boundary DT
+    # dtmax = dt.max()
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
@@ -576,7 +582,7 @@ def conf_vox(branch, bimg):
 
 def gd(srcpt, ginterp, t, stepsize):
     gvec = np.asarray([g(srcpt)[0] for g in ginterp])
-    if np.linalg.norm(gvec) <= 0: 
+    if np.linalg.norm(gvec) <= 0:
         return np.array([-1, -1, -1])
     gvec /= np.linalg.norm(gvec)
     srcpt -= stepsize * gvec
@@ -587,21 +593,21 @@ def rk4(srcpt, ginterp, t, stepsize):
     # Compute K1
     k1 = np.asarray([g(srcpt)[0] for g in ginterp])
     k1 *= stepsize / max(np.linalg.norm(k1), 1.)
-    tp = srcpt - 0.5 * k1 # Position of temporary point
+    tp = srcpt - 0.5 * k1  # Position of temporary point
     if not inbound(tp, t.shape):
         return srcpt
 
     # Compute K2
     k2 = np.asarray([g(tp)[0] for g in ginterp])
     k2 *= stepsize / max(np.linalg.norm(k2), 1.)
-    tp = srcpt - 0.5 * k2 # Position of temporary point
+    tp = srcpt - 0.5 * k2  # Position of temporary point
     if not inbound(tp, t.shape):
         return srcpt
 
     # Compute K3
     k3 = np.asarray([g(tp)[0] for g in ginterp])
     k3 *= stepsize / max(np.linalg.norm(k3), 1.)
-    tp = srcpt - k3 # Position of temporary point
+    tp = srcpt - k3  # Position of temporary point
     if not inbound(tp, t.shape):
         return srcpt
 
@@ -609,30 +615,11 @@ def rk4(srcpt, ginterp, t, stepsize):
     k4 = np.asarray([g(tp)[0] for g in ginterp])
     k4 *= stepsize / max(np.linalg.norm(k4), 1.)
 
-    return srcpt - (k1 + k2*2 + k3*2 + k4)/6.0 # Compute final point
-
-
-def getradius(bimg, x, y, z):
-    r = 0
-    x = math.floor(x)   
-    y = math.floor(y)   
-    z = math.floor(z)   
-
-    while True:
-        r += 1
-        try:
-            if bimg[max(x-r, 0) : min(x+r+1, bimg.shape[0]),
-                    max(y-r, 0) : min(y+r+1, bimg.shape[1]), 
-                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < .6:
-                break
-        except IndexError:
-            break
-
-    return r
+    return srcpt - (k1 + k2 * 2 + k3 * 2 + k4) / 6.0  # Compute final point
 
 
 def inbound(pt, shape):
-    return all([True if 0 <= p <= s-1 else False for p,s in zip(pt, shape)])
+    return all([True if 0 <= p <= s-1 else False for p, s in zip(pt, shape)])
 
 
 def fibonacci_sphere(samples=1, randomize=True):

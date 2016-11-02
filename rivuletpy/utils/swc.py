@@ -1,12 +1,57 @@
 import numpy as np
+import math
+
+
+def reset_swc(swc, crop_region, zoom_factor):
+    '''
+    Pad and rescale swc back to the original space
+    '''
+
+    tswc = swc.copy()
+    if zoom_factor != 1.:  # Pad the swc back to original space
+        tswc[:, 2:5] *= 1. / zoom_factor
+
+    # Pad the swc back
+    tswc[:, 2] += crop_region[0, 0]
+    tswc[:, 3] += crop_region[1, 0]
+    tswc[:, 4] += crop_region[2, 0]
+    return tswc
+
+
+def swcradius(bimg, swc):
+    for i in range(swc.shape[0]):
+        swc[i, 5] = getradius(bimg, swc[i, 2], swc[i, 3], swc[i, 4])
+    return swc
+
+
+def getradius(bimg, x, y, z):
+    r = 0
+    x = math.floor(x)   
+    y = math.floor(y)   
+    z = math.floor(z)   
+
+    while True:
+        r += 1
+        try:
+            if bimg[max(x-r, 0) : min(x+r+1, bimg.shape[0]),
+                    max(y-r, 0) : min(y+r+1, bimg.shape[1]), 
+                    max(z-r, 0) : min(z+r+1, bimg.shape[2])].sum() / (2*r + 1)**3 < .6:
+                break
+        except IndexError:
+            break
+
+    return r
+
 
 def flipswc(swc, axis=1):
     '''
-    Flip the swc according to one axis. Needed when the image was read in a wrong order
+    Flip the swc according to one axis.
+    Needed when the image was read in a wrong order
     '''
-    p = swc[:,2+axis]
-    swc[:,2+axis] = np.abs(p - p.max())
+    p = swc[:, 2+axis]
+    swc[:, 2+axis] = np.abs(p - p.max())
     return swc
+
 
 def get_subtree_nodeids(swc, node):
     subtreeids = np.array([])
@@ -14,7 +59,8 @@ def get_subtree_nodeids(swc, node):
     # Find children
     chidx = np.argwhere(node[0] == swc[:, 6])
 
-    # Recursion stops when there this node is a leaf with no children, return itself 
+    # Recursion stops when there this node is a
+    # leaf with no children, return itself
     if chidx.size == 0:
         return node[0]
     else:
@@ -28,7 +74,7 @@ def get_subtree_nodeids(swc, node):
 
 class Node(object):
     def __init__(self, id):
-        self.__id  = id
+        self.__id = id
         self.__links = set()
 
     @property
@@ -62,7 +108,8 @@ def connected_components(nodes):
         # Get a random node and remove it from the global set.
         n = nodes.pop()
 
-        # This set will contain the next group of nodes connected to each other.
+        # This set will contain the next group of nodes
+        # connected to each other.
         group = {n}
 
         # Build a queue with this node in it.
@@ -102,14 +149,15 @@ def cleanswc(swc, radius=True):
     Only keep the largest connected component
     '''
     swcdict = {}
-    for n in swc: # Hash all the swc nodes
+    for n in swc:  # Hash all the swc nodes
         swcdict[n[0]] = Node(n[0])
 
-    for n in swc: # Add mutual links for all nodes
+    for n in swc:  # Add mutual links for all nodes
         id = n[0]
         pid = n[-1]
 
-        if pid >= 1: swcdict[id].add_link(swcdict[pid])
+        if pid >= 1:
+            swcdict[id].add_link(swcdict[pid])
 
     groups = connected_components(set(swcdict.values()))
     lenlist = [len(g) for g in groups]
@@ -118,6 +166,6 @@ def cleanswc(swc, radius=True):
     id2keep = [n.id for n in set2keep]
     swc = swc[np.in1d(swc[:, 0], np.asarray(id2keep)), :]
     if not radius:
-        swc[:,5] = 1
+        swc[:, 5] = 1
 
     return swc
