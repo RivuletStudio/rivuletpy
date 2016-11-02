@@ -28,7 +28,7 @@ class Soma(object):
         ballvolume = np.zeros(bimg.shape)
         ballvolume[self.pos[0], self.pos[1], self.pos[2]] = 1
         stt = generate_binary_structure(3,1)
-        for i in range(math.ceil(self.radius) * 2.5):
+        for i in range(math.ceil(self.radius * 2.5)):
             ballvolume = binary_dilation(ballvolume, structure=stt)
 
         # Make the soma mask with the intersection between the ball area and the original binary
