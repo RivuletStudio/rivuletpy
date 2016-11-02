@@ -1,15 +1,16 @@
-import os, math
+import math
 from tqdm import tqdm
 import numpy as np
 from random import random
+import skfmm
+import msfm
 from collections import Counter
 from scipy.spatial.distance import cdist
-from scipy.interpolate import RegularGridInterpolator 
+from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import generate_binary_structure
 from scipy.ndimage import binary_dilation
-import skfmm, msfm
 from .utils.preprocessing import distgradient
-# from .utils.swc import cleanswc
+
 
 class Soma(object):
     def __init__(self, pos, radius, mask=None):
@@ -249,14 +250,13 @@ def iterative_backtrack(t, bimg, somapt, somaradius, length=6, render=False, sil
                 if np.linalg.norm(velocity) <= 0.5 and len(branch) >= length:
                     endpt = srcpt + (branch[-1] - branch[-4])
 
-                if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.: 
-                    notmoving = True
+                if len(branch) > 15 and np.linalg.norm(branch[-15] - endpt) < 1.:
                     # Render a brown node at stopping point since not moving
                     if render:
                         ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
                         ball.set_color(0.729, 0.192, 0.109)
                         viewer.add_geom(ball)
-                    break # There could be zero gradients somewhere
+                    break  # There could be zero gradients somewhere
 
                 if online_confidence < 0.25:
                     low_online_conf = True

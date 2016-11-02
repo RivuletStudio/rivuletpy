@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 import os
 import argparse
+import math
+import time
 from rivuletpy.trace import r2
 from rivuletpy.utils.io import loadimg, writetiff3d, saveswc
 from rivuletpy.utils.preprocessing import crop
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
-import time
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
 parser.add_argument('-f', '-f', '--file', type=str,
@@ -55,10 +56,10 @@ parser.add_argument('--riveal', dest='riveal', action='store_true')
 parser.add_argument('--no-riveal', dest='riveal', action='store_false')
 parser.set_defaults(riveal=False)
 
-parser.add_argument('--riveal_iter', type=int, default=1.,
+parser.add_argument('--riveal_iter', type=int, default=2,
                     help='The iterations of riveal to run. Default 1.')
 
-parser.add_argument('--debug', dest='debug', action='store_true')
+parser.add_argument('-d', '--debug', dest='debug', action='store_true')
 parser.add_argument('--no-debug', dest='debug', action='store_false')
 parser.set_defaults(debug=False)
 
@@ -80,34 +81,49 @@ swc, soma = r2(img, threshold=args.threshold,
                ssmiter=args.ssmiter,
                silence=args.silence,
                clean=args.clean,
-               radius=args.radius,
+               radius=True if args.riveal else args.radius,
                render=args.render)
 
-# Save soma rescaled_soma_mask for inspection
-somafile = os.path.splitext(args.file)[0] + '.soma.tif'
-rescaled_soma_mask = rescale(soma.mask.astype('int'))
-writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
+if args.debug:
+    # Save soma rescaled_soma_mask for inspection
+    somafile = os.path.splitext(args.file)[0] + '.soma.tif'
+    rescaled_soma_mask = rescale(soma.mask.astype('int'))
+    writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
+    outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
+    saveswc(outswcfile, swc)
 
 if args.riveal:
+    riveal_thr = 0.1
     from filtering.riveal import riveal
     # At least you need to zero mask the background
     img[img <= args.threshold] = 0.
 
+    # Decide the kernel size with the mean radius
+    mean_radius = swc[:, 5].mean()
+    mean_radius = math.ceil(mean_radius)
+    K = 4 * mean_radius  # Kernel Size
+    print('Mean Radius: %d\tKernel Radius:%d' % (mean_radius, K))
+
     for i in range(args.riveal_iter):
-        img = riveal(img, swc)
+        img = riveal(img, swc, K=K)
         img[soma.mask] = 1
 
-        # Save the riveal result for inspection
-        outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
-        rescaled_img = rescale(img)
-        writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
+        if args.debug:
+            # Save the riveal result for inspection
+            outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
+            outimg = rescale(img)
 
-        outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
-        rescaled_img = rescale((img > 0.1).astype('int'))
-        writetiff3d(outimgpath, rescaled_img.astype(imgdtype))
+            from skimage import exposure
+            outimg = exposure.equalize_hist(outimg.astype('int'))
+            outimg = rescale(img)
+            writetiff3d(outimgpath, outimg.astype(imgdtype))
 
-        # Run rivulet2 for the second time
-        swc, _ = r2(img, threshold=0.5,
+            outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
+            outimg = rescale((img > riveal_thr).astype('int'))
+            writetiff3d(outimgpath, outimg.astype(imgdtype))
+
+        # Run rivulet2 on riveal result
+        swc, _ = r2(img, threshold=riveal_thr,
                     speed=args.speed,
                     is_msfm=args.msfm,
                     ssmiter=args.ssmiter,
@@ -115,6 +131,10 @@ if args.riveal:
                     clean=args.clean,
                     radius=args.radius,
                     render=args.render)
+
+        if args.debug:
+            outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
+            saveswc(outswcfile, swc)
 
 if args.zoom_factor != 1.:  # Pad the swc back to original space
     swc[:, 2:5] *= 1. / args.zoom_factor

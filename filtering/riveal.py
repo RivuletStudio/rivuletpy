@@ -7,13 +7,14 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers.noise import GaussianDropout, GaussianNoise
-from keras.layers.advanced_activations import LeakyReLU
+from keras.layers.advanced_activations import SReLU
 
 
-def riveal(img, swc, K=9, nsample=5e4, epoch=25):
+def riveal(img, swc, K=9, nsample=8e4, epoch=20):
     print('-- oiginal image size: ', img.shape)
+    K = math.floor(K) # Make sure K is integer to avoid warnings
     # Pad the image and swc
-    margin = 2 * K
+    margin = 3 * K
     img = padimg(img, margin)
     swc = padswc(swc, margin)
 
@@ -22,23 +23,24 @@ def riveal(img, swc, K=9, nsample=5e4, epoch=25):
     dt, foreground_region = make_skdt(img.shape, swc, K)
 
     # Normalise data
-    img = standardise(img)
+    # img = standardise(img)
     # dt = standardise(dt)
-    dt /= dt.max()
+    img /= img.max()
+    # dt /= dt.max()
 
     # Make the confident region
     print('==swc shape:', swc.shape)
     print('-- Making the confidence regions...(1/4)')
     high_conf_region = make_conf_region(img.shape, swc, K,
                                         low_conf=0.5, high_conf=1.)
-    print('-- Making the confidence regions...(2/4)')
-    mid_conf_region = make_conf_region(img.shape, swc, K,
-                                       low_conf=0.25, high_conf=0.5)
+    # print('-- Making the confidence regions...(2/4)')
+    # mid_conf_region = make_conf_region(img.shape, swc, K,
+    #                                    low_conf=0.25, high_conf=0.5)
     print('-- Making the confidence regions...(3/4)')
     low_conf_region = make_conf_region(img.shape, swc, K,
                                        low_conf=0., high_conf=0.25)
 
-    # Fill only the central region of background region since this image padded
+    # # Fill only the central part of background region
     print('-- Making the confidence regions...(4/4)')
     background_region = np.zeros(img.shape)
     bg = np.logical_not(foreground_region)
@@ -46,23 +48,22 @@ def riveal(img, swc, K=9, nsample=5e4, epoch=25):
                       margin:-margin] = bg[margin:-margin,
                                            margin:-margin, margin:-margin]
 
-    # from matplotlib import pyplot as plt 
-    # plt.imshow(high_conf_region.max(-1))
-    # plt.show()
-
     # Randomly sample 2.5D blocks from the include region
     print('-- Sampling blocks')
     x1, y1 = sample_block(img, dt, high_conf_region,
-                          K, math.ceil(nsample * 0.6))
-    x2, y2 = sample_block(img, dt, mid_conf_region,
-                          K, math.ceil(nsample * 0.2))
+                          K, math.ceil(nsample * 0.7))
+    # x2, y2 = sample_block(img, dt, mid_conf_region,
+    #                       K, math.ceil(nsample * 0.2))
     x3, y3 = sample_block(img, dt, low_conf_region, K,
                           math.ceil(nsample * 0.2))
     y3.fill(0.)
     x4, y4 = sample_block(img, dt, background_region,
                           K, math.ceil(nsample * 0.1))
-    train_x = np.vstack((x1, x2, x3, x4))
-    train_y = np.vstack((y1, y2, y3, y4))
+    y4.fill(0.)
+    train_x = np.vstack((x1, x3, x4))
+    train_y = np.vstack((y1, y3, y4))
+    # train_x = x1
+    # train_y = y1
 
     # Build the CNN with keras+tensorflow
     print('--Training CNN...')
@@ -72,14 +73,13 @@ def riveal(img, swc, K=9, nsample=5e4, epoch=25):
     # the segmentation of the image
     print('-- Predicting...')
     bimg = img > 0
-    bimg = binary_dilation(bimg)
-    bimg = binary_dilation(bimg)
-    bimg = binary_dilation(bimg)
+    for i in range(6):
+        bimg = binary_dilation(bimg)
     include_region = bimg > 0
     include_idx = np.argwhere(include_region)
     nidx = include_idx.shape[0]
 
-    predict_x = np.zeros((nsample, margin+1, margin+1, 3))
+    predict_x = np.zeros((nsample, 2*K+1, 2*K+1, 3))
     rest = nidx
     resultimg = np.zeros(img.shape)
     pbar = tqdm(total=nidx)
@@ -146,7 +146,7 @@ def make_conf_region(imshape, swc, K, low_conf=0.0, high_conf=1.0):
             np.logical_and(swc[:, 7] >= low_conf, swc[:, 7] <= high_conf), :]))
 
     region = np.zeros(imshape)
-    r = math.ceil(K * 1.5 / 2)
+    r = math.ceil(K * 0.75)
     for i in range(confswc.shape[0]):
         node = confswc[i, :]
         n = [math.floor(n) for n in node[2:5]]
@@ -178,21 +178,22 @@ def make_skdt(imshape, swc, K, a=6):
 
 def makecnn(in_shape, K):
     model = Sequential()
-    model.add(Convolution2D(64, 3, 3, border_mode='same',
+    model.add(Convolution2D(32, 3, 3, border_mode='same',
                             input_shape=in_shape[1:]))
-    model.add(LeakyReLU())
+    model.add(SReLU())
     model.add(MaxPooling2D(pool_size=(2, 2), dim_ordering='tf'))
     model.add(GaussianNoise(1))
-    model.add(Convolution2D(64, 3, 3, border_mode='same'))
-    model.add(LeakyReLU())
+    model.add(GaussianDropout(0.4))
+    model.add(Convolution2D(32, 3, 3, border_mode='same'))
+    model.add(SReLU())
     model.add(MaxPooling2D(pool_size=(2, 2), dim_ordering='tf'))
     model.add(GaussianNoise(1))
-    model.add(GaussianDropout(0.25))
+    model.add(GaussianDropout(0.4))
     model.add(Flatten())
     model.add(Dense(64))
-    model.add(LeakyReLU())
+    model.add(SReLU())
     model.add(Dense(64))
-    # model.add(LeakyReLU())
+    # model.add(SReLU())
     model.add(Dense(1))
     model.add(Activation('linear'))
     return model
@@ -204,7 +205,7 @@ def traincnn(x, y, K, epoch):
     x /= x.max()
     y /= y.max()
     model = makecnn(x.shape, K)
-    model.compile(loss='mean_squared_error',
+    model.compile(loss='mse',
                   optimizer='rmsprop')
     model.fit(x, y,
               batch_size=64,
