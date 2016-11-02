@@ -55,7 +55,8 @@ def rescale(img, overwrite=False):
     else:
         result = img
 
-    # result -= result.min()
-    result / result.max()
+    result = result.astype('float')
+    result -= result.min()
+    result /= result.max()
     result *= 255
     return result

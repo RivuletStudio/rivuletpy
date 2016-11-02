@@ -1,20 +1,24 @@
 #!/usr/bin/python3
 # The preprocessing pipeline of Rivulet2
+import numpy as np
 import argparse
-import os, random, string, subprocess
+import os
+import random
+import string
+import subprocess
 from pathlib import Path
-import nibabel as nib
-from rivuletpy.utils.io import *
+from rivuletpy.utils.io import loadimg, writetiff3d
 from filtering.thresholding import suppress, rescale
 import skfmm
 from scipy.ndimage.filters import gaussian_filter, median_filter
+from scipy.ndimage.interpolation import zoom
 from filtering.morphology import ssm
 
 try:
     from skimage import filters
 except ImportError:
     from skimage import filter as filters
-from skimage import exposure
+
 
 def anisotropic_enhance(img):
     '''
@@ -49,8 +53,10 @@ def anisotropic_enhance(img):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments to perform a simple preprocessing pipeline.')
-    parser.add_argument('-f', '--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-    parser.add_argument('-o', '--out', type=str, default=None, required=False, help='The name of the output file')
+    parser.add_argument('-f', '--file', type=str, default=None, required=True,
+                        help='The input file. A image file (*.tif, *.nii, *.mat).')
+    parser.add_argument('-o', '--out', type=str, default=None,
+                        required=False, help='The name of the output file')
 
     # Arguments for filtering
     parser.add_argument('-t', '--threshold', type=float, default=[0,], nargs='+',
@@ -60,9 +66,12 @@ if __name__ == '__main__':
     parser.add_argument('--sigma', type=float, default=[3.,], nargs='+', required=False, help='The sigma value used for gaussian filter. Default 3.0')
     parser.add_argument('--median_size', type=float, default=[3.,], nargs='+', required=False, help='The window size used for median filter. Default 3.0')
     parser.add_argument('--ssmiter', type=int, default=20, required=False, help='The window size used for median filter. Default 3.0')
+    parser.add_argument('-z', '--zoom_factor', type=float, default=1.,
+                        help='The factor to zoom the image to speed up the whole thing. Default 1.')
     args = parser.parse_args()
 
     img = loadimg(args.file)
+    img = zoom(img, args.zoom_factor)  # Zoom to speed up
     imgtype = img.dtype
     lastthreshold = args.threshold[0]
     for c in args.pipeline:
@@ -99,9 +108,9 @@ if __name__ == '__main__':
         outfile = basename + '.pp.tif'
 
     # img = np.flipud(img) # Needed to show in v3d
-    img = np.ceil(img)
+    img = zoom(img, 1/args.zoom_factor)  # Zoom back
+    img = np.floor(img)
     writetiff3d(outfile, img.astype(imgtype))
-    print('--binarising using threshold:', lastthreshold)
-    img[img>0] = 180
+    img[img > 0] = 180
     writetiff3d(os.path.splitext(outfile)[0]+'.seg.tif', img.astype(imgtype))
     print('--rpp finished')
