@@ -51,14 +51,14 @@ def riveal(img, swc, K=9, nsample=8e4, epoch=20):
     # Randomly sample 2.5D blocks from the include region
     print('-- Sampling blocks')
     x1, y1 = sample_block(img, dt, high_conf_region,
-                          K, math.ceil(nsample * 0.7))
+                          K, math.ceil(nsample * 0.75))
     # x2, y2 = sample_block(img, dt, mid_conf_region,
     #                       K, math.ceil(nsample * 0.2))
     x3, y3 = sample_block(img, dt, low_conf_region, K,
                           math.ceil(nsample * 0.1))
     y3.fill(0.)
     x4, y4 = sample_block(img, dt, background_region,
-                          K, math.ceil(nsample * 0.2))
+                          K, math.ceil(nsample * 0.15))
     y4.fill(0.)
     train_x = np.vstack((x1, x3, x4))
     train_y = np.vstack((y1, y3, y4))

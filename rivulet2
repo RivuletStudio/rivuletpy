@@ -30,7 +30,7 @@ parser.add_argument('--length', type=int, default=6,
 
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
-parser.set_defaults(radius=False)
+parser.set_defaults(radius=True)
 
 parser.add_argument('--msfm', dest='msfm', action='store_true')
 parser.add_argument('--no-msfm', dest='msfm', action='store_false')
