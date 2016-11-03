@@ -58,7 +58,7 @@ _aux = np.zeros((0))
 
 def SI(u):
     """SI operator."""
-    print('SI operator has been called')    
+    # print('SI operator has been called')    
     global _aux
     if np.ndim(u) == 2:
         P = _P2
@@ -86,7 +86,7 @@ def circle_levelset(shape, center, sqradius, scalerow=1.0):
 
 def IS(u):
     """IS operator."""
-    print('IS operator has been called')
+    # print('IS operator has been called')
     global _aux
     if np.ndim(u) == 2:
         P = _P2
@@ -125,7 +125,7 @@ def glines(img, sigma=1.0):
 class MorphACWE(object):
     """Morphological ACWE based on the Chan-Vese energy functional."""
     
-    def __init__(self, data, smoothing=1, lambda1=1, lambda2=1):
+    def __init__(self, data, startpt, endpt, smoothing=1, lambda1=1, lambda2=1.5):
         """Create a Morphological ACWE solver.
         
         Parameters
@@ -140,12 +140,19 @@ class MorphACWE(object):
         lambda1, lambda2 : scalars
             Relative importance of the inside pixels (lambda1)
             against the outside pixels (lambda2).
+        startpt, endpt : numpy int array
+            startpt is the initial starting point of the somatic region
+            endpt is the initial ending point of the somatic region
         """
         self._u = None
         self.smoothing = smoothing
         self.lambda1 = lambda1
         self.lambda2 = lambda2        
         self.data = data
+        self.startpt = startpt
+        self.endpt = endpt
+        self.enlrspt = None
+        self.enlrept = None
  
 
     def set_levelset(self, u):
@@ -227,18 +234,66 @@ class MorphACWE(object):
                     # The variable cur_slider_diff is the sum of sliding window
                     # The size of sliding window is 6
                     cur_slider_diff = np.sum(forward_diff_store[i-6:i-1])
-                    print('the value of cur_slider_diff is', cur_slider_diff)
+                    # print('The value of cur_slider_diff is', cur_slider_diff)
                     volu_thres = 0.06*foreground_num[i]
-                    print('volu_thres :', volu_thres)
+                    # print('volu_thres :', volu_thres)
                     convg_one = np.absolute(cur_slider_diff) < 20
-                    print('converge criteria one is :', convg_one)
+                    # print('converge criteria one is :', convg_one)
                     convg_two = np.absolute(cur_slider_diff) < (0.06*foreground_num[i])
-                    print('converge criteria two is :', convg_two)
+                    # print('converge criteria two is :', convg_two)
                     convg_criteria = np.logical_or(convg_one, convg_two)
-                    print('The final converged criteria is ', convg_criteria)
+                    # print('The final converged criteria is ', convg_criteria)
                     if convg_criteria:
                         print('Perform the automatic converge')
                         break
+        print('Begin to calculate which face of the somatic box will extended')
+        A = self._u > 0.5
+        maxA = A.max()
+        print('The maximum value is', maxA)
+        print('The shape of maxA is', maxA.shape)
+        slicevalarray = np.zeros(6)
+        somaslice = A[0,:,:]
+        slicearray = np.sum(somaslice, axis=0)
+        sliceval = np.sum(slicearray, axis=0)
+        slicevalarray[0] = sliceval
+
+        somaslice = A[A.shape[0]-1,:,:]
+        slicearray = np.sum(somaslice, axis=0)
+        sliceval = np.sum(slicearray, axis=0)
+        slicevalarray[1] = sliceval
+
+        somaslice = A[:,0,:]
+        slicearray = np.sum(somaslice, axis=0)
+        sliceval = np.sum(slicearray, axis=0)
+        slicevalarray[2] = sliceval
+
+        somaslice = A[:,A.shape[1]-1,:]
+        slicearray = np.sum(somaslice, axis=0)
+        sliceval = np.sum(slicearray, axis=0)
+        slicevalarray[3] = sliceval
+
+        somaslice = A[:,:,0]
+        slicearray = np.sum(somaslice, axis=0)
+        sliceval = np.sum(slicearray, axis=0)
+        slicevalarray[4] = sliceval
+
+        somaslice = A[:,:,A.shape[2]-1]
+        slicearray = np.sum(somaslice, axis=0)
+        sliceval = np.sum(slicearray, axis=0)
+        slicevalarray[5] = sliceval
+        maxval = slicevalarray.max()
+
+        print('The shape of somaslice is', somaslice.shape)
+        print('The shape of slicearray is', slicearray.shape)
+        print('The slice value is', sliceval)
+        print('The slicevalarray is', slicevalarray)
+        print('maximum value of slicevalarray is', maxval)
+
+        if (maxval > 100):
+            print('The bounding box region is being calculated')
+
+
+
 
 
 class MorphGAC(object):
@@ -507,8 +562,10 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     print(centerpt)
     
     # Morphological ACWE. Initialization of the level-set.
-    macwe = MorphACWE(somaimg, smoothing, lambda1, lambda2)
+    macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
+    print('The startpt of the soma snake is', macwe.startpt)
+    print('The endpt of the soma snake is', macwe.endpt)
     if iterations == -1:
         macwe.autoconvg() # automatic soma detection
     else:        
