@@ -125,7 +125,7 @@ def glines(img, sigma=1.0):
 class MorphACWE(object):
     """Morphological ACWE based on the Chan-Vese energy functional."""
     
-    def __init__(self, data, startpt, endpt, smoothing=1, lambda1=1, lambda2=1.5):
+    def __init__(self, data, startpoint, endpoint, imgshape, smoothing=1, lambda1=1, lambda2=1.5):
         """Create a Morphological ACWE solver.
         
         Parameters
@@ -147,10 +147,11 @@ class MorphACWE(object):
         self._u = None
         self.smoothing = smoothing
         self.lambda1 = lambda1
-        self.lambda2 = lambda2        
+        self.lambda2 = lambda2
+        self.imgshape = imgshape        
         self.data = data
-        self.startpt = startpt
-        self.endpt = endpt
+        self.startpoint = startpoint
+        self.endpoint = endpoint
         self.enlrspt = None
         self.enlrept = None
  
@@ -197,7 +198,7 @@ class MorphACWE(object):
         # Smoothing.
         for i in range(self.smoothing):
             res = curvop(res)
-            print('The number i is ', i)
+            # print('The number i is ', i)
         self._u = res
     
     
@@ -234,12 +235,12 @@ class MorphACWE(object):
                     # The variable cur_slider_diff is the sum of sliding window
                     # The size of sliding window is 6
                     cur_slider_diff = np.sum(forward_diff_store[i-6:i-1])
-                    # print('The value of cur_slider_diff is', cur_slider_diff)
-                    volu_thres = 0.06*foreground_num[i]
-                    # print('volu_thres :', volu_thres)
+                    print('The value of cur_slider_diff is', cur_slider_diff)
+                    volu_thres = 0.03*foreground_num[i]
+                    print('volu_thres :', volu_thres)
                     convg_one = np.absolute(cur_slider_diff) < 20
                     # print('converge criteria one is :', convg_one)
-                    convg_two = np.absolute(cur_slider_diff) < (0.06*foreground_num[i])
+                    convg_two = np.absolute(cur_slider_diff) < volu_thres
                     # print('converge criteria two is :', convg_two)
                     convg_criteria = np.logical_or(convg_one, convg_two)
                     # print('The final converged criteria is ', convg_criteria)
@@ -282,18 +283,48 @@ class MorphACWE(object):
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[5] = sliceval
         maxval = slicevalarray.max()
+        maxind = slicevalarray.argmax()
+        sz1 = self.data.shape[0]
+        sz2 = self.data.shape[1]
+        sz3 = self.data.shape[2]
 
-        print('The shape of somaslice is', somaslice.shape)
-        print('The shape of slicearray is', slicearray.shape)
-        print('The slice value is', sliceval)
-        print('The slicevalarray is', slicevalarray)
-        print('maximum value of slicevalarray is', maxval)
-
-        if (maxval > 100):
+        # print('The shape of somaslice is', somaslice.shape)
+        # print('The shape of slicearray is', slicearray.shape)
+        # print('The slice value is', sliceval)
+        # print('The slicevalarray is', slicevalarray)
+        # print('The maximum value of slicevalarray is', maxval)
+        # print('The image shape is ', self.data.shape)
+        # print('The value of sz1', sz1, 'The value of sz2', sz2, 'The value of sz3', sz3)
+        # print('The next line is going to print enlarged region point before their values are assigned')
+        # print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
+        if (maxval>100):
             print('The bounding box region is being calculated')
+            self.enlrspt = self.startpoint.copy()
+            self.enlrept = self.endpoint.copy()
+            if (maxind==0):
+                print('case 1 is been called')
+                self.enlrspt[0] = self.enlrspt[0] - (sz1/4)
+            elif (maxind==1):
+                print('case 2 has been called')
+                self.enlrept[0] = self.enlrept[0] + (sz1/4) 
+            elif (maxind==2):
+                print('case 3 has been called')
+                self.enlrspt[1] = self.enlrspt[1] - (sz1/4)
+            elif (maxind==3):
+                print('case 4 has been called')
+                self.enlrept[1] = self.enlrept[1] + (sz1/4)
+            elif (maxind==4):
+                print('case 5 has been called')
+                self.enlrspt[2] = self.enlrspt[2] - (sz1/4)
+            elif (maxind==5):
+                print('case 6 has been called')
+                self.enlrept[2] = self.enlrept[2] + (sz1/4)
 
-
-
+            # To constrain new bounding box inside
+            print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
+        else:
+            self.enlrspt = None
+            self.enlrept = None
 
 
 class MorphGAC(object):
@@ -536,7 +567,7 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     print('The replacesqrval is ', sqrval)
     startpt = somapos - 3 * sqrval
     endpt = somapos + 3 * sqrval
-    print(startpt, endpt)
+    # print(startpt, endpt)
 
     # # To constrain the soma growth region inside the cubic region
     # # Python index start from 0 
@@ -564,8 +595,6 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     # Morphological ACWE. Initialization of the level-set.
     macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
-    print('The startpt of the soma snake is', macwe.startpt)
-    print('The endpt of the soma snake is', macwe.endpt)
     if iterations == -1:
         macwe.autoconvg() # automatic soma detection
     else:        
@@ -573,13 +602,49 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
         for i in range(iterations):
             macwe.step()
     
+
+
+    for  i in range(1,11):
+        print('The value of i is', i)
+        if macwe.enlrspt is None:
+            break
+        startpt = macwe.enlrspt.copy()
+        endpt = macwe.enlrept.copy()
+
+        print('The new startpt has been calculated', startpt)
+        print('The new endpt has been calculated', endpt)
+        somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+        
+        fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
+        fullsomaimg[macwe.startpoint[0]:macwe.endpoint[0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:macwe.endpoint[2]] = macwe._u
+        newlevelset = fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+        del macwe
+        macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
+        del somaimg, fullsomaimg, startpt, endpt
+        print(newlevelset.shape)
+        # # macwe.levelset = macwe._u.copy()
+        # newlevelset = macwe._u
+        macwe.set_levelset(newlevelset)
+        del newlevelset
+        macwe.autoconvg()
+
+
     # Initialise soma mask image 
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
     
     # The soma mask image contains only two possible values so each element is either 0 or 40
+    print('The startpt of the soma snake is', macwe.startpoint)
+    print('The endpt of the soma snake is', macwe.endpoint)
+    if macwe.enlrspt is None:
+        startpt = macwe.startpoint.copy()
+        endpt = macwe.endpoint.copy()
+    else:
+        startpt = macwe.enlrspt.copy()
+        endpt = macwe.enlrept.copy()
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
     fullsomaimg.astype(int)
     
     # Convert to uint8 so the soma mask image can be saved
     fullsomaimg = fullsomaimg.astype(np.uint8)
+
     return fullsomaimg
