@@ -1,16 +1,15 @@
 import math
 from tqdm import tqdm
 import numpy as np
-from random import random
+from random import random, randrange
 import skfmm
 import msfm
 from collections import Counter
-from scipy.spatial.distance import cdist
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import generate_binary_structure
 from scipy.ndimage import binary_dilation
 from .utils.preprocessing import distgradient
-from .utils.swc import getradius
+from .utils.swc import getradius, cleanswc, match, match_r1
 from filtering.morphology import ssm
 
 
@@ -74,6 +73,8 @@ def r2(img,
 
     # Make the soma object
     soma = Soma(somapos, somaradius * 2)
+    if not silence:
+        print('-- Making Soma Mask...')
     soma.make_soma_mask(bimg)
 
     ## Trace
@@ -128,7 +129,7 @@ def r2(img,
         eraseratio=1.7 if speed == 'ssm' else 1.5,
         length=5)
 
-    # Clean SWC 
+    # Clean SWC
     if clean:
         # This will only keep the largest connected component of the graph in swc
         print('-- Cleaning swc')
@@ -158,7 +159,7 @@ def iterative_backtrack(t,
                         render=False,
                         silence=False,
                         eraseratio=1.1):
-    ''' 
+    '''
     Trace the segmented image with a single neuron using Rivulet2 algorithm.
 
     Parameters
@@ -208,23 +209,23 @@ def iterative_backtrack(t,
         iteridx += 1
         coveredctr_new = np.logical_and(tt < 0, bimg > 0).sum()
         coverage = coveredctr_new / nforeground
-        if not silence: pbar.update(coveredctr_new - coveredctr_old)
+        if not silence:
+            pbar.update(coveredctr_new - coveredctr_old)
         coveredctr_old = coveredctr_new
 
         # Find the geodesic furthest point on foreground time-crossing-map
         endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(
         ), tt.shape)).astype('float64')
 
-        # Trace it back to maxd 
+        # Trace it back to maxd
         branch = [srcpt, ]
         branch_conf = [1, ]
         reached = False
         touched = False
-        notmoving = False
-        valueerror = False
         fgctr = 0  # Count how many steps are made on foreground in this branch
         steps_after_reach = 0
-        outofbound = reachedsoma = False
+        reachedsoma = False
+        gapdist = 0  # Length of the branch on gap
 
         # For online confidence comupting
         online_voxsum = 0.
@@ -232,15 +233,28 @@ def iterative_backtrack(t,
 
         line_color = [random(), random(), random()]
 
+        rlist = []
         while True:  # Start 1 Back-tracking iteration
             try:
                 endpt = rk4(srcpt, ginterp, t, 1)
                 endptint = [math.floor(p) for p in endpt]
                 velocity = endpt - srcpt
 
-                # See if it travels too far on the background
+                # Count the number of steps it travels on the foreground
                 endpt_b = bimg[endptint[0], endptint[1], endptint[2]]
                 fgctr += endpt_b
+
+                # Check for the large gap criterion
+                if not endpt_b:
+                    # Get the mean radius so far
+                    rmean = 1 if len(rlist) == 0 else np.mean(rlist)
+                    stepsz = np.linalg.norm(srcpt - endpt)
+                    gapdist += stepsz
+
+                    if gapdist > rmean * 8:
+                        break
+                else:
+                    gapdist = 0  # Reset gapdist
 
                 # Compute the online confidence
                 online_voxsum += endpt_b
@@ -265,19 +279,22 @@ def iterative_backtrack(t,
                     viewer.add_geom(l)
                     viewer.render(return_rgb_array=False)
 
-                # Consider reaches previous explored area traced with real branch
-                # Note: when the area was traced due to noise points (erased with -2), not considered as 'reached'
+                # Consider reaches previous explored area traced with branch
+                # Note: when the area was traced due to noise points
+                # (erased with -2), not considered as 'reached'
                 if tt[endptint[0], endptint[1], endptint[2]] == -1:
                     reached = True
 
-                if reached:  # If the endpoint reached previously traced area check for node to connect for at each step
+                # If the endpoint reached previously traced area check for
+                # node to connect for at each step
+                if reached:
                     if swc is None:
                         break  # There has not been any branch added yet
 
                     steps_after_reach += 1
                     endradius = getradius(bimg, endpt[0], endpt[1], endpt[2])
                     touched, touchidx = match(swc, endpt, endradius)
-                    closestnode = swc[touchidx, :]
+                    # closestnode = swc[touchidx, :]
 
                     if touched or steps_after_reach >= 100:
                         # Render a blue node at fork point
@@ -313,12 +330,10 @@ def iterative_backtrack(t,
 
                 # All in vain finally if it traces out of bound
                 if not inbound(endpt, tt.shape):
-                    outofbound = True
                     break
 
             except ValueError:
-                valueerror = True
-                # Render a pink node at value error 
+                # Render a pink node at value error
                 if render:
                     ball = Ball3((endpt[0], endpt[1], endpt[2]), radius=1)
                     ball.set_color(0.972, 0.607, 0.619)
@@ -326,14 +341,15 @@ def iterative_backtrack(t,
                 break
 
             branch.append(endpt)  # Add the newly traced node to current branch
+            r = getradius(bimg, endpt[0], endpt[1], endpt[2])
+            rlist.append(r)
             branch_conf.append(online_confidence)
             srcpt = endpt  # Shift forward
 
-        # Check forward confidence 
+        # Check forward confidence
         cf = conf_forward(branch, bimg)
 
         ## Erase it from the timemap
-        rlist = []
         for node in branch:
             n = [math.floor(n) for n in node]
             r = getradius(bimg, n[0], n[1], n[2])
@@ -372,7 +388,8 @@ def iterative_backtrack(t,
         else:
             connectid = None
 
-        if cf[-1] < 0.5 or low_online_conf:  # Check the confidence of this branch
+        # Check the confidence of this branch
+        if cf[-1] < 0.5 or low_online_conf:
             continue
 
         for i, node in enumerate(branch):
@@ -398,7 +415,8 @@ def iterative_backtrack(t,
     somanode = np.asarray(
         [0, 1, somapt[0], somapt[1], somapt[2], somaradius, -1, 1.])
     swc = np.vstack((somanode, swc))
-    if not silence: pbar.close()  # Close the progress bar
+    if not silence:
+        pbar.close()  # Close the progress bar
 
     return swc  # The real swc and the confidence array
 
@@ -707,49 +725,14 @@ def fibonacci_sphere(samples=1, randomize=True):
     return points
 
 
-def match_r1(swc, pos, radius, wiring):
-    '''
-    The node match used by Rivulet1 which uses a wiring threshold
-    Deprecated in the standard Rivulet pipeline 
-    Used only for experiments
-    '''
-
-    # Find the closest ground truth node 
-    nodes = swc[:, 2:5]
-    distlist = np.squeeze(cdist(pos.reshape(1, 3), nodes))
-    if distlist.size == 0:
-        return False, -2
-    minidx = distlist.argmin()
-    minnode = swc[minidx, 2:5]
-
-    # See if either of them can cover each other with a ball of their own radius
-    mindist = np.linalg.norm(pos - minnode)
-    return radius > wiring * mindist or swc[minidx,
-                                            5] * wiring > mindist, minidx
-
-
-def match(swc, pos, radius):
-    '''
-    Find the closest ground truth node 
-    '''
-
-    nodes = swc[:, 2:5]
-    distlist = np.squeeze(cdist(pos.reshape(1, 3), nodes))
-    if distlist.size == 0:
-        return False, -2
-    minidx = distlist.argmin()
-    minnode = swc[minidx, 2:5]
-
-    # See if either of them can cover each other with a ball of their own radius
-    mindist = np.linalg.norm(pos - minnode)
-    return radius > mindist or swc[minidx, 5] > mindist, minidx
-
-
-def add2swc(swc, path, radius, branch_conf, connectid=None):
+def add2swc(swc, path, radius, branch_conf, connectid=None, random_color=True):
     '''
     Add a branch to swc.
     Note: This swc is special with N X 8 shape. The 8-th column is the online confidence
     '''
+
+    if random_color:
+        rand_node_type = randrange(256)
 
     newbranch = np.zeros((len(path), 7))
     if swc is None:  # It is the first branch to be added
@@ -765,14 +748,16 @@ def add2swc(swc, path, radius, branch_conf, connectid=None):
             pid = -2 if connectid is None else connectid
             if connectid is not None and connectid is not 1 and swc is not None:
                 swc[swc[:, 0] == connectid,
-                    1] = 5  # its connected node is fork point 
+                    1] = 5  # its connected node is fork point
         else:
             pid = idstart + i + 1
             if i == 0:
                 nodetype = 6  # Endpoint
 
-        newbranch[i] = np.asarray(
-            [id, nodetype, p[0], p[1], p[2], radius[i], pid])
+        newbranch[i] = np.asarray([
+            id, rand_node_type
+            if random_color else nodetype, p[0], p[1], p[2], radius[i], pid
+        ])
 
     branch_conf = np.reshape(np.asarray(branch_conf), (len(branch_conf), 1))
     newbranch = np.hstack((newbranch, branch_conf))

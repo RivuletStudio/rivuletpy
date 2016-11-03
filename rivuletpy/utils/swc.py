@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from scipy.spatial.distance import cdist
 
 
 def reset_swc(swc, crop_region, zoom_factor):
@@ -152,11 +153,19 @@ def cleanswc(swc, radius=True):
     for n in swc:  # Hash all the swc nodes
         swcdict[n[0]] = Node(n[0])
 
-    for n in swc:  # Add mutual links for all nodes
-        id = n[0]
-        pid = n[-1]
+    # Try to join all the unconnected branches at first
+    for i, n in enumerate(swc):
+        if n[6] not in swcdict:
+            # Try to match it
+            matched, midx = match_r1(swc, n[2:5], n[5], 1.5)
+            if matched:
+                swc[i, 6] = swc[midx, 0]
 
-        if pid >= 1:
+    # Add mutual links for all nodes
+    for n in swc:
+        id = n[0]
+        pid = n[6]
+        if pid >= 0:
             swcdict[id].add_link(swcdict[pid])
 
     groups = connected_components(set(swcdict.values()))
@@ -169,3 +178,41 @@ def cleanswc(swc, radius=True):
         swc[:, 5] = 1
 
     return swc
+
+
+def match_r1(swc, pos, radius, wiring):
+    '''
+    The node match used by Rivulet1 which uses a wiring threshold
+    Deprecated in the standard Rivulet pipeline 
+    Used only for experiments
+    '''
+
+    # Find the closest ground truth node 
+    nodes = swc[:, 2:5]
+    distlist = np.squeeze(cdist(pos.reshape(1, 3), nodes))
+    if distlist.size == 0:
+        return False, -2
+    minidx = distlist.argmin()
+    minnode = swc[minidx, 2:5]
+
+    # See if either of them can cover each other with a ball of their own radius
+    mindist = np.linalg.norm(pos - minnode)
+    return radius > wiring * mindist or swc[minidx,
+                                            5] * wiring > mindist, minidx
+
+
+def match(swc, pos, radius):
+    '''
+    Find the closest ground truth node 
+    '''
+
+    nodes = swc[:, 2:5]
+    distlist = np.squeeze(cdist(pos.reshape(1, 3), nodes))
+    if distlist.size == 0:
+        return False, -2
+    minidx = distlist.argmin()
+    minnode = swc[minidx, 2:5]
+
+    # See if either of them can cover each other with a ball of their own radius
+    mindist = np.linalg.norm(pos - minnode)
+    return radius > mindist or swc[minidx, 5] > mindist, minidx
