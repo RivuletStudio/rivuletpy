@@ -200,7 +200,20 @@ class MorphACWE(object):
             res = curvop(res)
             # print('The number i is ', i)
         self._u = res
-    
+
+    def step_sm(self):
+        """Perform a smoothing step of the morphological Chan-Vese evolution."""
+        # Assign attributes to local variables for convenience.
+        # print('The step function of MorphACWE class has been called')
+        u = self._u
+        
+        if u is None:
+            raise ValueError("the levelset function is not set (use set_levelset)")                
+        res = np.copy(u)
+        
+        # Smoothing.
+        res = curvop(res)
+        self._u = res
     
     def run(self, iterations):
         """Run several iterations of the morphological Chan-Vese method."""
@@ -248,7 +261,7 @@ class MorphACWE(object):
                         print('Perform the automatic converge')
                         break
         
-        print('Begin to calculate which face of the somatic box will extended')
+        # print('Begin to calculate which face of the somatic box will extended')
         A = self._u > 0.5
         slicevalarray = np.zeros(6)
         
@@ -312,7 +325,7 @@ class MorphACWE(object):
         # extend = enlrspt have value, not extend = (enlrspt=None)
         # 100 : A threshold of the total number of somatic voxels on each wall  
         if (maxval>100):
-            print('The bounding box region is being calculated')
+            # print('The new bounding box region is being calculated')
             self.enlrspt = self.startpoint.copy()
             self.enlrept = self.endpoint.copy()
             # The following code determines which face is the most possible wall
@@ -330,38 +343,39 @@ class MorphACWE(object):
             elif (maxind==5):
                 self.enlrept[2] = self.enlrept[2] + (sz1/4)
 
-            # To constrain new bounding box inside
-            print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
+            # To constrain new bounding box inside the image size
+            # print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
         else:
             self.enlrspt = None
             self.enlrept = None
 
-        def autosmooth(self):
-            """The automatic smoothing of soma volume removes the interferes of dendrites"""
+    def autosmooth(self):
+        """The automatic smoothing of soma volume removes the interferes of dendrites"""
 
-            # The autosmooth is the abbreviation of automatic smoothing
-            iterations = 20
+        # The autosmooth is the abbreviation of automatic smoothing
+        iterations = 20
 
-            # Calculate the initial volume 
+        # Calculate the initial volume 
+        u = self._u
+        ini_vol = sum(u[u>0])
+        
+        # The smooth operation make 
+        for i in range(iterations):
+            self.step_sm()
             u = self._u
-            ini_vol = sum(u[u>0])
+            volu = sum(u[u>0])
+            vol_pct = volu / ini_vol
             
-            # The smooth operation make 
-            for i in range(iterations):
-                self.step()
-                u = self._u
-                volu = sum(u[u>0])
-                vol_pct = volu / ini_vol
-                
-                
-                
-                # The criteria of the termination of soma growth
-                # The somatic volume underwent dramatic change
-                judge_one = vol_pct < 0.85
-                judge_two = vol_pct > 1.1
-                judge_criteria = np.logical_or(judge_one, judge_two)     
-                if judge_criteria:
-                    break
+            # print('This is', i, 'th iteration')
+            print('The current volume percentage is', vol_pct)
+
+            # The criteria of the termination of soma growth
+            # The somatic volume underwent dramatic change
+            judge_one = vol_pct < 0.75
+            judge_two = vol_pct > 1.15
+            judge_criteria = np.logical_or(judge_one, judge_two)     
+            if judge_criteria:
+                break
 
 
 
@@ -674,6 +688,9 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
         del newlevelset
         macwe.autoconvg()
 
+
+    # The automatic smoothing operation to remove the interferes with dendrites 
+    macwe.autosmooth()        
 
     # Initialise soma mask image 
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
