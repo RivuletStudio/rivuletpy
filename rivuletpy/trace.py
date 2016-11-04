@@ -54,7 +54,7 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     
     # # Save the soma mask if required
     if somaflag:
-        writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/6_soma.tif', somamask);
+        writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/7_soma.tif', somamask);
     
     ## Trace 
     if threshold < 0:

@@ -226,7 +226,7 @@ class MorphACWE(object):
             u = self._u
             volu = sum(u[u>0])
             foreground_num[i] = volu
-            print('The volume of volu :', volu)
+            # print('The volume of volu :', volu)
             if i > 0:
                 # The variable diff_step is the current first order difference 
                 diff_step = foreground_num[i] - foreground_num[i-1]
@@ -235,9 +235,9 @@ class MorphACWE(object):
                     # The variable cur_slider_diff is the sum of sliding window
                     # The size of sliding window is 6
                     cur_slider_diff = np.sum(forward_diff_store[i-6:i-1])
-                    print('The value of cur_slider_diff is', cur_slider_diff)
-                    volu_thres = 0.03*foreground_num[i]
-                    print('volu_thres :', volu_thres)
+                    # print('The value of cur_slider_diff is', cur_slider_diff)
+                    volu_thres = 0.05*foreground_num[i]
+                    # print('volu_thres :', volu_thres)
                     convg_one = np.absolute(cur_slider_diff) < 20
                     # print('converge criteria one is :', convg_one)
                     convg_two = np.absolute(cur_slider_diff) < volu_thres
@@ -247,43 +247,54 @@ class MorphACWE(object):
                     if convg_criteria:
                         print('Perform the automatic converge')
                         break
+        
         print('Begin to calculate which face of the somatic box will extended')
         A = self._u > 0.5
-        maxA = A.max()
-        print('The maximum value is', maxA)
-        print('The shape of maxA is', maxA.shape)
         slicevalarray = np.zeros(6)
+        
+        # Front face along dimension 1
         somaslice = A[0,:,:]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[0] = sliceval
 
+        # Back face along dimension 1
         somaslice = A[A.shape[0]-1,:,:]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[1] = sliceval
 
+        # Front face along dimension 2
         somaslice = A[:,0,:]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[2] = sliceval
 
+        # Back face along dimension 2
         somaslice = A[:,A.shape[1]-1,:]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[3] = sliceval
 
+        # Front face along dimension 3
         somaslice = A[:,:,0]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[4] = sliceval
 
+        # Back face along dimension 3
         somaslice = A[:,:,A.shape[2]-1]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[5] = sliceval
+
+        # The maxval is used to compare the threshold(100 mentioned later) 
         maxval = slicevalarray.max()
+
+        # The maxind is the index of slicevalarray. In addition, it determines which wall will be extended
         maxind = slicevalarray.argmax()
+
+        # The size of binary data image
         sz1 = self.data.shape[0]
         sz2 = self.data.shape[1]
         sz3 = self.data.shape[2]
@@ -297,27 +308,26 @@ class MorphACWE(object):
         # print('The value of sz1', sz1, 'The value of sz2', sz2, 'The value of sz3', sz3)
         # print('The next line is going to print enlarged region point before their values are assigned')
         # print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
+
+        # extend = enlrspt have value, not extend = (enlrspt=None)
+        # 100 : A threshold of the total number of somatic voxels on each wall  
         if (maxval>100):
             print('The bounding box region is being calculated')
             self.enlrspt = self.startpoint.copy()
             self.enlrept = self.endpoint.copy()
+            # The following code determines which face is the most possible wall
+            # which requires the extension
             if (maxind==0):
-                print('case 1 is been called')
                 self.enlrspt[0] = self.enlrspt[0] - (sz1/4)
             elif (maxind==1):
-                print('case 2 has been called')
                 self.enlrept[0] = self.enlrept[0] + (sz1/4) 
             elif (maxind==2):
-                print('case 3 has been called')
                 self.enlrspt[1] = self.enlrspt[1] - (sz1/4)
             elif (maxind==3):
-                print('case 4 has been called')
                 self.enlrept[1] = self.enlrept[1] + (sz1/4)
             elif (maxind==4):
-                print('case 5 has been called')
                 self.enlrspt[2] = self.enlrspt[2] - (sz1/4)
             elif (maxind==5):
-                print('case 6 has been called')
                 self.enlrept[2] = self.enlrept[2] + (sz1/4)
 
             # To constrain new bounding box inside
@@ -325,6 +335,34 @@ class MorphACWE(object):
         else:
             self.enlrspt = None
             self.enlrept = None
+
+        def autosmooth(self):
+            """The automatic smoothing of soma volume removes the interferes of dendrites"""
+
+            # The autosmooth is the abbreviation of automatic smoothing
+            iterations = 20
+
+            # Calculate the initial volume 
+            u = self._u
+            ini_vol = sum(u[u>0])
+            
+            # The smooth operation make 
+            for i in range(iterations):
+                self.step()
+                u = self._u
+                volu = sum(u[u>0])
+                vol_pct = volu / ini_vol
+                
+                
+                
+                # The criteria of the termination of soma growth
+                # The somatic volume underwent dramatic change
+                judge_one = vol_pct < 0.85
+                judge_two = vol_pct > 1.1
+                judge_criteria = np.logical_or(judge_one, judge_two)     
+                if judge_criteria:
+                    break
+
 
 
 class MorphGAC(object):
@@ -580,7 +618,6 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
     startpt = startpt.astype(int) # Convert type to int for indexing 
     endpt = endpt.astype(int)
-    print(startpt, endpt)
     
     # # Extract soma region for fast soma detection
     somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
@@ -590,11 +627,12 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     centerpt[1] = somaimg.shape[1] / 2
     centerpt[2] = somaimg.shape[2] / 2
     centerpt = np.floor(centerpt)
-    print(centerpt)
     
     # Morphological ACWE. Initialization of the level-set.
     macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
+    
+    # -1 means the automatic detection to distinguish from the positive integers
     if iterations == -1:
         macwe.autoconvg() # automatic soma detection
     else:        
@@ -603,28 +641,36 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
             macwe.step()
     
 
-
+    # The following achieves the automatic somtic box extension
+    # The maximum somatic region extension iteratio is set to 10 avoid infinite loops            
     for  i in range(1,11):
-        print('The value of i is', i)
+        print('The somatic region extension iteration is', i)
         if macwe.enlrspt is None:
             break
+
+        # Copy the values of starting point and ending point to new variables for the safe purpose 
         startpt = macwe.enlrspt.copy()
         endpt = macwe.enlrept.copy()
-
-        print('The new startpt has been calculated', startpt)
-        print('The new endpt has been calculated', endpt)
         somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
-        
         fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
+
+        # Put the detected somas into the whole image(which is either true or false)
         fullsomaimg[macwe.startpoint[0]:macwe.endpoint[0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:macwe.endpoint[2]] = macwe._u
+
+        # The newlevelset is the initialised soma volume from previous iteration(the automatic converge operation)  
         newlevelset = fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+
+        # The previous macwe class is released to avoid the conflicts with the new initialisation of the macwe class  
         del macwe
+
+        # Initialisation for the new class 
         macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
         del somaimg, fullsomaimg, startpt, endpt
-        print(newlevelset.shape)
-        # # macwe.levelset = macwe._u.copy()
-        # newlevelset = macwe._u
+
+        # Reuse the soma volume from previous iteration
         macwe.set_levelset(newlevelset)
+        
+        # Release memory to avoid conflicts with previous newlevelset 
         del newlevelset
         macwe.autoconvg()
 
@@ -632,15 +678,21 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     # Initialise soma mask image 
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
     
-    # The soma mask image contains only two possible values so each element is either 0 or 40
     print('The startpt of the soma snake is', macwe.startpoint)
     print('The endpt of the soma snake is', macwe.endpoint)
+    
+    # There are two possible scenarios 
+    # The first scenrio is that the automatic box extension is not necessary
     if macwe.enlrspt is None:
         startpt = macwe.startpoint.copy()
         endpt = macwe.endpoint.copy()
+    # The second scenrio is that the automatic box extension operations has been performed
     else:
         startpt = macwe.enlrspt.copy()
         endpt = macwe.enlrept.copy()
+
+    # The soma mask image contains only two possible values so each element is either 0 or 40
+    # Value 40 is assigned for the visualisation purpose.        
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
     fullsomaimg.astype(int)
     
