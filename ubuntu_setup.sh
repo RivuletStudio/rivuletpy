@@ -9,6 +9,7 @@ sudo apt-get -y install python3-pip;
 sudo apt-get -y install python3-matplotlib; # Matplotlib easier to install from ubuntu repo 
 
 # -- Install pip packages
+sudo pip3 install pip --upgrade  # Upgrade pip3 at first
 sudo pip3 install numpy==1.11.1 --upgrade; # Needs to be installed outside of requirements
 sudo pip3 install numpy --upgrade;
 sudo pip3 install scipy; # Needs to be installed outside of requirements
@@ -18,15 +19,26 @@ sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtif
 # -- Get TensorFlow + Keras 
 # NOTE: Comment this area if you do not use riveal for machine learning enhanced tracing
 # NOTE: You need to setup the newest cuda driver + cuda toolkit 8.0
+echo "Would you like to use Riveal to enhance the tracing result with self learning 2.5D CNN (TensorFlow+Keras will be installed globally)?  (yes/no)"
+read riveal
 
-# Ubuntu/Linux 64-bit, CPU only, Python 3.5
-# export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0rc1-cp35-cp35m-linux_x86_64.whl
+if [ "$riveal" == "yes" ]; then
+	echo "Do you have a cuda supported GPU on your machine? (yes/no)"
+	read gpu
+	if [ "$gpu" == "yes" ]; then
+		# Ubuntu/Linux 64-bit, GPU enabled, Python 3.5
+		# Requires CUDA toolkit 8.0 and CuDNN v5. For other versions, see "Install from sources" below.
+		export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow-0.11.0rc1-cp35-cp35m-linux_x86_64.whl
+	else
+		# Ubuntu/Linux 64-bit, CPU only, Python 3.5
+		export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0rc1-cp35-cp35m-linux_x86_64.whl
+	fi
 
-# Ubuntu/Linux 64-bit, GPU enabled, Python 3.5
-# Requires CUDA toolkit 8.0 and CuDNN v5. For other versions, see "Install from sources" below.
-export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow-0.11.0rc1-cp35-cp35m-linux_x86_64.whl
-sudo pip3 install --upgrade $TF_BINARY_URL # Install tensorflow
-sudo pip3 install https://github.com/fchollet/keras.git; # Install keras from its github master branch
+	sudo pip3 install --upgrade $TF_BINARY_URL # Install tensorflow
+	sudo pip3 install https://github.com/fchollet/keras.git; # Install keras from its github master branch
+fi
+
+
 
 # -- Install the requirements.txt friendly packages
 sudo pip3 install -r requirements.txt; 

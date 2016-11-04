@@ -155,21 +155,21 @@ if args.riveal:
             outimg = rescale((img > riveal_thr).astype('int'))
             writetiff3d(outimgpath, outimg.astype(imgdtype))
 
-        # Run rivulet2 on riveal result
-        swc, _ = r2(img,
-                    threshold=riveal_thr,
-                    speed=args.speed,
-                    is_msfm=args.msfm,
-                    ssmiter=args.ssmiter,
-                    silence=args.silence,
-                    clean=args.clean,
-                    radius=args.radius,
-                    render=args.render)
+        # if args.debug:
+        #     outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
+        #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
+        #     saveswc(outswcfile, tswc)
 
-        if args.debug:
-            outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
-            tswc = reset_swc(swc, crop_region, args.zoom_factor)
-            saveswc(outswcfile, tswc)
+    # Run rivulet2 on the final riveal result
+    swc, _ = r2(img,
+                threshold=riveal_thr,
+                speed=args.speed,
+                is_msfm=args.msfm,
+                ssmiter=args.ssmiter,
+                silence=args.silence,
+                clean=args.clean,
+                radius=args.radius,
+                render=args.render)
 
 swc = reset_swc(swc, crop_region, args.zoom_factor)
 # Save the final swc
