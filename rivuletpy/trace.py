@@ -103,8 +103,6 @@ def r2(img,
         dt = ssm(dt, anisotropic=True, iterations=ssmiter)
         img = dt > filters.threshold_otsu(dt)
         dt = skfmm.distance(img, dx=5e-2)
-
-        if not silence: print('--Reverse DT...')
         dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
         dt[dt > 0.04] = 0.04
         dt = dt.max() - dt

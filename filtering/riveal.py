@@ -44,8 +44,23 @@ def riveal(img, swc, K=9, nsample=8e4, epoch=20):
     print('-- Making the confidence regions...(4/4)')
     background_region = np.zeros(img.shape)
     bg = np.logical_not(foreground_region)
+    bg = np.logical_and(foreground_region, img > 0)
+    for i in range(3):
+        bg = binary_dilation(bg)
     background_region[margin:-margin, margin:-margin, margin:-margin] = bg[
         margin:-margin, margin:-margin, margin:-margin]
+
+    from matplotlib import pyplot as plt
+    plt.subplot(3, 1, 1)
+    plt.imshow(high_conf_region.max(axis=-1))
+    plt.title('high conf')
+    plt.subplot(3, 1, 2)
+    plt.imshow(low_conf_region.max(axis=-1))
+    plt.title('low conf')
+    plt.subplot(3, 1, 3)
+    plt.imshow(background_region.max(axis=-1))
+    plt.title('bg')
+    plt.show()
 
     # Randomly sample 2.5D blocks from the include region
     print('-- Sampling blocks')
