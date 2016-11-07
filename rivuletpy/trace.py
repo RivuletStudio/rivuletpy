@@ -15,7 +15,7 @@ from .utils.preprocessing import distgradient
 # from .utils.swc import cleanswc
 
 
-def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, render=False):
+def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clean=False, radius=False, soma_detection=False, render=False):
     '''
     The main entry for rivulet2 tracing algorithm
     '''
@@ -52,9 +52,7 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     # writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_bimg.tif', bimg);
 
     
-    # # Save the soma mask if required
-    if somaflag:
-        writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_soma.tif', somamask);
+
     
     ## Trace 
     if threshold < 0:

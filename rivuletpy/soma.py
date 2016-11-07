@@ -27,6 +27,7 @@ import numpy as np
 from scipy import ndimage
 from scipy.ndimage import binary_dilation, binary_erosion, \
                         gaussian_filter, gaussian_gradient_magnitude
+import skfmm,msfm
 
 class fcycle(object):
     
@@ -588,9 +589,9 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
     return msnake.levelset
 
 
-def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, iterations):
+def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
     """
-    Automatic detection of soma volume.
+    Automatic detection of soma volume unless the iterations are given.
 
     Parameters
     ----------
@@ -598,19 +599,29 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
         the type of neuron image is numpy uint8
         the dimension of neuron image is 3 
         the neuron image is array-like
-    somaradius : the approximate value of soma radius estimated from distance transform
-        the type of somaradius is float64
-        somaradius is just a float number
-    somapos : the coordinate of estimated soma centroid 
-        the type of somapos is int64
-        the shape of somapos is (3,)
-        somapos is array-like
     soma_lambda1 : a float number controls the weight of internal energy
     soma_lambda2 : a float number controls the weight of external energy
-    soma : a logic value determines using automatic converge criteria to iterate or not
     iterations : manually set the number of iterations required for the soma
         the type of iterations is int
     """
+    bimg = (img > threshold).astype('int') # Segment 
+    dt = skfmm.distance(bimg, dx=1.1) # Boundary DT
+
+    # somaradius : the approximate value of soma radius estimated from distance transform
+    # the type of somaradius is float64
+    # somaradius is just a float number
+    somaradius = dt.max()
+    
+    # somapos : the coordinate of estimated soma centroid 
+    # the type of somapos is int64
+    # the shape of somapos is (3,)
+    # somapos is array-like
+    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    
+    marchmap = np.ones(img.shape)
+    marchmap[somapos[0], somapos[1], somapos[2]] = -1
+    somaradius = dt.max()
+    print('DT max:', somaradius)
     ratioxz = img.shape[0] / img.shape[2]
     ratioyz = img.shape[1] / img.shape[2]
     print('The ratioxz is ', ratioxz, 'The ratioyz is ', ratioyz)
@@ -634,7 +645,7 @@ def soma_detect(img, somapos, somaradius, smoothing, lambda1, lambda2, soma, ite
     endpt = endpt.astype(int)
     
     # # Extract soma region for fast soma detection
-    somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+    somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
     # writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_somabox.tif', somaimg)
     centerpt = np.zeros(3)
     centerpt[0] = somaimg.shape[0] / 2

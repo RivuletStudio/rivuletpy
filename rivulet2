@@ -3,6 +3,7 @@
 import os, argparse
 from rivuletpy.trace import r2
 from rivuletpy.utils.io import *
+from rivuletpy.soma import *
 
 
 parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
@@ -20,6 +21,10 @@ parser.add_argument('--soma_lambda2', type=float, default=1.5, help='The weight 
 parser.add_argument('--somasaveim', dest='soma', action='store_true')
 parser.add_argument('--no-somasaveim', dest='soma', action='store_false')
 parser.set_defaults(soma=False)
+parser.add_argument('--somadetect', dest='soma_detection', action='store_true')
+parser.add_argument('--no-somadetect', dest='soma_detection', action='store_false')
+parser.set_defaults(soma_detection=False)
+
 
 # Args for tracing
 parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
@@ -50,10 +55,17 @@ parser.set_defaults(render=False)
 args = parser.parse_args()
 
 img = loadimg(args.file)
+if args.soma_detection:
+    somamask = soma_detect(img, args.threshold, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma_iterations)
+    # Save the soma mask if required
+    if args.soma:
+        writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask)
+
 # swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
 	# args.silence, args.clean, args.radius, args.render)
-r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
-    args.silence, args.clean, args.radius, args.render)
+
+# r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
+    # args.silence, args.clean, args.radius, args.soma_detection, args.render)
 
 # ## Save the final swc
 # if args.out:
