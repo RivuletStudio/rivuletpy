@@ -55,28 +55,32 @@ parser.set_defaults(render=False)
 args = parser.parse_args()
 
 img = loadimg(args.file)
+
+# Soma detection is run only when it is required Otherwise simple soma will be used
 if args.soma_detection:
     somamask = soma_detect(img, args.threshold, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma_iterations)
     # Save the soma mask if required
     if args.soma:
         writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask)
+else:
+    somamask = None
 
-# swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
-	# args.silence, args.clean, args.radius, args.render)
+swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
+	args.silence, args.clean, args.radius, args.soma_detection, somamask, args.render)
 
 # r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
     # args.silence, args.clean, args.radius, args.soma_detection, args.render)
 
-# ## Save the final swc
-# if args.out:
-#     outswcfile = args.out
-# else:
-#     # Make the long file name
-#     kvpairs = []
-#     for key, value in vars(args).items():
-#         if key not in ['file', 'outfile']: 
-#             kvpairs.append(key + ':' + str(value))
+## Save the final swc
+if args.out:
+    outswcfile = args.out
+else:
+    # Make the long file name
+    kvpairs = []
+    for key, value in vars(args).items():
+        if key not in ['file', 'outfile']: 
+            kvpairs.append(key + ':' + str(value))
 
-#     outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+    outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
 
-# saveswc(outswcfile, swc)
+saveswc(outswcfile, swc)

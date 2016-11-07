@@ -259,7 +259,7 @@ class MorphACWE(object):
                     convg_criteria = np.logical_or(convg_one, convg_two)
                     # print('The final converged criteria is ', convg_criteria)
                     if convg_criteria:
-                        print('Perform the automatic converge')
+                        # print('Perform the automatic converge')
                         break
         
         # print('Begin to calculate which face of the somatic box will extended')
@@ -368,7 +368,7 @@ class MorphACWE(object):
             vol_pct = volu / ini_vol
             
             # print('This is', i, 'th iteration')
-            print('The current volume percentage is', vol_pct)
+            # print('The current volume percentage is', vol_pct)
 
             # The criteria of the termination of soma growth
             # The somatic volume underwent dramatic change
