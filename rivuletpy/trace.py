@@ -36,7 +36,6 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
     somaradius = dt.max()
-    print('DT max:', somaradius)
     
     ## Trace 
     if threshold < 0:
@@ -56,7 +55,22 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    print('Original soma point is', somapos)
+    
+    # Old soma position will be replaced by the new soma centroid 
+    if soma_detection:
+        somabimg = (somamask > 0).astype('int')
+        
+        # Calculate the new centroid using the soma volume
+        newsomapos =  ndimage.measurements.center_of_mass(somabimg)
 
+        # Round the float coordinates into integers 
+        newsomapos = np.round(newsomapos)
+
+        # Release the memory of binary soma image
+        del somabimg, somapos
+        somapos = newsomapos.astype('int')
+        print('After the type is converted into int, the new calculated soma point is', somapos)
     if speed == 'ssm':
         if not silence: print('--SSM with GVF...')
         dt = ssm(dt, anisotropic=True, iterations=ssmiter)
@@ -88,6 +102,8 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     elif not radius:
         swc[:, 5] = 1
 
+
+    
     return swc
 
 
@@ -134,6 +150,8 @@ def iterative_backtrack(t, bimg, somapt, somaradius, soma_detection, somamask, l
     # Label all voxels of soma with -3
     if soma_detection:
         tt[somamask > 0] = -3
+        maxsmask = somamask.max()
+        minsmask = somamask.min()
         print('Somamask modifies the time map')
     bb = np.zeros(shape=tt.shape) # For making a large tube to contain the last traced branch
 
@@ -208,18 +226,33 @@ def iterative_backtrack(t, bimg, somapt, somaradius, soma_detection, somamask, l
                 # if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
                     if soma_detection:
-                        # initial branch length brl
+                        
+                        # initial branch length brl is set to zero for each branch
                         brl = 0
+                        
                         for i in range(len(branch)-1):
+                            # The starting point 
                             stptbr = branch[i]
+                            
+                            # Convert it to Numpy for better manipulation
                             np.asarray(stptbr)
+
+                            # The point adjacent to the starting point
                             ntptbr = branch[i+1]
+
+                            # Convert it to numpy for better manipulation
                             np.asarray(ntptbr)
+
+                            # Use Numpy subtract rather than minus operation sign to avoid dimension confusion
                             diffpt = np.subtract(stptbr, ntptbr)
+                            
+                            # The variable normbt is the step length for each step 
                             normnt = np.linalg.norm(diffpt)
+                            
+                            # Calculate the length of whole branch iteratively
                             brl = brl + normnt
-                            # print('The adjacent point difference is', normnt)
-                        # print('The branch length is', brl)
+                        
+                        # Only the long branches connected to the soma are preserved. 
                         if (brl < 15):
                             low_online_conf = True
 
