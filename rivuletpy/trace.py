@@ -80,7 +80,6 @@ def r2(img, threshold, speed='dt', is_msfm=True, ssmiter=20, silence=False, clea
     if not silence: print('--Start Backtracking...')    
     swc = iterative_backtrack(t, img, somapos, somaradius, soma_detection, somamask, render=render, silence=silence,
                                               eraseratio=1.7 if speed=='ssm' else 1.5, length=5)
-    print('Has this line been called or not')
     # # Clean SWC 
     if clean:
         # This will only keep the largest connected component of the graph in swc
@@ -208,8 +207,21 @@ def iterative_backtrack(t, bimg, somapt, somaradius, soma_detection, somamask, l
                 if soma_criteria:
                 # if np.linalg.norm(somapt - endpt) < 1.2 * somaradius: # Stop due to reaching soma point
                     reachedsoma = True
-                    if (len(branch) < 40):
-                        low_online_conf = True                        
+                    if soma_detection:
+                        # initial branch length brl
+                        brl = 0
+                        for i in range(len(branch)-1):
+                            stptbr = branch[i]
+                            np.asarray(stptbr)
+                            ntptbr = branch[i+1]
+                            np.asarray(ntptbr)
+                            diffpt = np.subtract(stptbr, ntptbr)
+                            normnt = np.linalg.norm(diffpt)
+                            brl = brl + normnt
+                            # print('The adjacent point difference is', normnt)
+                        # print('The branch length is', brl)
+                        if (brl < 15):
+                            low_online_conf = True
 
                     # Render a yellow node at fork point
                     if render:
