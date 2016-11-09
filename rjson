@@ -117,7 +117,7 @@ def tracejsonfile(fpath, pbsfile=None, method='rivulet2', nthread=1):
     print('--rjson finished')
 
 parser = argparse.ArgumentParser(description='Arguments for tracing files index with a .json file.')
-parser.add_argument('--file', type=str, default=None, required=True, help='The input json file. Pls see ./tests/data/test.json for example.')
+parser.add_argument('-f', '--file', type=str, default=None, required=True, help='The input json file. Pls see ./tests/data/test.json for example.')
 parser.add_argument('--method', type=str, default='rivulet2', required=False, help='The method to use (rivulet2/rivulet1/app2) ')
 parser.add_argument('--pbsfile', type=str, default=None, required=False, help='The pbs file to run. Required if --pbs written.')
 parser.add_argument('--thread', type=int, default=1, required=False, help='The number of threads to parallelise the tasks. Default 1')

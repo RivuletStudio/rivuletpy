@@ -1,20 +1,24 @@
 #!/usr/bin/python3
 # The preprocessing pipeline of Rivulet2
+import numpy as np
 import argparse
-import os, random, string, subprocess
+import os
+import random
+import string
+import subprocess
 from pathlib import Path
-import nibabel as nib
-from rivuletpy.utils.io import *
+from rivuletpy.utils.io import loadimg, writetiff3d
 from filtering.thresholding import suppress, rescale
 import skfmm
 from scipy.ndimage.filters import gaussian_filter, median_filter
+from scipy.ndimage.interpolation import zoom
 from filtering.morphology import ssm
 
 try:
     from skimage import filters
 except ImportError:
     from skimage import filter as filters
-from skimage import exposure
+
 
 def anisotropic_enhance(img):
     '''
@@ -26,43 +30,99 @@ def anisotropic_enhance(img):
 
     my_env = os.environ.copy()
     N = 10
-    tmpfile = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N)) + '.tif'
-    writetiff3d(tmpfile, img) # Save the img to a tmp path
-    cmd = subprocess.Popen([my_env['V3DPATH']+'/vaa3d', '-x', 'anisodiff_littlequick', '-f', 'anisodiff_littlequick_func', '-i', tmpfile])
+    tmpfile = ''.join(
+        random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+        for _ in range(N)) + '.tif'
+    writetiff3d(tmpfile, img)  # Save the img to a tmp path
+    cmd = subprocess.Popen([
+        my_env['V3DPATH'] + '/vaa3d', '-x', 'anisodiff_littlequick', '-f',
+        'anisodiff_littlequick_func', '-i', tmpfile
+    ])
     cmd.wait()
     # Check if the little quick was successful
-    if not Path(tmpfile+'_anisodiff.raw').is_file():
+    if not Path(tmpfile + '_anisodiff.raw').is_file():
         raise Exception('V3D Anisotropic Diffusion Failed!')
 
     # Convert .raw to tif with v3d
-    tmptif = tmpfile+'_anisodiff.raw.tif'
-    cmd = subprocess.Popen([my_env['V3DPATH']+'/vaa3d', '-x', 'convert_file_format', '-f', 'convert_format', '-i', tmpfile+'_anisodiff.raw', '-o', tmptif])
+    tmptif = tmpfile + '_anisodiff.raw.tif'
+    cmd = subprocess.Popen([
+        my_env['V3DPATH'] + '/vaa3d', '-x', 'convert_file_format', '-f',
+        'convert_format', '-i', tmpfile + '_anisodiff.raw', '-o', tmptif
+    ])
     cmd.wait()
 
     # Load it back to python
     result = loadimg(tmptif)
     os.remove(tmpfile)
-    os.remove(tmpfile+'_anisodiff.raw') 
+    os.remove(tmpfile + '_anisodiff.raw')
     os.remove(tmptif)
     return result
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Arguments to perform a simple preprocessing pipeline.')
-    parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-    parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
+    parser = argparse.ArgumentParser(
+        description='Arguments to perform a simple preprocessing pipeline.')
+    parser.add_argument(
+        '-f',
+        '--file',
+        type=str,
+        default=None,
+        required=True,
+        help='The input file. A image file (*.tif, *.nii, *.mat).')
+    parser.add_argument(
+        '-o',
+        '--out',
+        type=str,
+        default=None,
+        required=False,
+        help='The name of the output file')
 
     # Arguments for filtering
-    parser.add_argument('--threshold', type=float, default=[0,], nargs='+',
-        help='The thresohld to suppress the weak signals. Voxels values  <= threshold will be set 0). ')
-    parser.add_argument('--pipeline', type=str, default='TA', 
-        help='A string with the pipeline components to run in order. T for thresholding; A for anisotropic diffusion (VED); G for Gaussian Filtering; M for median filtering.')
-    parser.add_argument('--sigma', type=float, default=[3.,], nargs='+', required=False, help='The sigma value used for gaussian filter. Default 3.0')
-    parser.add_argument('--median_size', type=float, default=[3.,], nargs='+', required=False, help='The window size used for median filter. Default 3.0')
-    parser.add_argument('--ssmiter', type=int, default=20, required=False, help='The window size used for median filter. Default 3.0')
+    parser.add_argument(
+        '-t',
+        '--threshold',
+        type=float,
+        default=[0, ],
+        nargs='+',
+        help='The thresohld to suppress the weak signals. Voxels values  <= threshold will be set 0). '
+    )
+    parser.add_argument(
+        '--pipeline',
+        type=str,
+        default='TA',
+        help='A string with the pipeline components to run in order. T for thresholding; A for anisotropic diffusion (VED); G for Gaussian Filtering; M for median filtering.'
+    )
+    parser.add_argument(
+        '--sigma',
+        type=float,
+        default=[3., ],
+        nargs='+',
+        required=False,
+        help='The sigma value used for gaussian filter. Default 3.0')
+    parser.add_argument(
+        '--median_size',
+        type=float,
+        default=[3., ],
+        nargs='+',
+        required=False,
+        help='The window size used for median filter. Default 3.0')
+    parser.add_argument(
+        '--ssmiter',
+        type=int,
+        default=20,
+        required=False,
+        help='The window size used for median filter. Default 3.0')
+    parser.add_argument(
+        '-z',
+        '--zoom_factor',
+        type=float,
+        default=1.,
+        help='The factor to zoom the image to speed up the whole thing. Default 1.'
+    )
     args = parser.parse_args()
 
     img = loadimg(args.file)
+    img = zoom(img, args.zoom_factor)  # Zoom to speed up
     imgtype = img.dtype
     lastthreshold = args.threshold[0]
     for c in args.pipeline:
@@ -82,15 +142,16 @@ if __name__ == '__main__':
             img = anisotropic_enhance(img)
         elif c == 'O':
             threshold = filters.threshold_otsu(img)
-            img[img<=threshold] = 0
+            img[img <= threshold] = 0
         elif c == 'D':
-            img = skfmm.distance((img > 0).astype('int'), dx=1) # Boundary DT
+            img = skfmm.distance((img > 0).astype('int'), dx=1)  # Boundary DT
             img = rescale(img)
         elif c == 'S':
             img = ssm(img, anisotropic=True, iterations=args.ssmiter)
             img = rescale(img)
         else:
-            raise Exception('Pipeline %s not defined. Valid options are T/G/M/A')
+            raise Exception(
+                'Pipeline %s not defined. Valid options are T/G/M/A')
 
     if args.out:
         outfile = args.out
@@ -99,9 +160,9 @@ if __name__ == '__main__':
         outfile = basename + '.pp.tif'
 
     # img = np.flipud(img) # Needed to show in v3d
-    img = np.ceil(img)
+    img = zoom(img, 1 / args.zoom_factor)  # Zoom back
+    img = np.floor(img)
     writetiff3d(outfile, img.astype(imgtype))
-    print('--binarising using threshold:', lastthreshold)
-    img[img>0] = 180
-    writetiff3d(os.path.splitext(outfile)[0]+'.seg.tif', img.astype(imgtype))
+    img[img > 0] = 180
+    writetiff3d(os.path.splitext(outfile)[0] + '.seg.tif', img.astype(imgtype))
     print('--rpp finished')

@@ -1,44 +1,116 @@
 #!/usr/bin/python3
-
-import os, argparse
+import os
+import argparse
+import math
+import time
 from rivuletpy.trace import r2
-from rivuletpy.utils.io import *
+from rivuletpy.utils.io import loadimg, writetiff3d, saveswc
+from rivuletpy.utils.preprocessing import crop
+from rivuletpy.utils.swc import reset_swc
+from filtering.thresholding import rescale
+from scipy.ndimage.interpolation import zoom
 from rivuletpy.soma import *
 
-
-parser = argparse.ArgumentParser(description='Arguments to perform the Rivulet2 tracing algorithm.')
-parser.add_argument('--file', type=str, default=None, required=True, help='The input file. A image file (*.tif, *.nii, *.mat).')
-parser.add_argument('--out', type=str, default=None, required=False, help='The name of the output file')
-parser.add_argument('--groundtruth', type=str, default=None, required=False, help='The ground truth file. A image file (*.tif, *.nii, *.mat). If given, the precision, recall and F1 will be inserted to the start of the swc file')
-parser.add_argument('--threshold', type=float, default=-1, help='threshold to distinguish the foreground and background; works on filtered image if --filter is enabled')
+parser = argparse.ArgumentParser(
+    description='Arguments to perform the Rivulet2 tracing algorithm.')
+parser.add_argument(
+    '-f',
+    '--file',
+    type=str,
+    default=None,
+    required=True,
+    help='The input file. A image file (*.tif, *.nii, *.mat).')
+parser.add_argument(
+    '-o',
+    '--out',
+    type=str,
+    default=None,
+    required=False,
+    help='The name of the output file')
+parser.add_argument(
+    '-t',
+    '--threshold',
+    type=float,
+    default=0,
+    help='threshold to distinguish the foreground and background. Defulat 0. If threshold<0, otsu will be used.'
+)
+parser.add_argument(
+    '-z',
+    '--zoom_factor',
+    type=float,
+    default=1.,
+    help='The factor to zoom the image to speed up the whole thing. Default 1.')
 
 # Arguments for soma detection
-parser.add_argument('--soma_threshold', type=float, default=-1, help='The threshold on the original image to get soma radius')
-parser.add_argument('--soma_iterations', type=int, default=-1, help='The number of iterations for soma snake')
-parser.add_argument('--soma_smoothing', type=int, default=1, help='The number of iterations for making soma a sphere')
-parser.add_argument('--soma_lambda1', type=float, default=1, help='The weight of internal energy')
-parser.add_argument('--soma_lambda2', type=float, default=1.5, help='The weight of external energy')
-parser.add_argument('--somasaveim', dest='soma', action='store_true')
-parser.add_argument('--no-somasaveim', dest='soma', action='store_false')
+parser.add_argument(
+    '--soma_threshold', 
+    type=float, 
+    default=-1, 
+    help='The threshold on the original image to get soma radius')
+parser.add_argument(
+    '--soma_iterations', 
+    type=int, 
+    default=-1, 
+    help='The number of iterations for soma snake')
+parser.add_argument(
+    '--soma_smoothing', 
+    type=int, 
+    default=1, 
+    help='The number of iterations for making soma a sphere')
+parser.add_argument(
+    '--soma_lambda1', 
+    type=float, 
+    default=1, 
+    help='The weight of internal energy')
+parser.add_argument(
+    '--soma_lambda2', 
+    type=float, 
+    default=1.5, 
+    help='The weight of external energy')
+parser.add_argument(
+    '--somasaveim', 
+    dest='soma', 
+    action='store_true')
+parser.add_argument(
+    '--no-somasaveim',
+     dest='soma', 
+     action='store_false')
 parser.set_defaults(soma=False)
-parser.add_argument('--somadetect', dest='soma_detection', action='store_true')
-parser.add_argument('--no-somadetect', dest='soma_detection', action='store_false')
+parser.add_argument(
+    '--somadetect', 
+    dest='soma_detection', 
+    action='store_true')
+parser.add_argument(
+    '--no-somadetect', 
+    dest='soma_detection', 
+    action='store_false')
 parser.set_defaults(soma_detection=False)
 
-
 # Args for tracing
-parser.add_argument('--ssmiter', type=int, default=20, help='The number of iterations to compute GVF for SSM. Default 20')
-parser.add_argument('--length', type=int, default=6, help='The length of leaves to prune. Default 6')
+parser.add_argument(
+    '--ssmiter',
+    type=int,
+    default=20,
+    help='The number of iterations to compute GVF for SSM. Default 20')
+parser.add_argument(
+    '--length',
+    type=int,
+    default=6,
+    help='The length of leaves to prune. Default 6')
 
 parser.add_argument('--radius', dest='radius', action='store_true')
 parser.add_argument('--no-radius', dest='radius', action='store_false')
-parser.set_defaults(radius=False)
+parser.set_defaults(radius=True)
 
 parser.add_argument('--msfm', dest='msfm', action='store_true')
 parser.add_argument('--no-msfm', dest='msfm', action='store_false')
 parser.set_defaults(msfm=True)
 
-parser.add_argument('--speed', type=str, default='dt', help='The type of speed image to use (dt, ssm)')
+parser.add_argument(
+    '--speed',
+    type=str,
+    default='dt',
+    help='The type of speed image to use (dt, ssm)')
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
@@ -52,35 +124,121 @@ parser.set_defaults(silence=False)
 parser.add_argument('--render', dest='render', action='store_true')
 parser.add_argument('--no-render', dest='render', action='store_false')
 parser.set_defaults(render=False)
-args = parser.parse_args()
 
+parser.add_argument('--riveal', dest='riveal', action='store_true')
+parser.add_argument('--no-riveal', dest='riveal', action='store_false')
+parser.set_defaults(riveal=False)
+
+parser.add_argument(
+    '--riveal_iter',
+    type=int,
+    default=2,
+    help='The iterations of riveal to run. Default 1.')
+
+parser.add_argument('-d', '--debug', dest='debug', action='store_true')
+parser.add_argument('--no-debug', dest='debug', action='store_false')
+parser.set_defaults(debug=False)
+
+args = parser.parse_args()
+starttime = time.time()
 img = loadimg(args.file)
 
 # Soma detection is run only when it is required Otherwise simple soma will be used
 if args.soma_detection:
-    somamask = soma_detect(img, args.threshold, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma_iterations)
+    smask = soma_detect(img, args.threshold, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma_iterations)
     # Save the soma mask if required
     if args.soma:
         writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask)
 else:
-    somamask = None
+    smask = None
 
 swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
 	args.silence, args.clean, args.radius, args.soma_detection, somamask, args.render)
 
-# r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
-    # args.silence, args.clean, args.radius, args.soma_detection, args.render)
 
-## Save the final swc
+imgdtype = img.dtype
+img, crop_region = crop(img, args.threshold)  # Crop by default
+
+if args.zoom_factor != 1.:
+    if not args.silence:
+        print('-- Zooming image to %.2f of original size' % args.zoom_factor)
+    img = zoom(img, args.zoom_factor)
+
+# Run rivulet2 for the first time
+swc, soma = r2(img,
+               threshold=args.threshold,
+               speed=args.speed,
+               is_msfm=args.msfm,
+               ssmiter=args.ssmiter,
+               silence=args.silence,
+               clean=args.clean,
+               radius=True if args.riveal else args.radius,
+               soma_detection=args.soma_detection,
+               somamask=smask,
+               render=args.render)
+
+if args.debug:
+    # Save soma rescaled_soma_mask for inspection
+    somafile = os.path.splitext(args.file)[0] + '.soma.tif'
+    rescaled_soma_mask = rescale(soma.mask.astype('int'))
+    writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
+    outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
+    tswc = reset_swc(swc, crop_region, args.zoom_factor)
+    saveswc(outswcfile, tswc)
+
+if args.riveal:
+    riveal_thr = 0.1
+    from filtering.riveal import riveal
+    # At least you need to zero mask the background
+    img[img <= args.threshold] = 0.
+
+    # Decide the kernel size with the mean radius
+    mean_radius = swc[:, 5].mean()
+    mean_radius = math.ceil(mean_radius)
+    K = 4 * mean_radius  # Kernel Size
+    print('Mean Radius: %d\tKernel Radius:%d' % (mean_radius, K))
+
+    for i in range(args.riveal_iter):
+        img = riveal(img, swc, K=K)
+        img[soma.mask] = 1
+
+        if args.debug:
+            # Save the riveal result for inspection
+            outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
+            outimg = rescale(img)
+
+            from skimage import exposure
+            outimg = exposure.equalize_hist(outimg.astype('int'))
+            outimg = rescale(img)
+            writetiff3d(outimgpath, outimg.astype(imgdtype))
+
+            outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
+            outimg = rescale((img > riveal_thr).astype('int'))
+            writetiff3d(outimgpath, outimg.astype(imgdtype))
+
+        # if args.debug:
+        #     outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
+        #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
+        #     saveswc(outswcfile, tswc)
+
+    # Run rivulet2 on the final riveal result
+    swc, _ = r2(img,
+                threshold=riveal_thr,
+                speed=args.speed,
+                is_msfm=args.msfm,
+                ssmiter=args.ssmiter,
+                silence=args.silence,
+                clean=args.clean,
+                radius=args.radius,
+                render=args.render)
+
+swc = reset_swc(swc, crop_region, args.zoom_factor)
+# Save the final swc
 if args.out:
     outswcfile = args.out
-else:
-    # Make the long file name
-    kvpairs = []
-    for key, value in vars(args).items():
-        if key not in ['file', 'outfile']: 
-            kvpairs.append(key + ':' + str(value))
-
-    outswcfile = args.file + '_' + '_'.join(kvpairs) +'.swc'
+else:  # Make the long file name
+    outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
 
 saveswc(outswcfile, swc)
+print('SWC saved to ' + outswcfile)
+print('-- Finshed: %.2f sec.' % (time.time() - starttime))

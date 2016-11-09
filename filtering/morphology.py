@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.ndimage import gaussian_gradient_magnitude, gaussian_filter, sobel, gaussian_filter1d
 from scipy.ndimage.filters import laplace
-from tqdm import tqdm 
+from tqdm import tqdm
 from functools import reduce
-from rivuletpy.utils.preprocessing import distgradient
-from scipy.interpolate import RegularGridInterpolator 
+from scipy.interpolate import RegularGridInterpolator
 
 
 def ssm(img, anisotropic=False, iterations=30):
@@ -15,25 +14,29 @@ def ssm(img, anisotropic=False, iterations=30):
     iterations: number of iterations to optimise the GVF
     '''
     # f = gaussian_gradient_magnitude(img, 1)
-    # f = 1 - gimg # Inverted version of the smoothed gradient of the distance transform
+    # f = 1 - gimg # Inverted version of the smoothed
+    # gradient of the distance transform
 
     gvfmap = gvf(img, mu=0.001, iterations=iterations, anisotropic=anisotropic)
-    
+
     shifts = [-1, 1, -1, -1, -1, 1]
     axis = [1, 1, 2, 2, 3, 3]
     shiftmat = np.zeros(gvfmap.shape)
-    f = np.zeros(img.shape) # reuse f for saving the SSM
+    f = np.zeros(img.shape)  # reuse f for saving the SSM
 
     for i, (s, a) in enumerate(zip(shifts, axis)):
         # Only the orthogonal neighbours
         shiftmat.fill(0)
-        shiftmat[a-1, :,:,:] = s
+        shiftmat[a - 1, :, :, :] = s
 
-        # Dot product gvf and neighbour displacement fields / distance between neighbour
-        f += np.sum(np.roll(gvfmap, s, axis=a) * shiftmat, axis=0) / np.linalg.norm(shiftmat, axis=0) 
+        # Dot product gvf and neighbour displacement fields /
+        # distance between neighbour
+        f += np.sum(np.roll(
+            gvfmap, s, axis=a) * shiftmat, axis=0) / np.linalg.norm(
+                shiftmat, axis=0)
 
     f[np.isnan(f)] = 0
-    f[f<0] = 0
+    f[f < 0] = 0
     return f
 
 
@@ -56,11 +59,14 @@ def nonmax(img, sigma=2, threshold=0):
     gx = gx / (gmag + eps)
     gy = gy / (gmag + eps)
     gz = gz / (gmag + eps)
-    standard_grid = (np.arange(gmag.shape[0]), np.arange(gmag.shape[1]), np.arange(gmag.shape[2]))
+    standard_grid = (np.arange(gmag.shape[0]), np.arange(gmag.shape[1]),
+                     np.arange(gmag.shape[2]))
     ginterp = RegularGridInterpolator(standard_grid, gmag, bounds_error=False)
 
     # Interpolate the graident magnitudes
-    idx = np.argwhere(img > threshold) # Double-check if the original image should be used to check
+    idx = np.argwhere(
+        img > threshold
+    )  # Double-check if the original image should be used to check
     xidx = idx[:, 0]
     yidx = idx[:, 1]
     zidx = idx[:, 2]
@@ -73,7 +79,7 @@ def nonmax(img, sigma=2, threshold=0):
 
     # Suppress nonmax voxels
     keep = np.logical_and(gmag_0 > gmag_1, gmag_0 > gmag_2)
-    gmag.fill(0) 
+    gmag.fill(0)
     gmag[xidx, yidx, zidx] = keep.astype('float')
 
     return gmag
@@ -89,22 +95,31 @@ def d(x):
     axis = [0, 0, 1, 1, 2, 2]
 
     for i, (s, a) in enumerate(zip(shifts, axis)):
-        diff[i] = np.roll(x, s, axis=a) - x 
+        diff[i] = np.roll(x, s, axis=a) - x
 
     return diff
 
 
 # The decreasing funciton for angles
-def g_all(u,v,w):
-    G = np.zeros((6, u.shape[0], u.shape[1], u.shape[2])) # Result 
-    cvec = np.stack((u, v, w), axis=0) # The flow vector on central voxel
+def g_all(u, v, w):
+    G = np.zeros((6, u.shape[0], u.shape[1], u.shape[2]))  # Result
+    cvec = np.stack((u, v, w), axis=0)  # The flow vector on central voxel
     shifts = [-1, 1, -1, -1, -1, 1]
     axis = [0, 0, 1, 1, 2, 2]
 
     for i, (s, a) in enumerate(zip(shifts, axis)):
-        G[i] = g(cvec, np.stack((np.roll(u, s, axis=a), # The flow vector on the surronding voxel
-                                 np.roll(v, s, axis=a), 
-                                 np.roll(w, s, axis=a)), axis=0))
+        G[i] = g(
+            cvec,
+            np.stack(
+                (
+                    np.roll(
+                        u, s,
+                        axis=a),  # The flow vector on the surronding voxel
+                    np.roll(
+                        v, s, axis=a),
+                    np.roll(
+                        w, s, axis=a)),
+                axis=0))
     return G
 
 
@@ -115,7 +130,7 @@ def g(cvec, svec, K=1):
     t = np.sum(cvec * svec, axis=0) / (cnorm * snorm + 1e-12)
     t -= 1
     t = np.exp(K * t)
-    t[np.logical_or(cnorm==0, snorm==0)] = 0
+    t[np.logical_or(cnorm == 0, snorm == 0)] = 0
 
     return t
 
@@ -123,16 +138,19 @@ def g(cvec, svec, K=1):
 # Divergence
 def div(x):
     """ compute the divergence of n-D scalar field `F` """
-    return reduce(np.add, np.gradient(x)) # http://stackoverflow.com/a/21134289/1890513
+    return reduce(
+        np.add, np.gradient(x))  # http://stackoverflow.com/a/21134289/1890513
 
 
-def gvf(f, mu=0.05, iterations=30, anisotropic=False,  ignore_second_term=False):
+def gvf(f, mu=0.05, iterations=30, anisotropic=False,
+        ignore_second_term=False):
     # Gradient vector flow
     # Translated from https://github.com/smistad/3D-Gradient-Vector-Flow-for-Matlab
-    f = (f-f.min()) / (f.max() - f.min())
-    f = enforce_mirror_boundary(f) # Enforce the mirror conditions on the boundary
+    f = (f - f.min()) / (f.max() - f.min())
+    f = enforce_mirror_boundary(
+        f)  # Enforce the mirror conditions on the boundary
 
-    dx, dy, dz = np.gradient(f) # Initialse with normal gradients
+    dx, dy, dz = np.gradient(f)  # Initialse with normal gradients
     '''
     Initialise the GVF vectors following S3 in
     Yu, Zeyun, and Chandrajit Bajaj. 
@@ -140,9 +158,7 @@ def gvf(f, mu=0.05, iterations=30, anisotropic=False,  ignore_second_term=False)
     CVPR, 2004. CVPR 2004. 
     It only uses one of the surronding neighbours with the lowest intensity
     '''
-    # dx, dy, dz = distgradient(f)
-
-    magsq = dx ** 2 + dy ** 2 + dz ** 2
+    magsq = dx**2 + dy**2 + dz**2
 
     # Set up the initial vector field
     u = dx.copy()
@@ -177,16 +193,16 @@ def gvf(f, mu=0.05, iterations=30, anisotropic=False,  ignore_second_term=False)
 def enforce_mirror_boundary(f):
     '''
     This function enforces the mirror boundary conditions
-    on the 3D input image f. The values of all voxels at 
-    the boundary is set to the values of the voxels 2 steps 
+    on the 3D input image f. The values of all voxels at
+    the boundary is set to the values of the voxels 2 steps
     inward
     '''
     N, M, O = f.shape
 
-    # Indices in the middle 
-    xi = np.arange(1, M-1)
-    yi = np.arange(1, N-1)
-    zi = np.arange(1, O-1)
+    # Indices in the middle
+    xi = np.arange(1, M - 1)
+    yi = np.arange(1, N - 1)
+    zi = np.arange(1, O - 1)
 
     # Corners
     f[[0, -1], [0, -1], [0, -1]] = f[[2, -3], [2, -3], [2, -3]]
