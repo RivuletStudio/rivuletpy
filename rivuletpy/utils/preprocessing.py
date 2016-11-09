@@ -2,7 +2,7 @@ import numpy as np
 from .io import *
 from scipy.interpolate import RegularGridInterpolator
 
-def crop(img, thr):
+def crop(img, somamask, thr):
     """Crop a 3D block with value > thr"""
     ind = np.argwhere(img > thr)
     x = ind[:,0]
@@ -15,9 +15,16 @@ def crop(img, thr):
     zmin = max(z.min()-10, 2)
     zmax = min(z.max()+10, img.shape[2])
     
+    # Crop somamask as well
+    if somamask is None:
+      # print('Soma crop is not run')
+      cropsmask = None
+    else:
+      print('Soma is cropped')
+      cropsmask = somamask[xmin:xmax, ymin:ymax, zmin:zmax]
     return img[xmin : xmax,
                ymin : ymax, 
-               zmin : zmax], np.array([[xmin, xmax], 
+               zmin : zmax], cropsmask,  np.array([[xmin, xmax], 
                                        [ymin, ymax], 
                                        [zmin, zmax]])
 

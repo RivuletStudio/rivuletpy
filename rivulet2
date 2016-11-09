@@ -148,17 +148,20 @@ if args.soma_detection:
     smask = soma_detect(img, args.threshold, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma_iterations)
     # Save the soma mask if required
     if args.soma:
-        writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somamask)
+        writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask)
 else:
     smask = None
 
-swc = r2(img, args.threshold, args.speed, args.msfm, args.ssmiter, 
-	args.silence, args.clean, args.radius, args.soma_detection, somamask, args.render)
 
 
 imgdtype = img.dtype
-img, crop_region = crop(img, args.threshold)  # Crop by default
-
+print('The shape of the image is', img.shape)
+# Modify the crop function so that it can crop somamask as well 
+img, cropsmask, crop_region = crop(img, smask, args.threshold)  # Crop by default
+if args.soma_detection:
+    print('The shape of somamask after being cropped', cropsmask.shape)
+print('The shape of cropped image', img.shape)
+del smask
 if args.zoom_factor != 1.:
     if not args.silence:
         print('-- Zooming image to %.2f of original size' % args.zoom_factor)
@@ -174,7 +177,7 @@ swc, soma = r2(img,
                clean=args.clean,
                radius=True if args.riveal else args.radius,
                soma_detection=args.soma_detection,
-               somamask=smask,
+               somamask=cropsmask,
                render=args.render)
 
 if args.debug:
