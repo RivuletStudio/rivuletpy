@@ -231,7 +231,7 @@ def iterative_backtrack(t,
     # Start tracing loop
     nforeground = bimg.sum()
     coverage = 0.0
-    iteridx = 0
+    # iteridx = 0
     swc = None
     if not silence:
         pbar = tqdm(total=math.floor(nforeground * config['coverage']))
@@ -239,12 +239,10 @@ def iterative_backtrack(t,
     coveredctr_old = 0
 
     while coverage < config['coverage']:
-        iteridx += 1
         coveredctr_new = np.logical_and(tt < 0, bimg > 0).sum()
         coverage = coveredctr_new / nforeground
         if not silence:
-            if (iteridx > 2):
-                pbar.update(coveredctr_new - coveredctr_old)
+            pbar.update(coveredctr_new - coveredctr_old)
         coveredctr_old = coveredctr_new
 
         # Find the geodesic furthest point on foreground time-crossing-map

@@ -41,7 +41,7 @@ fi
 
 
 # -- Install the requirements.txt friendly packages
-sudo pip3 install -r requirements.txt; 
+sudo pip3 install -r requirements.txt --upgrade; 
 
 # -- Install rivuletpy finally
 sudo pip3 install . --upgrade;
