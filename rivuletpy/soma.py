@@ -28,7 +28,7 @@ from scipy.ndimage import gaussian_filter, gaussian_gradient_magnitude
 import skfmm
 
 
-class fcycle(object):
+class Fcycle(object):
 
     def __init__(self, iterable):
         """Call functions from the iterable each time it is called."""
@@ -106,7 +106,7 @@ def IS(u):
 # SIoIS operator.
 SIoIS = lambda u: SI(IS(u))
 ISoSI = lambda u: IS(SI(u))
-curvop = fcycle([SIoIS, ISoSI])
+curvop = Fcycle([SIoIS, ISoSI])
 
 # Stopping factors (function g(I) in the paper).
 
@@ -369,7 +369,7 @@ class MorphACWE(object):
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     """
     Visual evolution of a morphological snake.
-    
+
     Parameters
     ----------
     msnake : MorphGAC or MorphACWE instance
@@ -512,75 +512,77 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
     endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
     endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
     endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
-    startpt = startpt.astype(int) # Convert type to int for indexing 
+    startpt = startpt.astype(int)  # Convert type to int for indexing
     endpt = endpt.astype(int)
-    
+
     # # Extract soma region for fast soma detection
     somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
-    # writetiff3d('/home/donghao/Desktop/zebrafishlarveRGC/2_somabox.tif', somaimg)
     centerpt = np.zeros(3)
     centerpt[0] = somaimg.shape[0] / 2
     centerpt[1] = somaimg.shape[1] / 2
     centerpt[2] = somaimg.shape[2] / 2
     centerpt = np.floor(centerpt)
-    
+
     # Morphological ACWE. Initialization of the level-set.
     macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
     macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
-    
-    # -1 means the automatic detection to distinguish from the positive integers
+
+    # -1 means the automatic detection
+    # Positive integers means the number of iterations
     if iterations == -1:
-        macwe.autoconvg() # automatic soma detection
-    else:        
+        macwe.autoconvg()  # automatic soma detection
+    else:
         # Input the iteration number manually
         for i in range(iterations):
             macwe.step()
-    
 
     # The following achieves the automatic somtic box extension
-    # The maximum somatic region extension iteratio is set to 10 avoid infinite loops            
-    for  i in range(1,11):
+    # The maximum somatic region extension iteration
+    # It is set to 10 avoid infinite loops
+    for i in range(1, 11):
         print('The somatic region extension iteration is', i)
         if macwe.enlrspt is None:
             break
 
-        # Copy the values of starting point and ending point to new variables for the safe purpose 
+        # Copy the values to new variables for the safe purpose
         startpt = macwe.enlrspt.copy()
         endpt = macwe.enlrept.copy()
         somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
         fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
 
-        # Put the detected somas into the whole image(which is either true or false)
+        # Put the detected somas into the whole image
+        # It is either true or false
         fullsomaimg[macwe.startpoint[0]:macwe.endpoint[0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:macwe.endpoint[2]] = macwe._u
 
-        # The newlevelset is the initialised soma volume from previous iteration(the automatic converge operation)  
+        # The newlevelset is the initial soma volume from previous iteration
+        #(the automatic converge operation)
         newlevelset = fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
 
-        # The previous macwe class is released to avoid the conflicts with the new initialisation of the macwe class  
+        # The previous macwe class is released
+        # To avoid the conflicts with the new initialisation of the macwe class
         del macwe
 
-        # Initialisation for the new class 
+        # Initialisation for the new class
         macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
         del somaimg, fullsomaimg, startpt, endpt
 
         # Reuse the soma volume from previous iteration
         macwe.set_levelset(newlevelset)
-        
-        # Release memory to avoid conflicts with previous newlevelset 
+
+        # Release memory to avoid conflicts with previous newlevelset
         del newlevelset
         macwe.autoconvg()
 
+    # The automatic smoothing operation to remove the interferes with dendrites
+    macwe.autosmooth()
 
-    # The automatic smoothing operation to remove the interferes with dendrites 
-    macwe.autosmooth()        
-
-    # Initialise soma mask image 
+    # Initialise soma mask image
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
 
     print('The startpt of the soma snake is', macwe.startpoint)
     print('The endpt of the soma snake is', macwe.endpoint)
 
-    # There are two possible scenarios 
+    # There are two possible scenarios
     # The first scenrio is that the automatic box extension is not necessary
     if macwe.enlrspt is None:
         startpt = macwe.startpoint.copy()
@@ -590,8 +592,9 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
         startpt = macwe.enlrspt.copy()
         endpt = macwe.enlrept.copy()
 
-    # The soma mask image contains only two possible values so each element is either 0 or 40
-    # Value 40 is assigned for the visualisation purpose.        
+    # The soma mask image contains only two possible values
+    # Each element is either 0 or 40
+    # Value 40 is assigned for the visualisation purpose.
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
     fullsomaimg.astype(int)
 
