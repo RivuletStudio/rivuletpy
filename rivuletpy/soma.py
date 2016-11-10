@@ -129,7 +129,7 @@ class MorphACWE(object):
 
     def __init__(self, data, startpoint, endpoint, imgshape, smoothing=1, lambda1=1, lambda2=1.5):
         """Create a Morphological ACWE solver.
-        
+
         Parameters
         ----------
         data : ndarray
@@ -156,46 +156,43 @@ class MorphACWE(object):
         self.endpoint = endpoint
         self.enlrspt = None
         self.enlrept = None
- 
 
     def set_levelset(self, u):
         self._u = np.double(u)
-        self._u[u>0] = 1
-        self._u[u<=0] = 0
-    
+        self._u[u > 0] = 1
+        self._u[u <= 0] = 0
 
     levelset = property(lambda self: self._u,
                         set_levelset,
                         doc="The level set embedding function (u).")
-    
 
     def step(self):
         """Perform a single step of the morphological Chan-Vese evolution."""
         # Assign attributes to local variables for convenience.
         # print('The step function of MorphACWE class has been called')
         u = self._u
-        
+
         if u is None:
             raise ValueError("the levelset function is not set (use set_levelset)")
-        
+
         data = self.data
-        
+
         # Determine c0 and c1.
-        inside = u>0
-        outside = u<=0
+        inside = u > 0
+        outside = u <= 0
         c0 = data[outside].sum() / float(outside.sum())
         c1 = data[inside].sum() / float(inside.sum())
-        
+
         # Image attachment.
         dres = np.array(np.gradient(u))
         abs_dres = np.abs(dres).sum(0)
         #aux = abs_dres * (c0 - c1) * (c0 + c1 - 2*data)
         aux = abs_dres * (self.lambda1*(data - c1)**2 - self.lambda2*(data - c0)**2)
-        
+
         res = np.copy(u)
         res[aux < 0] = 1
         res[aux > 0] = 0
-        
+
         res = IS(res)
         # Smoothing.
         for i in range(self.smoothing):
@@ -204,46 +201,45 @@ class MorphACWE(object):
         self._u = res
 
     def step_sm(self):
-        """Perform a smoothing step of the morphological Chan-Vese evolution."""
+        """A smoothing step of the morphological Chan-Vese evolution."""
         # Assign attributes to local variables for convenience.
         # print('The step function of MorphACWE class has been called')
         u = self._u
-        
+
         if u is None:
-            raise ValueError("the levelset function is not set (use set_levelset)")                
+            raise ValueError("the levelset function is not set (use set_levelset)")
         res = np.copy(u)
-        
+
         # Smoothing.
         res = curvop(res)
         self._u = res
-    
+
     def run(self, iterations):
         """Run several iterations of the morphological Chan-Vese method."""
         for i in range(iterations):
             self.step()
-    
 
     def autoconvg(self):
         """Soma detection converges by itself."""
-        
+
         # Autoconvg is the abbreviation of automatic convergence
         iterations = 200
-        
-        # The following vector is used for storing values of the number of foreground voxels 
+
+        # The following vector is the number of foreground voxels
         foreground_num = np.zeros(iterations)
-        
+
         # The following vector is initialised for storing forward difference
         forward_diff_store = np.zeros(iterations)
-        
+
         # This is the initilization of automatic converge
         for i in range(iterations):
             self.step()
             u = self._u
-            volu = sum(u[u>0])
+            volu = sum(u[u > 0])
             foreground_num[i] = volu
             # print('The volume of volu :', volu)
             if i > 0:
-                # The variable diff_step is the current first order difference 
+                # The variable diff_step is the current first order difference
                 diff_step = foreground_num[i] - foreground_num[i-1]
                 forward_diff_store[i-1] = diff_step
                 if i > 6:
@@ -262,110 +258,100 @@ class MorphACWE(object):
                     if convg_criteria:
                         # print('Perform the automatic converge')
                         break
-        
-        # print('Begin to calculate which face of the somatic box will extended')
+
+        # print('Calculate which face of the somatic box will extended')
         A = self._u > 0.5
         slicevalarray = np.zeros(6)
-        
+
         # Front face along dimension 1
-        somaslice = A[0,:,:]
+        somaslice = A[0, :, :]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[0] = sliceval
 
         # Back face along dimension 1
-        somaslice = A[A.shape[0]-1,:,:]
+        somaslice = A[A.shape[0]-1, :, :]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[1] = sliceval
 
         # Front face along dimension 2
-        somaslice = A[:,0,:]
+        somaslice = A[:, 0, :]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[2] = sliceval
 
         # Back face along dimension 2
-        somaslice = A[:,A.shape[1]-1,:]
+        somaslice = A[:, A.shape[1]-1, :]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[3] = sliceval
 
         # Front face along dimension 3
-        somaslice = A[:,:,0]
+        somaslice = A[:, :, 0]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[4] = sliceval
 
         # Back face along dimension 3
-        somaslice = A[:,:,A.shape[2]-1]
+        somaslice = A[:, :, A.shape[2]-1]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[5] = sliceval
 
-        # The maxval is used to compare the threshold(100 mentioned later) 
+        # The maxval is used to compare the threshold(100 mentioned later)
         maxval = slicevalarray.max()
 
-        # The maxind is the index of slicevalarray. In addition, it determines which wall will be extended
+        # The maxind is the index of slicevalarray.
+        # In addition, it determines which wall will be extended
         maxind = slicevalarray.argmax()
 
         # The size of binary data image
         sz1 = self.data.shape[0]
-        sz2 = self.data.shape[1]
-        sz3 = self.data.shape[2]
-
-        # print('The shape of somaslice is', somaslice.shape)
-        # print('The shape of slicearray is', slicearray.shape)
-        # print('The slice value is', sliceval)
-        # print('The slicevalarray is', slicevalarray)
-        # print('The maximum value of slicevalarray is', maxval)
-        # print('The image shape is ', self.data.shape)
-        # print('The value of sz1', sz1, 'The value of sz2', sz2, 'The value of sz3', sz3)
-        # print('The next line is going to print enlarged region point before their values are assigned')
-        # print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
+        # sz2 = self.data.shape[1]
+        # sz3 = self.data.shape[2]
 
         # extend = enlrspt have value, not extend = (enlrspt=None)
-        # 100 : A threshold of the total number of somatic voxels on each wall  
-        if (maxval>100):
+        # 100 : A threshold of the total number of somatic voxels on each wall
+        if (maxval > 100):
             # print('The new bounding box region is being calculated')
             self.enlrspt = self.startpoint.copy()
             self.enlrept = self.endpoint.copy()
-            # The following code determines which face is the most possible wall
+            # The following code determines the most possible wall(face)
             # which requires the extension
-            if (maxind==0):
+            if (maxind == 0):
                 self.enlrspt[0] = self.enlrspt[0] - (sz1/4)
-            elif (maxind==1):
-                self.enlrept[0] = self.enlrept[0] + (sz1/4) 
-            elif (maxind==2):
+            elif (maxind == 1):
+                self.enlrept[0] = self.enlrept[0] + (sz1/4)
+            elif (maxind == 2):
                 self.enlrspt[1] = self.enlrspt[1] - (sz1/4)
-            elif (maxind==3):
+            elif (maxind == 3):
                 self.enlrept[1] = self.enlrept[1] + (sz1/4)
-            elif (maxind==4):
+            elif (maxind == 4):
                 self.enlrspt[2] = self.enlrspt[2] - (sz1/4)
-            elif (maxind==5):
+            elif (maxind == 5):
                 self.enlrept[2] = self.enlrept[2] + (sz1/4)
 
             # To constrain new bounding box inside the image size
-            # print('The coordinate of enlrspt point is', self.enlrspt, 'The coordinate of enlrept point is', self.enlrept)
         else:
             self.enlrspt = None
             self.enlrept = None
 
     def autosmooth(self):
-        """The automatic smoothing of soma volume removes the interferes of dendrites"""
+        """The automatic smoothing of soma volume to remove dendrites"""
 
         # The autosmooth is the abbreviation of automatic smoothing
         iterations = 20
 
-        # Calculate the initial volume 
+        # Calculate the initial volume
         u = self._u
-        ini_vol = sum(u[u>0])
-        
-        # The smooth operation make 
+        ini_vol = sum(u[u > 0])
+
+        # The smooth operation make
         for i in range(iterations):
             self.step_sm()
             u = self._u
-            volu = sum(u[u>0])
+            volu = sum(u[u > 0])
             vol_pct = volu / ini_vol
             
             # print('This is', i, 'th iteration')
