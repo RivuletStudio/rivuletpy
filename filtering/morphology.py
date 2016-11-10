@@ -18,7 +18,7 @@ def ssmdt(dt, ssmiter):
     dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
     dt[dt > 0.04] = 0.04
     dt = dt.max() - dt
-    dt[dt <= 0.035] = 0
+    dt[dt <= 0.038] = 0
     return dt
 
 

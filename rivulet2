@@ -14,7 +14,6 @@ parser = argparse.ArgumentParser(
     description='Arguments to perform the Rivulet2 tracing algorithm.')
 parser.add_argument(
     '-f',
-    '-f',
     '--file',
     type=str,
     default=None,
@@ -69,7 +68,7 @@ parser.add_argument(
 
 parser.add_argument('--clean', dest='clean', action='store_true')
 parser.add_argument('--no-clean', dest='clean', action='store_false')
-parser.set_defaults(clean=False)
+parser.set_defaults(clean=True)
 
 # MISC
 parser.add_argument('--silence', dest='silence', action='store_true')
@@ -160,7 +159,7 @@ if args.riveal:
         #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
         #     saveswc(outswcfile, tswc)
 
-    # Run rivulet2 on the final riveal result
+        # Run rivulet2 on the final riveal result
     swc, _ = r2(img,
                 threshold=riveal_thr,
                 speed=args.speed,

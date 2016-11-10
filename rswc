@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import sys
 from rivuletpy.utils.swc import cleanswc, flipswc, swcradius
 from rivuletpy.utils.io import loadswc, saveswc, loadimg
 import argparse
@@ -23,9 +24,17 @@ if __name__ == '__main__':
         required=False,
         default=0,
         help='The threshold to segment the image for radius estimation.')
+    parser.add_argument(
+        '-z',
+        '--zoom_factor',
+        type=float,
+        required=False,
+        default=1.,
+        help='Used to rescale swc points propotionally. It is only used when --action rescale'
+    )
     parser.add_argument('--radius', dest='radius', action='store_true')
     parser.add_argument('--no-radius', dest='radius', action='store_false')
-    parser.set_defaults(radius=True)
+    parser.set_defaults(radius=False)
     parser.add_argument('--overwrite', dest='overwrite', action='store_true')
     parser.add_argument(
         '--no-overwrite', dest='overwrite', action='store_false')
@@ -35,13 +44,17 @@ if __name__ == '__main__':
         type=str,
         default=None,
         required=True,
-        help='The processing of swc to perform. Possible actions are [clean, flip, radius]'
+        help='The processing of swc to perform. Possible actions are [clean, flip, radius, rescale, rescale]'
     )
     args = parser.parse_args()
 
     swc = loadswc(args.file)  # Read in the swc
     outfile = args.file if args.overwrite else os.path.splitext(args.file)[
         0] + '.' + args.action + '.swc'  # Make the output path
+
+    if swc.shape[0] == 0:
+        print('SWC in ', args.file, ' is empty...')
+        sys.exit(1)
 
     if args.action == 'clean':
         outswc = cleanswc(swc, args.radius)
@@ -50,5 +63,12 @@ if __name__ == '__main__':
     elif args.action == 'radius':
         img = loadimg(args.img)
         outswc = swcradius(img > args.threshold, swc)
+    elif args.action == 'rescale':
+        swc[:, 2:5] *= args.zoom_factor
+        outswc = swc
+    else:
+        print(
+            'Action not defined. Available actions are [clean, flip, radius, rescale]'
+        )
 
     saveswc(outfile, outswc)

@@ -2,12 +2,22 @@
 import json
 import os
 import subprocess
+import time
 import argparse
 import threading
+from rivuletpy.utils.io import loadswc, saveswc, loadimg, writetiff3d
+from scipy.ndimage.interpolation import zoom
 
 
 class imgThread(threading.Thread):
-    def __init__(self, imgid, img, method, root, sema, centos=False):
+    def __init__(self,
+                 imgid,
+                 img,
+                 method,
+                 root,
+                 sema,
+                 centos=False,
+                 zoom_factor=1.):
         threading.Thread.__init__(self)
         self.imgid = imgid
         self.img = img
@@ -15,13 +25,20 @@ class imgThread(threading.Thread):
         self.root = root
         self.sema = sema
         self.centos = centos
+        self.zoom_factor = zoom_factor
+        self._time_passed = 0
 
     def run(self):
         print("Starting " + self.method + ' on ' + self.name)
         self.sema.acquire()
-        doimg(self.imgid, self.img, self.method, self.root, self.centos)
+        self._time_passed = doimg(self.imgid, self.img, self.method, self.root,
+                                  self.centos, self.zoom_factor)
         self.sema.release()
         print('Exiting ' + self.name + ' with image ' + self.imgid)
+
+    def join(self):
+        threading.Thread.join(self)
+        return self._time_passed
 
 
 def makepp(json_path):
@@ -30,10 +47,10 @@ def makepp(json_path):
         dataidx = json.load(f)
         for dataset in dataidx["data"]:
             for img in dataidx["data"][dataset]:
-                imgpath = dataidx["data"][dataset][img]["imagepath"]
-                imgpath, _ = os.path.splitext(imgpath)
-                imgpath += '.pp.tif'
-                dataidx["data"][dataset][img]["imagepath"] = imgpath
+                inpath = dataidx["data"][dataset][img]["imagepath"]
+                inpath, _ = os.path.splitext(inpath)
+                inpath += '.pp.tif'
+                dataidx["data"][dataset][img]["imagepath"] = inpath
                 dataidx["data"][dataset][img]["misc"]["threshold"] = 0
 
     jpath, _ = os.path.splitext(json_path)
@@ -43,12 +60,28 @@ def makepp(json_path):
         json.dump(dataidx, f)
 
 
-def doimg(imgid, img, method, root, centos=False):
+def matlab_cmd(matlab_script):
+    cmd = "matlab -nodesktop -nosplash -r "
+    cmd += " \"%s\"" % matlab_script
+    return cmd
+
+
+def doimg(imgid, img, method, root, centos=False, zoom_factor=1.):
     print('---- Working on image', imgid, 'with method ', method)
     if 'threshold' in img['misc']:
         threshold = img['misc']['threshold']
     else:
         threshold = 0
+
+    if zoom_factor == 1.:
+        inpath = img['imagepath']
+    else:
+        imgmat = loadimg(os.path.join(root, img['imagepath']))
+        dtype = imgmat.dtype
+        imgmat = zoom(imgmat, zoom_factor)
+        inpath = os.path.join(root,
+                              img['imagepath'] + '.%.2fzoom.tif' % zoom_factor)
+        writetiff3d(inpath, imgmat.astype(dtype))
 
     # Make the v3d safe cmd
     my_env = os.environ.copy()
@@ -58,58 +91,42 @@ def doimg(imgid, img, method, root, centos=False):
     else:
         v3dcmd = "%s/vaa3d" % my_env['V3DPATH']
 
-    # matlab to run rivulet1
-
     if method == 'rivulet2':
         out = img['out'] if 'out' in img else img['imagepath'] + '.r2.swc'
         cmd = 'python3 rivulet2 --file %s --out %s' % (os.path.join(
-            root, img['imagepath']), os.path.join(root, out))
+            root, inpath), os.path.join(root, out))
         cmd += ' --threshold ' + str(threshold)
         cmd += ' --no-msfm '  # For now
+        cmd += ' --silence --no-clean'
         # Parameters for different methods
-        if method in img['misc']:
+        if 'misc' in img and method in img['misc']:
             speed = img['misc'][method]['speed'] if 'speed' in img['misc'][
                 method] else 'dt'
             ssmiter = img['misc'][method]['ssmiter'] if 'ssmiter' in img[
                 'misc'][method] else 40
-            cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter
-                                                 ) + ' --silence '
+            cmd += ' --speed %s --ssmiter %d' % (speed, ssmiter)
     elif method == 'rivulet1':
+        if 'misc' in img and 'threshold' in img['misc']:
+            threshold = img['misc']['threshold']
+        else:
+            threshold = 0
         out = img['out'] if 'out' in img else img['imagepath'] + '.r1.swc'
-        cmd = 'python3 rivulet1 --file %s --out %s' % (os.path.join(
-            root, img['imagepath']), os.path.join(root, out))
-        if 'threshold' in img['misc']:
-            cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
-        # Parameters for different methods
-        if method in img['misc']:
-            gap = img['misc'][method]['gap'] if 'gap' in img['misc'][
-                method] else 150
-            wiring = img['misc'][method]['wiring'] if 'wiring' in img['misc'][
-                method] else 1.8
-            length = img['misc'][method]['length'] if 'length' in img['misc'][
-                method] else 4
-            cmd += ' --gap %s --wiring %d --length %d' % (gap, wiring, length)
-    # elif method == 'ooffilter': # Might not be used
-    #     out = img['out'] if 'out' in img else img['imagepath'] + '.oof.tif'
-    #     cmd = 'python3 anifilter --file %s --out %s' % (os.path.join(
-    #         root, img['imagepath']), os.path.join(root, out))
-    #     if 'threshold' in img['misc']:
-    #         cmd += ' --' + 'threshold' + ' ' + str(img['misc']['threshold'])
-    #     # Parameters for different methods
-    #     if method in img['misc']:
-    #         rlow = img['misc'][method]['rlow'] if 'rlow' in img['misc'][
-    #             method] else 1.0
-    #         rhigh = img['misc'][method]['rhigh'] if 'rhigh' in img['misc'][
-    #             method] else 2.0
-    #         rstep = img['misc'][method]['rstep'] if 'rstep' in img['misc'][
-    #             method] else 0.2
+        matlab_script = "cd %s; addpath(genpath(\'%s\'));" % (
+            my_env['RNTPATH'], my_env['RNTPATH'])
+        matlab_script += "I=loadtif(\'%s\'); I=I>%d;" % (os.path.join(
+            root, inpath), threshold)
+        matlab_script += 'swc=trace(I, false, 0.98, false, 15, false, true, 1.3, 8, false, 0, false, false);'
+        matlab_script += "saveswc(swc, \'%s\');" % os.path.join(root, out)
+        matlab_script += "exit;"
+        print('Matlab script to run:', matlab_script)
+        cmd = matlab_cmd(matlab_script)
     elif method == 'rpp':
         out = os.path.splitext(img['out'] if 'out' in img else img[
             'imagepath'])[0] + '.pp.tif'
-        cmd = 'python3 rpp --file %s --out %s' % (os.path.join(
-            root, img['imagepath']), os.path.join(root, out))
+        cmd = 'python3 rpp --file %s --out %s' % (os.path.join(root, inpath),
+                                                  os.path.join(root, out))
         # Parameters for different methods
-        if method in img['misc']:
+        if 'misc' in img and method in img['misc']:
             pipeline = img['misc'][method]['pipeline'] if 'pipeline' in img[
                 'misc'][method] else 'T'
             sigma = img['misc'][method]['sigma'] if 'sigma' in img['misc'][
@@ -120,36 +137,42 @@ def doimg(imgid, img, method, root, centos=False):
                 'misc'][method] else 20
             cmd += """ --sigma %f --median_size %f --threshold %f --pipeline %s --ssmiter %d""" % (
                 sigma, median_size, threshold, pipeline, ssmiter)
-
-    elif method == 'app2':
+    elif 'misc' in img and method == 'app2':
         out = img['out'] if 'out' in img else img['imagepath'] + '.app2.swc'
         cmd = v3dcmd + ' -x vn2 -f app2 -i ' + os.path.join(
-            root, img['imagepath']) + ' -o ' + os.path.join(
+            root, inpath) + ' -o ' + os.path.join(
                 root,
                 out) + ' -p  NULL 0 0 ' + str(threshold) + ' 1 1 1 4 0 0 0'
     elif method == 'smart':
-        out = img['out'] if 'out' in img else img['imagepath'] + '.smart.swc'
+        # The smart tracing plugin totall ignores the -o option.
+        # So we keep consistent with it
+        out = img['out'] if 'out' in img else img[
+            'imagepath'] + '_smartTracing.swc'
         cmd = v3dcmd + ' -x smartTrace -f smartTrace -i ' + os.path.join(
-            root, img['imagepath']) + ' -o ' + os.path.join(root, out)
+            root, inpath) + ' -o ' + os.path.join(root, out)
     else:
         raise Exception('Method %s not implemented yet' % method)
 
-    # if 'groundtruth' in img and method in ('rivulet2', 'rivulet1', 'app2'):
-    #     comparecmd = 'python3 compareswc --target %s --groundtruth %s' % (
-    #         os.path.join(root, out), os.path.join(root, img['groundtruth']))
-    # else:
-    #     comparecmd = ''
-
     print(cmd)
+    start_time = time.time()
     subprocess.run(cmd, shell=True)
+    time_passed = time.time() - start_time
+
+    # When it's finished, zoom back the swc
+    if method != "rpp" and zoom_factor != 1.:
+        swc = loadswc(os.path.join(root, out))
+        swc[:, 2:5] *= 1. / zoom_factor
+        saveswc(os.path.join(root, out), swc)
+
+    return time_passed
 
 
 def tracejsonfile(fpath,
                   pbsfile=None,
                   method='rivulet2',
                   nthread=1,
-                  centos=False):
-
+                  centos=False,
+                  zoom_factor=1.):
     sema = threading.BoundedSemaphore(value=nthread)
 
     with open(fpath) as f:
@@ -163,11 +186,13 @@ def tracejsonfile(fpath,
     for datasetname, dataset in dataidx['data'].items():
         print('-- Working on dataset', datasetname)
         for imgid, img in dataset.items():
-            th = imgThread(imgid, img, method, root, sema, centos)
+            th = imgThread(imgid, img, method, root, sema, centos, zoom_factor)
             th.start()
             thpool.append(th)
+    times = []
     for th in thpool:
-        th.join()
+        time_passed = th.join()
+        times.append(time_passed)
 
     # Remove the annoying intermedia shits
     os.system("find " + root + " -type f -name  \'*ini*\' -delete")
@@ -175,7 +200,12 @@ def tracejsonfile(fpath,
 
     if args.run == 'rpp':
         makepp(fpath)
+
+    total_time = sum(times)
     print('--rjson finished')
+    print('--Total time running algorithm: %f seconds' % total_time)
+    print('--Mean time running algorithm: %f seconds' % (total_time /
+          len(times)))
 
 
 if __name__ == '__main__':
@@ -207,6 +237,14 @@ if __name__ == '__main__':
         default=1,
         required=False,
         help='The number of threads to parallelise the tasks. Default 1')
+    parser.add_argument(
+        '-z',
+        '--zoom_factor',
+        type=float,
+        default=1.,
+        help="""The factor to zoom the image to speed up the whole thing.
+                     The result swc will be zoomed back according
+                     to the outfile name. Default 1.""")
     parser.add_argument('--centos', dest='centos', action='store_true')
     parser.add_argument('--no-centos', dest='centos', action='store_false')
     parser.set_defaults(centos=False)
@@ -216,4 +254,5 @@ if __name__ == '__main__':
         args.pbsfile,
         method=args.run,
         nthread=args.thread,
-        centos=args.centos)
+        centos=args.centos,
+        zoom_factor=args.zoom_factor)

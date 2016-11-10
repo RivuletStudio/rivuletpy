@@ -1,4 +1,4 @@
-function v3d2tif(inpath, cropthr, rescale_ratio)
+function v3d2tif(inpath, cropthr, rescale_ratio, nthread)
 % V3DTIF Convert V3Draw files to 3D tiff. At the same time do some cropping and resizing
 %   v3d2tif(path2v3draw, cropthr, rescale_ratio) convert every *.v3draw in path2v3draw to .v3draw
 %   the boundary with voxels smaller than cropthr will be cropped
@@ -8,10 +8,11 @@ function v3d2tif(inpath, cropthr, rescale_ratio)
 %   We use matlab for preprocessing v3draw file, because now *.v3draw is only supported with Vaa3D and matlab (with V3D-Matlab-IO)
 
     % Load and convert the v3draw file
-    % if exist(load_v3d_raw_img_file) ~= 6
-    %     disp('V3D matlab IO path not loaded...')
-    %     return
-    % end
+    if nthread ~= 1
+        fprintf('Using %d threads\n', nthread);
+        parpool(nthread)
+    end
+
     fprintf('inpath: %s\n', inpath);
 
     if isdir(inpath)
@@ -25,13 +26,25 @@ function v3d2tif(inpath, cropthr, rescale_ratio)
 
         % Search for v3draw files in this folder
         v3drawlist = dir(fullfile(inpath, '*.v3draw'));
-        % Convert each v3draw file - parfor is too memory consuming
-        for i = 1 : numel(v3drawlist) 
-            fprintf('Converting %d/%d', i, numel(v3drawlist))
-            outputFileName = fullfile(inpath, 'tif', [name, '.tif']);
-            v3drawpath = fullfile(inpath, v3drawlist(i).name, outputFileName);
-            convertfile(inpath, cropthr, rescale_ratio);
-        end % End of loop of processing 1 file
+        if nthread == 1 
+            % Convert each v3draw file - parfor is too memory consuming
+            for i = 1 : numel(v3drawlist) 
+                fprintf('Converting %d/%d', i, numel(v3drawlist))
+                name = v3drawlist(i).name
+                outputFileName = fullfile(inpath, 'tif', [name, '.tif']);
+                v3drawpath = fullfile(inpath, name);
+                convertfile(v3drawpath, cropthr, rescale_ratio, outputFileName);
+            end % End of loop of processing 1 file
+        else
+            % Convert each v3draw file - parfor is too memory consuming
+            parfor i = 1 : numel(v3drawlist) 
+                fprintf('Converting %d/%d', i, numel(v3drawlist))
+                name = v3drawlist(i).name
+                outputFileName = fullfile(inpath, 'tif', [name, '.tif']);
+                v3drawpath = fullfile(inpath, name);
+                convertfile(v3drawpath, cropthr, rescale_ratio, outputFileName);
+            end % End of loop of processing 1 file
+        end
 
         disp('== Done ==')
     else
