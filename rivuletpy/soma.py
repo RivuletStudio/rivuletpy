@@ -353,7 +353,7 @@ class MorphACWE(object):
             u = self._u
             volu = sum(u[u > 0])
             vol_pct = volu / ini_vol
-            
+
             # print('This is', i, 'th iteration')
             # print('The current volume percentage is', vol_pct)
 
@@ -361,127 +361,10 @@ class MorphACWE(object):
             # The somatic volume underwent dramatic change
             judge_one = vol_pct < 0.75
             judge_two = vol_pct > 1.15
-            judge_criteria = np.logical_or(judge_one, judge_two)     
+            judge_criteria = np.logical_or(judge_one, judge_two)
             if judge_criteria:
                 break
 
-
-
-class MorphGAC(object):
-    """Morphological GAC based on the Geodesic Active Contours."""
-    
-    def __init__(self, data, smoothing=1, threshold=0, balloon=0):
-        """Create a Morphological GAC solver.
-        
-        Parameters
-        ----------
-        data : array-like
-            The stopping criterion g(I). See functions gborders and glines.
-        smoothing : scalar
-            The number of repetitions of the smoothing step in each
-            iteration. This is the parameter µ.
-        threshold : scalar
-            The threshold that determines which areas are affected
-            by the morphological balloon. This is the parameter θ.
-        balloon : scalar
-            The strength of the morphological balloon. This is the parameter ν.
-        """
-        self._u = None
-        self._v = balloon
-        self._theta = threshold
-        self.smoothing = smoothing        
-        self.set_data(data)
-    
-
-    def set_levelset(self, u):
-        self._u = np.double(u)
-        self._u[u>0] = 1
-        self._u[u<=0] = 0
-    
-
-    def set_balloon(self, v):
-        self._v = v
-        self._update_mask()
-    
-    
-    def set_threshold(self, theta):
-        self._theta = theta
-        self._update_mask()
-    
-
-    def set_data(self, data):
-        self._data = data
-        self._ddata = np.gradient(data)
-        self._update_mask()
-        
-        # The structure element for binary dilation and erosion.
-        self.structure = np.ones((3,)*np.ndim(data))
-    
-    
-    def _update_mask(self):
-        """Pre-compute masks for speed."""
-        self._threshold_mask = self._data > self._theta
-        self._threshold_mask_v = self._data > self._theta/np.abs(self._v)
-    
-    levelset = property(lambda self: self._u,
-                        set_levelset,
-                        doc="The level set embedding function (u).")
-    
-    data = property(lambda self: self._data,
-                        set_data,
-                        doc="The data that controls the snake evolution (the image or g(I)).")
-    
-    balloon = property(lambda self: self._v,
-                        set_balloon,
-                        doc="The morphological balloon parameter (ν (nu, not v)).")
-    
-    threshold = property(lambda self: self._theta,
-                        set_threshold,
-                        doc="The threshold value (θ).")
-    
-    
-    def step(self):
-        """Perform a single step of the morphological snake evolution."""
-        # Assign attributes to local variables for convenience.
-        u = self._u
-        gI = self._data
-        dgI = self._ddata
-        theta = self._theta
-        v = self._v
-        
-        if u is None:
-            raise ValueError("the levelset is not set (use set_levelset)")
-        
-        res = np.copy(u)
-        
-        # Balloon.
-        if v > 0:
-            aux = binary_dilation(u, self.structure)
-        elif v < 0:
-            aux = binary_erosion(u, self.structure)
-        if v!= 0:
-            res[self._threshold_mask_v] = aux[self._threshold_mask_v]
-        
-        # Image attachment.
-        aux = np.zeros_like(res)
-        dres = np.gradient(res)
-        for el1, el2 in zip(dgI, dres):
-            aux += el1*el2
-        res[aux > 0] = 1
-        res[aux < 0] = 0
-        
-        # Smoothing.
-        for i in range(self.smoothing):
-            res = curvop(res)
-        
-        self._u = res
-    
-    
-    def run(self, iterations):
-        """Run several iterations of the morphological snakes method."""
-        for i in range(iterations):
-            self.step()
-    
 
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     """
