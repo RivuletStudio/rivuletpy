@@ -384,29 +384,29 @@ def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
         msnake.data.
     """
     from matplotlib import pyplot as ppl
-    
+
     if levelset is not None:
         msnake.levelset = levelset
-    
+
     # Prepare the visual environment.
     fig = ppl.gcf()
     fig.clf()
-    ax1 = fig.add_subplot(1,2,1)
+    ax1 = fig.add_subplot(1, 2, 1)
     if background is None:
         ax1.imshow(msnake.data, cmap=ppl.cm.gray)
     else:
         ax1.imshow(background, cmap=ppl.cm.gray)
-    ax1.contour(msnake.levelset, [0.5], colors='r')    
-    ax2 = fig.add_subplot(1,2,2)
+    ax1.contour(msnake.levelset, [0.5], colors='r')
+    ax2 = fig.add_subplot(1, 2, 2)
     ax_u = ax2.imshow(msnake.levelset)
     ppl.pause(0.001)
-    
+
     # Iterate.
     for i in range(num_iters):
-        
+
         # Evolve.
         msnake.step()
-        
+
         # Update figure.
         del ax1.collections[0]
         ax1.contour(msnake.levelset, [0.5], colors='r')
@@ -421,7 +421,7 @@ def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
 def evolve_visual3d(msnake, levelset=None, num_iters=20):
     """
     Visual evolution of a three-dimensional morphological snake.
-    
+
     Parameters
     ----------
     msnake : MorphGAC or MorphACWE instance
@@ -443,7 +443,7 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
     src = mlab.pipeline.scalar_field(msnake.data)
     mlab.pipeline.image_plane_widget(src, plane_orientation='x_axes', colormap='gray')
     cnt = mlab.contour3d(msnake.levelset, contours=[0.5])
-    
+
     @mlab.animate(ui=True)
     def anim():
         for i in range(num_iters):
