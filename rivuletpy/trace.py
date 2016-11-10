@@ -15,7 +15,6 @@ from .utils.swc import getradius, cleanswc, match, match_r1
 from filtering.morphology import ssm
 
 
-
 class Soma(object):
     def __init__(self, pos, radius, mask=None):
         self.pos = pos

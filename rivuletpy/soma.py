@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from .utils.io import writetiff3d
-
 """
 somasnakes
 ===========
@@ -8,9 +6,9 @@ The original package is adjusted for soma detection by donghao zhang and siqi li
 
 This soma submodule can be used for soma detection only, but this submodule is
 currently embedded in rivuletpy. The soma mask can be generate by setting
-its corresponding argument. The soma detection requires an initial soma centroid, 
-estimated somatic radius and grayscale neuron image. Soma growth is based on the 
-Morphological Active Contours without Edges algorithm.  The original paper is named as
+its corresponding argument. The soma detection requires an initial soma centroid,
+estimated somatic radius and grayscale neuron image. Soma growth is based on
+the Morphological Active Contours without Edges algorithm.  The original paper is named as
 A morphological approach to curvature-based evolution of curves and surfaces.
 The following papers are Rivulet papers. The soma growth algorithm can converge by
 applying the sliding window technique. 
@@ -24,18 +22,19 @@ __author__ = "Donghao Zhang <zdhpeter1991@gmail.com>, Siqi Liu <lsqshr@gmail.com
 from itertools import cycle
 
 import numpy as np
-from scipy import ndimage
 from scipy.ndimage import binary_dilation, binary_erosion, \
-                        gaussian_filter, gaussian_gradient_magnitude
-import skfmm,msfm
+                                gaussian_filter, gaussian_gradient_magnitude
+import skfmm
+
 
 class fcycle(object):
-    
+
+
     def __init__(self, iterable):
         """Call functions from the iterable each time it is called."""
         self.funcs = cycle(iterable)
 
-    
+
     def __call__(self, *args, **kwargs):
         f = next(self.funcs)
         return f(*args, **kwargs)
@@ -45,12 +44,12 @@ class fcycle(object):
 _P2 = [np.eye(3), np.array([[0,1,0]]*3), np.flipud(np.eye(3)), np.rot90([[0,1,0]]*3)]
 _P3 = [np.zeros((3,3,3)) for i in range(9)]
 
-_P3[0][:,:,1] = 1
-_P3[1][:,1,:] = 1
-_P3[2][1,:,:] = 1
-_P3[3][:,[0,1,2],[0,1,2]] = 1
-_P3[4][:,[0,1,2],[2,1,0]] = 1
-_P3[5][[0,1,2],:,[0,1,2]] = 1
+_P3[0][:, :, 1] = 1
+_P3[1][:, 1, :] = 1
+_P3[2][1, :, :] = 1
+_P3[3][:, [0, 1, 2], [0, 1, 2]] = 1
+_P3[4][:, [0, 1, 2], [2, 1, 0]] = 1
+_P3[5][[0, 1, 2], :, [0, 1, 2]] = 1
 _P3[6][[0,1,2],:,[2,1,0]] = 1
 _P3[7][[0,1,2],[0,1,2],:] = 1
 _P3[8][[0,1,2],[2,1,0],:] = 1
@@ -543,7 +542,7 @@ def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
         ax_u.set_data(msnake.levelset)
         fig.canvas.draw()
         #ppl.pause(0.001)
-    
+
     # Return the last levelset.
     return msnake.levelset
 
@@ -563,11 +562,11 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
         The number of iterations.
     """
     from mayavi import mlab
-    import matplotlib.pyplot as ppl
-    
+    # import matplotlib.pyplot as ppl
+
     if levelset is not None:
         msnake.levelset = levelset
-    
+
     fig = mlab.gcf()
     mlab.clf()
     src = mlab.pipeline.scalar_field(msnake.data)
@@ -581,10 +580,10 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
             cnt.mlab_source.scalars = msnake.levelset
             print("Iteration %s/%s..." % (i + 1, num_iters))
             yield
-    
+
     anim()
     mlab.show()
-    
+
     # Return the last levelset.
     return msnake.levelset
 
@@ -597,27 +596,28 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
     ----------
     img : grayscale neuron image.
         the type of neuron image is numpy uint8
-        the dimension of neuron image is 3 
+        the dimension of neuron image is 3
         the neuron image is array-like
     soma_lambda1 : a float number controls the weight of internal energy
     soma_lambda2 : a float number controls the weight of external energy
     iterations : manually set the number of iterations required for the soma
         the type of iterations is int
     """
-    bimg = (img > threshold).astype('int') # Segment 
-    dt = skfmm.distance(bimg, dx=1.1) # Boundary DT
+    bimg = (img > threshold).astype('int')  # Segment
+    dt = skfmm.distance(bimg, dx=1.1)  # Boundary DT
 
-    # somaradius : the approximate value of soma radius estimated from distance transform
+    # somaradius : the approximate value of
+    # soma radius estimated from distance transform
     # the type of somaradius is float64
     # somaradius is just a float number
     somaradius = dt.max()
-    
-    # somapos : the coordinate of estimated soma centroid 
+
+    # somapos : the coordinate of estimated soma centroid
     # the type of somapos is int64
     # the shape of somapos is (3,)
     # somapos is array-like
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    
+
     marchmap = np.ones(img.shape)
     marchmap[somapos[0], somapos[1], somapos[2]] = -1
     somaradius = dt.max()
@@ -633,7 +633,7 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
     # print(startpt, endpt)
 
     # # To constrain the soma growth region inside the cubic region
-    # # Python index start from 0 
+    # # Python index start from 0
     startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
     startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
     startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
@@ -705,10 +705,10 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
 
     # Initialise soma mask image 
     fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
-    
+
     print('The startpt of the soma snake is', macwe.startpoint)
     print('The endpt of the soma snake is', macwe.endpoint)
-    
+
     # There are two possible scenarios 
     # The first scenrio is that the automatic box extension is not necessary
     if macwe.enlrspt is None:
@@ -723,7 +723,7 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
     # Value 40 is assigned for the visualisation purpose.        
     fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
     fullsomaimg.astype(int)
-    
+
     # Convert to uint8 so the soma mask image can be saved
     fullsomaimg = fullsomaimg.astype(np.uint8)
 
