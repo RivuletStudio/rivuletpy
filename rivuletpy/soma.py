@@ -2,18 +2,19 @@
 """
 somasnakes
 ===========
-The original package is adjusted for soma detection by donghao zhang and siqi liu.
+Original package is adjusted for soma detection by donghaozhang and siqiliu.
 
 This soma submodule can be used for soma detection only, but this submodule is
 currently embedded in rivuletpy. The soma mask can be generate by setting
-its corresponding argument. The soma detection requires an initial soma centroid,
+its corresponding argument. Soma detection requires an initial soma centroid,
 estimated somatic radius and grayscale neuron image. Soma growth is based on
-the Morphological Active Contours without Edges algorithm.  The original paper is named as
-A morphological approach to curvature-based evolution of curves and surfaces.
-The following papers are Rivulet papers. The soma growth algorithm can converge by
-applying the sliding window technique. 
-Journal Rivulet Paper : Rivulet: 3D Neuron Morphology Tracing with Iterative Back-Tracking
-Conference Rivulet Paper : Reconstruction of 3D neuron morphology using Rivulet back-tracking
+the Morphological Active Contours without Edges algorithm.  The original paper
+is named as A morphological approach to curvature-based
+evolution of curves and surfaces.The following papers are Rivulet papers.
+The soma growth algorithm can converge by applying the sliding window.
+Journal Rivulet Paper : Rivulet: 3D Neuron Morphology Tracing
+with Iterative Back-Tracking Conference Rivulet Paper : Reconstruction
+ of 3D neuron morphology using Rivulet back-tracking
 soma is a submodule of rivuletpy
 """
 
@@ -22,27 +23,25 @@ __author__ = "Donghao Zhang <zdhpeter1991@gmail.com>, Siqi Liu <lsqshr@gmail.com
 from itertools import cycle
 
 import numpy as np
-from scipy.ndimage import binary_dilation, binary_erosion, \
-                                gaussian_filter, gaussian_gradient_magnitude
+from scipy.ndimage import binary_dilation, binary_erosion
+from scipy.ndimage import gaussian_filter, gaussian_gradient_magnitude
 import skfmm
 
 
 class fcycle(object):
 
-
     def __init__(self, iterable):
         """Call functions from the iterable each time it is called."""
         self.funcs = cycle(iterable)
 
-
     def __call__(self, *args, **kwargs):
         f = next(self.funcs)
         return f(*args, **kwargs)
-    
+
 
 # SI and IS operators for 2D and 3D.
-_P2 = [np.eye(3), np.array([[0,1,0]]*3), np.flipud(np.eye(3)), np.rot90([[0,1,0]]*3)]
-_P3 = [np.zeros((3,3,3)) for i in range(9)]
+_P2 = [np.eye(3), np.array([[0, 1, 0]]*3), np.flipud(np.eye(3)), np.rot90([[0, 1, 0]]*3)]
+_P3 = [np.zeros((3, 3, 3)) for i in range(9)]
 
 _P3[0][:, :, 1] = 1
 _P3[1][:, 1, :] = 1
@@ -50,15 +49,16 @@ _P3[2][1, :, :] = 1
 _P3[3][:, [0, 1, 2], [0, 1, 2]] = 1
 _P3[4][:, [0, 1, 2], [2, 1, 0]] = 1
 _P3[5][[0, 1, 2], :, [0, 1, 2]] = 1
-_P3[6][[0,1,2],:,[2,1,0]] = 1
-_P3[7][[0,1,2],[0,1,2],:] = 1
-_P3[8][[0,1,2],[2,1,0],:] = 1
+_P3[6][[0, 1, 2], :, [2, 1, 0]] = 1
+_P3[7][[0, 1, 2], [0, 1, 2], :] = 1
+_P3[8][[0, 1, 2], [2, 1, 0], :] = 1
 
 _aux = np.zeros((0))
 
+
 def SI(u):
     """SI operator."""
-    # print('SI operator has been called')    
+    # print('SI operator has been called')
     global _aux
     if np.ndim(u) == 2:
         P = _P2
@@ -66,13 +66,13 @@ def SI(u):
         P = _P3
     else:
         raise ValueError("u has an invalid number of dimensions (should be 2 or 3)")
-    
+
     if u.shape != _aux.shape[1:]:
         _aux = np.zeros((len(P),) + u.shape)
-    
+
     for i in range(len(P)):
         _aux[i] = binary_erosion(u, P[i])
-    
+
     return _aux.max(0)
 
 
@@ -97,10 +97,10 @@ def IS(u):
     
     if u.shape != _aux.shape[1:]:
         _aux = np.zeros((len(P),) + u.shape)
-    
+
     for i in range(len(P)):
         _aux[i] = binary_dilation(u, P[i])
-    
+
     return _aux.min(0)
 
 # SIoIS operator.
@@ -109,9 +109,11 @@ ISoSI = lambda u: IS(SI(u))
 curvop = fcycle([SIoIS, ISoSI])
 
 # Stopping factors (function g(I) in the paper).
+
+
 def gborders(img, alpha=1.0, sigma=1.0):
     """Stopping criterion for image borders."""
-    
+
     # The norm of the gradient.
     gradnorm = gaussian_gradient_magnitude(img, sigma, mode='constant')
     return 1.0/np.sqrt(1.0 + alpha*gradnorm)
@@ -124,7 +126,7 @@ def glines(img, sigma=1.0):
 
 class MorphACWE(object):
     """Morphological ACWE based on the Chan-Vese energy functional."""
-    
+
     def __init__(self, data, startpoint, endpoint, imgshape, smoothing=1, lambda1=1, lambda2=1.5):
         """Create a Morphological ACWE solver.
         
@@ -148,7 +150,7 @@ class MorphACWE(object):
         self.smoothing = smoothing
         self.lambda1 = lambda1
         self.lambda2 = lambda2
-        self.imgshape = imgshape        
+        self.imgshape = imgshape
         self.data = data
         self.startpoint = startpoint
         self.endpoint = endpoint
