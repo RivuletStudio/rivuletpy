@@ -53,6 +53,8 @@ def r2(img,
     8-th column is the online confidence
     '''
 
+    np.save('/home/siqi/Desktop/img.pp.npy', img)
+
     if threshold < 0:
         try:
             from skimage import filters
@@ -64,6 +66,16 @@ def r2(img,
         print('--DT to get soma location with threshold:', threshold)
     bimg = (img > threshold).astype('int')  # Segment image
     dt = skfmm.distance(bimg, dx=1)  # Boundary DT
+
+    from matplotlib import pyplot as plt
+    plt.figure()
+    imgplt = plt.imshow(np.squeeze(dt.max(axis=-1)), interpolation='nearest' )
+    imgplt.set_cmap('hot')
+    plt.axis('off')
+    plt.savefig('/home/siqi/Desktop/dt.png', bbox_inches='tight', dpi = 1000)
+    np.save('/home/siqi/Desktop/dt.npy', dt)
+
+
     somaradius = dt.max()
     if not silence:
         print('-- Soma radius:', somaradius)
@@ -92,10 +104,12 @@ def r2(img,
         print('--Boundary DT...')
 
     dt = skfmm.distance(img, dx=5e-2)  # Boundary DT
-    # dtmax = dt.max()
+
+
     maxdpt = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
+
 
     if speed == 'ssm':
         if not silence:
@@ -114,6 +128,14 @@ def r2(img,
     else:
         if not silence: print('--FM...')
         t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
+
+
+    plt.figure()
+    imgplt = plt.imshow(np.squeeze(t.max(axis=-1)), interpolation='nearest' )
+    imgplt.set_cmap('gray')
+    plt.axis('off')
+    plt.savefig('/home/siqi/Desktop/t.png', bbox_inches='tight', dpi = 1000)
+    np.save('/home/siqi/Desktop/t.npy', t)
 
     # Iterative Back Tracking with Erasing
     if not silence: print('--Start Backtracking...')
@@ -811,7 +833,7 @@ def prune_leaves(swc, img, length, conf):
         # Prune if the leave is too short or
         # the confidence of the leave branch is too low
         if len(branch) < length or conf_forward(
-                [b[2:5] for b in branch], img)[-1] < conf or leaflen <= 3:
+            [b[2:5] for b in branch], img)[-1] < conf or leaflen <= 3:
             id2dump.extend([node[0] for node in branch])
 
     # Only keep the swc nodes not in the dump id list
