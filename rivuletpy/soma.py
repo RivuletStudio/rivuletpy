@@ -404,6 +404,12 @@ class Soma(object):
     def set_radius(self, radius):
         self.radius = radius
 
+    # Shift the centroid according to the cropped region
+    def crop_centroid(self, crop_region):
+        self.centroid[0] = self.centroid[0] - crop_region[0, 0]
+        self.centroid[1] = self.centroid[1] - crop_region[1, 0]
+        self.centroid[2] = self.centroid[2] - crop_region[2, 0]
+
 
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     """

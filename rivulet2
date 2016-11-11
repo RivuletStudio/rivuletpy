@@ -135,6 +135,8 @@ if not args.silence:
 img, crop_region = crop(img, args.threshold)  # Crop by default
 if args.soma_detection:
     cropsmask = smask[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]]
+    soma.set_mask(cropsmask)
+    soma.crop_centroid(crop_region)
 if args.soma_detection & (~args.silence):
     print('The shape of somamask after being cropped', cropsmask.shape)
 # print('The shape of cropped image', img.shape)
@@ -144,79 +146,77 @@ if args.zoom_factor != 1.:
     img = zoom(img, args.zoom_factor)
 
 # Run rivulet2 for the first time
-# swc = r2(img,
-#            threshold=args.threshold,
-#            speed=args.speed,
-#            is_msfm=args.msfm,
-#            ssmiter=args.ssmiter,
-#            silence=args.silence,
-#            clean=args.clean,
-#            radius=True if args.riveal else args.radius,
-#            somainput=soma
-#            render=args.render)
+swc = r2(img, args.threshold, soma,
+         speed=args.speed,
+         is_msfm=args.msfm,
+         ssmiter=args.ssmiter,
+         silence=args.silence,
+         clean=args.clean,
+         radius=True if args.riveal else args.radius,
+         render=args.render)
 
-# if args.debug:
-#     # Save soma rescaled_soma_mask for inspection
-#     somafile = os.path.splitext(args.file)[0] + '.soma.tif'
-#     rescaled_soma_mask = rescale(soma.mask.astype('int'))
-#     writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
-#     outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
-#     tswc = reset_swc(swc, crop_region, args.zoom_factor)
-#     saveswc(outswcfile, tswc)
+if args.debug:
+    # Save soma rescaled_soma_mask for inspection
+    somafile = os.path.splitext(args.file)[0] + '.soma.tif'
+    rescaled_soma_mask = rescale(soma.mask.astype('int'))
+    writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
+    outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
+    tswc = reset_swc(swc, crop_region, args.zoom_factor)
+    saveswc(outswcfile, tswc)
 
-# if args.riveal:
-#     riveal_thr = 0.1
-#     from filtering.riveal import riveal
-#     # At least you need to zero mask the background
-#     img[img <= args.threshold] = 0.
+if args.riveal:
+    riveal_thr = 0.1
+    from filtering.riveal import riveal
+    # At least you need to zero mask the background
+    img[img <= args.threshold] = 0.
 
-#     # Decide the kernel size with the mean radius
-#     mean_radius = swc[:, 5].mean()
-#     mean_radius = math.ceil(mean_radius)
-#     K = 4 * mean_radius  # Kernel Size
-#     print('Mean Radius: %d\tKernel Radius:%d' % (mean_radius, K))
+    # Decide the kernel size with the mean radius
+    mean_radius = swc[:, 5].mean()
+    mean_radius = math.ceil(mean_radius)
+    K = 4 * mean_radius  # Kernel Size
+    print('Mean Radius: %d\tKernel Radius:%d' % (mean_radius, K))
 
-#     for i in range(args.riveal_iter):
-#         img = riveal(img, swc, K=K)
-#         img[soma.mask] = 1
+    for i in range(args.riveal_iter):
+        img = riveal(img, swc, K=K)
+        img[soma.mask] = 1
 
-#         if args.debug:
-#             # Save the riveal result for inspection
-#             outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
-#             outimg = rescale(img)
+        if args.debug:
+            # Save the riveal result for inspection
+            outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
+            outimg = rescale(img)
 
-#             from skimage import exposure
-#             outimg = exposure.equalize_hist(outimg.astype('int'))
-#             outimg = rescale(img)
-#             writetiff3d(outimgpath, outimg.astype(imgdtype))
+            from skimage import exposure
+            outimg = exposure.equalize_hist(outimg.astype('int'))
+            outimg = rescale(img)
+            writetiff3d(outimgpath, outimg.astype(imgdtype))
 
-#             outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
-#             outimg = rescale((img > riveal_thr).astype('int'))
-#             writetiff3d(outimgpath, outimg.astype(imgdtype))
+            outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
+            outimg = rescale((img > riveal_thr).astype('int'))
+            writetiff3d(outimgpath, outimg.astype(imgdtype))
 
-#         # if args.debug:
-#         #     outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
-#         #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
-#         #     saveswc(outswcfile, tswc)
+        # if args.debug:
+        #     outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
+        #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
+        #     saveswc(outswcfile, tswc)
 
-#     # Run rivulet2 on the final riveal result
-#     swc, _ = r2(img,
-#                 threshold=riveal_thr,
-#                 speed=args.speed,
-#                 is_msfm=args.msfm,
-#                 ssmiter=args.ssmiter,
-#                 silence=args.silence,
-#                 clean=args.clean,
-#                 radius=args.radius,
-#                 render=args.render)
+    # Run rivulet2 on the final riveal result
+    swc, _ = r2(img,
+                threshold=riveal_thr,
+                speed=args.speed,
+                is_msfm=args.msfm,
+                ssmiter=args.ssmiter,
+                silence=args.silence,
+                clean=args.clean,
+                radius=args.radius,
+                render=args.render)
 
-# swc = reset_swc(swc, crop_region, args.zoom_factor)
-# # Save the final swc
-# if args.out:
-#     outswcfile = args.out
-# else:  # Make the long file name
-#     outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
+swc = reset_swc(swc, crop_region, args.zoom_factor)
+# Save the final swc
+if args.out:
+    outswcfile = args.out
+else:  # Make the long file name
+    outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
 
-# saveswc(outswcfile, swc)
-# print('SWC saved to ' + outswcfile)
-# print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+saveswc(outswcfile, swc)
+print('SWC saved to ' + outswcfile)
+print('-- Finshed: %.2f sec.' % (time.time() - starttime))
