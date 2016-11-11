@@ -5,37 +5,10 @@ from random import random, randrange
 import skfmm
 import msfm
 from collections import Counter
-from scipy.ndimage.measurements import center_of_mass
 from scipy.interpolate import RegularGridInterpolator
-from scipy.ndimage.morphology import generate_binary_structure
-from scipy.ndimage import binary_dilation
 from .utils.preprocessing import distgradient
 from .utils.swc import getradius, cleanswc, match, match_r1
 from filtering.morphology import ssm
-
-
-class Soma(object):
-    def __init__(self, pos, radius, mask=None):
-        self.pos = pos
-        self.radius = radius
-        self.mask = None
-
-    def make_soma_mask(self, bimg):
-        '''
-        Make soma binary mask with the original
-        binary image and its radius and position
-        '''
-
-        # Make a ball like mask with 2 X somaradius
-        ballvolume = np.zeros(bimg.shape)
-        ballvolume[self.pos[0], self.pos[1], self.pos[2]] = 1
-        stt = generate_binary_structure(3, 1)
-        for i in range(math.ceil(self.radius * 2.5)):
-            ballvolume = binary_dilation(ballvolume, structure=stt)
-
-        # Make the soma mask with the intersection
-        #between the ball area and the original binary
-        self.mask = np.logical_and(ballvolume, bimg)
 
 
 def r2(img,
@@ -55,30 +28,26 @@ def r2(img,
     Note: the returned swc has 8 columns where the
     8-th column is the online confidence
     '''
+    if not soma.detect:
+        print('cccccc')
 
-    if threshold < 0:
-        try:
-            from skimage import filters
-        except ImportError:
-            from skimage import filter as filters
-        threshold = filters.threshold_otsu(img)
+    # if threshold < 0:
+    #     try:
+    #         from skimage import filters
+    #     except ImportError:
+    #         from skimage import filter as filters
+    #     threshold = filters.threshold_otsu(img)
 
-    if not silence:
-        print('--DT to get soma location with threshold:', threshold)
-    bimg = (img > threshold).astype('int')  # Segment image
-    dt = skfmm.distance(bimg, dx=1.1)  # Boundary DT
-    somaradius = dt.max()
-    if not silence:
-        print('-- Soma radius:', somaradius)
-    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    marchmap = np.ones(img.shape)
-    marchmap[somapos[0], somapos[1], somapos[2]] = -1
-
-    # Make the soma object
-    soma = Soma(somapos, somaradius * 2)
-    if not silence:
-        print('-- Making Soma Mask...')
-    soma.make_soma_mask(bimg)
+    # if not silence:
+    #     print('--DT to get soma location with threshold:', threshold)
+    # bimg = (img > threshold).astype('int')  # Segment image
+    # dt = skfmm.distance(bimg, dx=1.1)  # Boundary DT
+    # somaradius = dt.max()
+    # if not silence:
+    #     print('-- Soma radius:', somaradius)
+    # somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    # marchmap = np.ones(img.shape)
+    # marchmap[somapos[0], somapos[1], somapos[2]] = -1
 
     ## Trace
     if threshold < 0:
@@ -101,22 +70,10 @@ def r2(img,
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    print('Original soma point is', somapos)
+    if not silence:
+        print('Original soma point is', somapos)
 
-    # Old soma position will be replaced by the new soma centroid
-    if soma_detection:
-        somabimg = (somamask > 0).astype('int')
 
-        # Calculate the new centroid using the soma volume
-        newsomapos = center_of_mass(somabimg)
-
-        # Round the float coordinates into integers
-        newsomapos = np.round(newsomapos)
-
-        # Release the memory of binary soma image
-        del somabimg, somapos
-        somapos = newsomapos.astype('int')
-        print('The new calculated soma point is', somapos)
     if speed == 'ssm':
         if not silence:
             print('--SSM with GVF...')

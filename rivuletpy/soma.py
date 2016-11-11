@@ -21,10 +21,12 @@ soma is a submodule of rivuletpy
 __author__ = "Donghao Zhang <zdhpeter1991@gmail.com>, Siqi Liu <lsqshr@gmail.com>"
 
 from itertools import cycle
-
+import math
 import numpy as np
 from scipy.ndimage import binary_dilation, binary_erosion
 from scipy.ndimage import gaussian_filter, gaussian_gradient_magnitude
+from scipy.ndimage.measurements import center_of_mass
+from scipy.ndimage.morphology import generate_binary_structure
 import skfmm
 
 
@@ -366,6 +368,43 @@ class MorphACWE(object):
                 break
 
 
+class Soma(object):
+    def __init__(self, centroid, radius, detect, mask=None):
+        self.centroid = centroid
+        self.radius = radius
+        self.mask = mask
+        self.detect = detect
+
+    def simple_mask(self, bimg):
+        '''
+        Make soma binary mask with the original
+        binary image and its radius and position
+        '''
+
+        # Make a ball like mask with 2 X somaradius
+        ballvolume = np.zeros(bimg.shape)
+        ballvolume[self.centroid[0], self.centroid[1], self.centroid[2]] = 1
+        stt = generate_binary_structure(3, 1)
+        for i in range(math.ceil(self.radius * 2.5)):
+            ballvolume = binary_dilation(ballvolume, structure=stt)
+
+        # Make the soma mask with the intersection
+        #between the ball area and the original binary
+        self.mask = np.logical_and(ballvolume, bimg)
+
+    # Set centroid of Soma class
+    def set_centroid(self, centroid):
+        self.centroid = centroid
+
+    # Set mask of Soma class
+    def set_mask(self, mask):
+        self.mask = mask
+
+    # Set radius of Soma class
+    def set_radius(self, radius):
+        self.radius = radius
+
+
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     """
     Visual evolution of a morphological snake.
@@ -459,7 +498,7 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
     return msnake.levelset
 
 
-def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
+def soma_detect(img, threshold, detect, noprint):
     """
     Automatic detection of soma volume unless the iterations are given.
 
@@ -469,11 +508,16 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
         the type of neuron image is numpy uint8
         the dimension of neuron image is 3
         the neuron image is array-like
-    soma_lambda1 : a float number controls the weight of internal energy
-    soma_lambda2 : a float number controls the weight of external energy
-    iterations : manually set the number of iterations required for the soma
-        the type of iterations is int
     """
+    # Smooth iterations
+    smoothing = 1
+    # A float number controls the weight of internal energy
+    lambda1 = 1
+    # A float number controls the weight of external energy
+    lambda2 = 1.5
+    # Manually set the number of iterations required for the soma
+    # The type of iterations is int
+    iterations = -1
     bimg = (img > threshold).astype('int')  # Segment
     dt = skfmm.distance(bimg, dx=1.1)  # Boundary DT
 
@@ -489,116 +533,134 @@ def soma_detect(img, threshold, smoothing, lambda1, lambda2, iterations):
     # somapos is array-like
     somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
 
-    marchmap = np.ones(img.shape)
-    marchmap[somapos[0], somapos[1], somapos[2]] = -1
-    somaradius = dt.max()
-    print('DT max:', somaradius)
-    ratioxz = img.shape[0] / img.shape[2]
-    ratioyz = img.shape[1] / img.shape[2]
-    print('The ratioxz is ', ratioxz, 'The ratioyz is ', ratioyz)
-    sqrval = (somaradius**0.5 * max(ratioxz, ratioyz))
-    sqrval = np.floor(min(max(sqrval, 3), (somaradius**0.5)*6))
-    print('The replacesqrval is ', sqrval)
-    startpt = somapos - 3 * sqrval
-    endpt = somapos + 3 * sqrval
-    # print(startpt, endpt)
+    # Soma detection is required
+    if detect:
+        ratioxz = img.shape[0] / img.shape[2]
+        ratioyz = img.shape[1] / img.shape[2]
+        sqrval = (somaradius**0.5 * max(ratioxz, ratioyz))
+        sqrval = np.floor(min(max(sqrval, 3), (somaradius**0.5)*6))
 
-    # # To constrain the soma growth region inside the cubic region
-    # # Python index start from 0
-    startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
-    startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
-    startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
+        if not noprint:
+            print('DT max:', somaradius)
+            print('The ratioxz is ', ratioxz, 'The ratioyz is ', ratioyz)
+            print('The replacesqrval is ', sqrval)
+        startpt = somapos - 3 * sqrval
+        endpt = somapos + 3 * sqrval
 
-    endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
-    endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
-    endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
-    startpt = startpt.astype(int)  # Convert type to int for indexing
-    endpt = endpt.astype(int)
+        # # To constrain the soma growth region inside the cubic region
+        # # Python index start from 0
+        startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
+        startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
+        startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
 
-    # # Extract soma region for fast soma detection
-    somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
-    centerpt = np.zeros(3)
-    centerpt[0] = somaimg.shape[0] / 2
-    centerpt[1] = somaimg.shape[1] / 2
-    centerpt[2] = somaimg.shape[2] / 2
-    centerpt = np.floor(centerpt)
+        endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
+        endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
+        endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
+        startpt = startpt.astype(int)  # Convert type to int for indexing
+        endpt = endpt.astype(int)
 
-    # Morphological ACWE. Initialization of the level-set.
-    macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
-    macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
+        # # Extract soma region for fast soma detection
+        somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+        centerpt = np.zeros(3)
+        centerpt[0] = somaimg.shape[0] / 2
+        centerpt[1] = somaimg.shape[1] / 2
+        centerpt[2] = somaimg.shape[2] / 2
+        centerpt = np.floor(centerpt)
 
-    # -1 means the automatic detection
-    # Positive integers means the number of iterations
-    if iterations == -1:
-        macwe.autoconvg()  # automatic soma detection
-    else:
-        # Input the iteration number manually
-        for i in range(iterations):
-            macwe.step()
+        # Morphological ACWE. Initialization of the level-set.
+        macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
+        macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
 
-    # The following achieves the automatic somtic box extension
-    # The maximum somatic region extension iteration
-    # It is set to 10 avoid infinite loops
-    for i in range(1, 11):
-        print('The somatic region extension iteration is', i)
-        if macwe.enlrspt is None:
-            break
+        # -1 means the automatic detection
+        # Positive integers means the number of iterations
+        if iterations == -1:
+            macwe.autoconvg()  # automatic soma detection
+        else:
+            # Input the iteration number manually
+            for i in range(iterations):
+                macwe.step()
 
-        # Copy the values to new variables for the safe purpose
-        startpt = macwe.enlrspt.copy()
-        endpt = macwe.enlrept.copy()
-        somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+        # The following achieves the automatic somtic box extension
+        # The maximum somatic region extension iteration
+        # It is set to 10 avoid infinite loops
+        for i in range(1, 11):
+            if not noprint:
+                print('The somatic region extension iteration is', i)
+            if macwe.enlrspt is None:
+                break
+
+            # Copy the values to new variables for the safe purpose
+            startpt = macwe.enlrspt.copy()
+            endpt = macwe.enlrept.copy()
+            somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+            fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
+
+            # Put the detected somas into the whole image
+            # It is either true or false
+            fullsomaimg[macwe.startpoint[0]:macwe.endpoint[0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:macwe.endpoint[2]] = macwe._u
+
+            # The newlevelset is the initial soma volume from previous iteration
+            #(the automatic converge operation)
+            newlevelset = fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+
+            # The previous macwe class is released
+            # To avoid the conflicts with the new initialisation of the macwe class
+            del macwe
+
+            # Initialisation for the new class
+            macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
+            del somaimg, fullsomaimg, startpt, endpt
+
+            # Reuse the soma volume from previous iteration
+            macwe.set_levelset(newlevelset)
+
+            # Release memory to avoid conflicts with previous newlevelset
+            del newlevelset
+            macwe.autoconvg()
+
+        # The automatic smoothing operation to remove the interferes with dendrites
+        macwe.autosmooth()
+
+        # Initialise soma mask image
         fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
 
-        # Put the detected somas into the whole image
-        # It is either true or false
-        fullsomaimg[macwe.startpoint[0]:macwe.endpoint[0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:macwe.endpoint[2]] = macwe._u
+        if not noprint:
+            print('The startpt of the soma snake is', macwe.startpoint)
+            print('The endpt of the soma snake is', macwe.endpoint)
 
-        # The newlevelset is the initial soma volume from previous iteration
-        #(the automatic converge operation)
-        newlevelset = fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+        # There are two possible scenarios
+        # The first scenrio is that the automatic box extension is not necessary
+        if macwe.enlrspt is None:
+            startpt = macwe.startpoint.copy()
+            endpt = macwe.endpoint.copy()
+        # The second scenrio is that the automatic box extension operations has been performed
+        else:
+            startpt = macwe.enlrspt.copy()
+            endpt = macwe.enlrept.copy()
 
-        # The previous macwe class is released
-        # To avoid the conflicts with the new initialisation of the macwe class
-        del macwe
+        # The soma mask image contains only two possible values
+        # Each element is either 0 or 40
+        # Value 40 is assigned for the visualisation purpose.
+        fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
+        fullsomaimg.astype(int)
 
-        # Initialisation for the new class
-        macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
-        del somaimg, fullsomaimg, startpt, endpt
+        # Convert to uint8 so the soma mask image can be saved
+        fullsomaimg = fullsomaimg.astype(np.uint8)
+        somabimg = (fullsomaimg > 0).astype('int')
 
-        # Reuse the soma volume from previous iteration
-        macwe.set_levelset(newlevelset)
+        # Calculate the new centroid using the soma volume
+        newsomapos = center_of_mass(somabimg)
 
-        # Release memory to avoid conflicts with previous newlevelset
-        del newlevelset
-        macwe.autoconvg()
+        # Round the float coordinates into integers
+        newsomapos = np.round(newsomapos)
 
-    # The automatic smoothing operation to remove the interferes with dendrites
-    macwe.autosmooth()
-
-    # Initialise soma mask image
-    fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
-
-    print('The startpt of the soma snake is', macwe.startpoint)
-    print('The endpt of the soma snake is', macwe.endpoint)
-
-    # There are two possible scenarios
-    # The first scenrio is that the automatic box extension is not necessary
-    if macwe.enlrspt is None:
-        startpt = macwe.startpoint.copy()
-        endpt = macwe.endpoint.copy()
-    # The second scenrio is that the automatic box extension operations has been performed
+        # Release the memory of binary soma image
+        del somabimg, somapos
+        somapos = newsomapos.astype('int')
+        if not noprint:
+            print('The new calculated soma point is', somapos)
+        soma = Soma(somapos, somaradius, detect, fullsomaimg)
     else:
-        startpt = macwe.enlrspt.copy()
-        endpt = macwe.enlrept.copy()
-
-    # The soma mask image contains only two possible values
-    # Each element is either 0 or 40
-    # Value 40 is assigned for the visualisation purpose.
-    fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
-    fullsomaimg.astype(int)
-
-    # Convert to uint8 so the soma mask image can be saved
-    fullsomaimg = fullsomaimg.astype(np.uint8)
-
-    return fullsomaimg
+        soma = Soma(somapos, somaradius, detect)
+        soma.simple_mask(bimg)
+    return soma

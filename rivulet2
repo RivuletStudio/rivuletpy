@@ -9,7 +9,7 @@ from rivuletpy.utils.preprocessing import crop
 from rivuletpy.utils.swc import reset_swc
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
-from rivuletpy.soma import *
+from rivuletpy.soma import soma_detect
 
 parser = argparse.ArgumentParser(
     description='Arguments to perform the Rivulet2 tracing algorithm.')
@@ -43,39 +43,14 @@ parser.add_argument(
 
 # Arguments for soma detection
 parser.add_argument(
-    '--soma_threshold',
-    type=float,
-    default=-1,
-    help='The threshold on the original image to get soma radius')
-parser.add_argument(
-    '--soma_iterations',
-    type=int,
-    default=-1,
-    help='The number of iterations for soma snake')
-parser.add_argument(
-    '--soma_smoothing',
-    type=int,
-    default=1,
-    help='The number of iterations for making soma a sphere')
-parser.add_argument(
-    '--soma_lambda1',
-    type=float,
-    default=1,
-    help='The weight of internal energy')
-parser.add_argument(
-    '--soma_lambda2',
-    type=float,
-    default=1.5,
-    help='The weight of external energy')
-parser.add_argument(
     '--somasaveim',
-    dest='soma',
+    dest='somaim',
     action='store_true')
 parser.add_argument(
     '--no-somasaveim',
-    dest='soma',
+    dest='somaim',
     action='store_false')
-parser.set_defaults(soma=False)
+parser.set_defaults(somaim=False)
 parser.add_argument(
     '--somadetect',
     dest='soma_detection',
@@ -142,105 +117,106 @@ parser.set_defaults(debug=False)
 args = parser.parse_args()
 starttime = time.time()
 img = loadimg(args.file)
+imgdtype = img.dtype
 
 # Soma detection is run only when it is required Otherwise simple soma will be used
-if args.soma_detection:
-    smask = soma_detect(img, args.threshold, args.soma_smoothing, args.soma_lambda1, args.soma_lambda2, args.soma_iterations)
-    # Save the soma mask if required
-    if args.soma:
-        writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask)
-else:
-    smask = None
+soma = soma_detect(img, args.threshold, args.soma_detection, args.silence)
+# Save the soma mask if required
+if (args.somaim & args.soma_detection):
+    smask = soma.mask
+    writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask)
+elif args.somaim:
+    smask = rescale(soma.mask.astype('int'))
+    writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask.astype(imgdtype))
 
-
-imgdtype = img.dtype
-print('The shape of the image is', img.shape)
+if not args.silence:
+    print('The shape of the image is', img.shape)
 # Modify the crop function so that it can crop somamask as well
-img, cropsmask, crop_region = crop(img, smask, args.threshold)  # Crop by default
+img, crop_region = crop(img, args.threshold)  # Crop by default
 if args.soma_detection:
+    cropsmask = smask[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]]
+if args.soma_detection & (~args.silence):
     print('The shape of somamask after being cropped', cropsmask.shape)
-print('The shape of cropped image', img.shape)
-del smask
+# print('The shape of cropped image', img.shape)
 if args.zoom_factor != 1.:
     if not args.silence:
         print('-- Zooming image to %.2f of original size' % args.zoom_factor)
     img = zoom(img, args.zoom_factor)
 
 # Run rivulet2 for the first time
-swc, soma = r2(img,
-               threshold=args.threshold,
-               speed=args.speed,
-               is_msfm=args.msfm,
-               ssmiter=args.ssmiter,
-               silence=args.silence,
-               clean=args.clean,
-               radius=True if args.riveal else args.radius,
-               soma_detection=args.soma_detection,
-               somamask=cropsmask,
-               render=args.render)
+# swc = r2(img,
+#            threshold=args.threshold,
+#            speed=args.speed,
+#            is_msfm=args.msfm,
+#            ssmiter=args.ssmiter,
+#            silence=args.silence,
+#            clean=args.clean,
+#            radius=True if args.riveal else args.radius,
+#            somainput=soma
+#            render=args.render)
 
-if args.debug:
-    # Save soma rescaled_soma_mask for inspection
-    somafile = os.path.splitext(args.file)[0] + '.soma.tif'
-    rescaled_soma_mask = rescale(soma.mask.astype('int'))
-    writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
-    outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
-    tswc = reset_swc(swc, crop_region, args.zoom_factor)
-    saveswc(outswcfile, tswc)
+# if args.debug:
+#     # Save soma rescaled_soma_mask for inspection
+#     somafile = os.path.splitext(args.file)[0] + '.soma.tif'
+#     rescaled_soma_mask = rescale(soma.mask.astype('int'))
+#     writetiff3d(somafile, rescaled_soma_mask.astype(imgdtype))
+#     outswcfile = os.path.splitext(args.file)[0] + '.r2.ini.swc'
+#     tswc = reset_swc(swc, crop_region, args.zoom_factor)
+#     saveswc(outswcfile, tswc)
 
-if args.riveal:
-    riveal_thr = 0.1
-    from filtering.riveal import riveal
-    # At least you need to zero mask the background
-    img[img <= args.threshold] = 0.
+# if args.riveal:
+#     riveal_thr = 0.1
+#     from filtering.riveal import riveal
+#     # At least you need to zero mask the background
+#     img[img <= args.threshold] = 0.
 
-    # Decide the kernel size with the mean radius
-    mean_radius = swc[:, 5].mean()
-    mean_radius = math.ceil(mean_radius)
-    K = 4 * mean_radius  # Kernel Size
-    print('Mean Radius: %d\tKernel Radius:%d' % (mean_radius, K))
+#     # Decide the kernel size with the mean radius
+#     mean_radius = swc[:, 5].mean()
+#     mean_radius = math.ceil(mean_radius)
+#     K = 4 * mean_radius  # Kernel Size
+#     print('Mean Radius: %d\tKernel Radius:%d' % (mean_radius, K))
 
-    for i in range(args.riveal_iter):
-        img = riveal(img, swc, K=K)
-        img[soma.mask] = 1
+#     for i in range(args.riveal_iter):
+#         img = riveal(img, swc, K=K)
+#         img[soma.mask] = 1
 
-        if args.debug:
-            # Save the riveal result for inspection
-            outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
-            outimg = rescale(img)
+#         if args.debug:
+#             # Save the riveal result for inspection
+#             outimgpath = os.path.splitext(args.file)[0] + '.rv%d.tif' % i
+#             outimg = rescale(img)
 
-            from skimage import exposure
-            outimg = exposure.equalize_hist(outimg.astype('int'))
-            outimg = rescale(img)
-            writetiff3d(outimgpath, outimg.astype(imgdtype))
+#             from skimage import exposure
+#             outimg = exposure.equalize_hist(outimg.astype('int'))
+#             outimg = rescale(img)
+#             writetiff3d(outimgpath, outimg.astype(imgdtype))
 
-            outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
-            outimg = rescale((img > riveal_thr).astype('int'))
-            writetiff3d(outimgpath, outimg.astype(imgdtype))
+#             outimgpath = os.path.splitext(args.file)[0] + '.rvseg%d.tif' % i
+#             outimg = rescale((img > riveal_thr).astype('int'))
+#             writetiff3d(outimgpath, outimg.astype(imgdtype))
 
-        # if args.debug:
-        #     outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
-        #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
-        #     saveswc(outswcfile, tswc)
+#         # if args.debug:
+#         #     outswcfile = os.path.splitext(args.file)[0] + '.r2.rv%d.swc' % i
+#         #     tswc = reset_swc(swc, crop_region, args.zoom_factor)
+#         #     saveswc(outswcfile, tswc)
 
-    # Run rivulet2 on the final riveal result
-    swc, _ = r2(img,
-                threshold=riveal_thr,
-                speed=args.speed,
-                is_msfm=args.msfm,
-                ssmiter=args.ssmiter,
-                silence=args.silence,
-                clean=args.clean,
-                radius=args.radius,
-                render=args.render)
+#     # Run rivulet2 on the final riveal result
+#     swc, _ = r2(img,
+#                 threshold=riveal_thr,
+#                 speed=args.speed,
+#                 is_msfm=args.msfm,
+#                 ssmiter=args.ssmiter,
+#                 silence=args.silence,
+#                 clean=args.clean,
+#                 radius=args.radius,
+#                 render=args.render)
 
-swc = reset_swc(swc, crop_region, args.zoom_factor)
-# Save the final swc
-if args.out:
-    outswcfile = args.out
-else:  # Make the long file name
-    outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
+# swc = reset_swc(swc, crop_region, args.zoom_factor)
+# # Save the final swc
+# if args.out:
+#     outswcfile = args.out
+# else:  # Make the long file name
+#     outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
 
-saveswc(outswcfile, swc)
-print('SWC saved to ' + outswcfile)
-print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+# saveswc(outswcfile, swc)
+# print('SWC saved to ' + outswcfile)
+# print('-- Finshed: %.2f sec.' % (time.time() - starttime))
