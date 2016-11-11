@@ -9,6 +9,7 @@ from rivuletpy.utils.preprocessing import crop
 from rivuletpy.utils.swc import reset_swc
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
+from rivuletpy.soma import soma_detect
 
 parser = argparse.ArgumentParser(
     description='Arguments to perform the Rivulet2 tracing algorithm.')
@@ -39,6 +40,26 @@ parser.add_argument(
     type=float,
     default=1.,
     help='The factor to zoom the image to speed up the whole thing. Default 1.')
+
+# Arguments for soma detection
+parser.add_argument(
+    '--somasaveim',
+    dest='somaim',
+    action='store_true')
+parser.add_argument(
+    '--no-somasaveim',
+    dest='somaim',
+    action='store_false')
+parser.set_defaults(somaim=False)
+parser.add_argument(
+    '--somadetect',
+    dest='soma_detection',
+    action='store_true')
+parser.add_argument(
+    '--no-somadetect',
+    dest='soma_detection',
+    action='store_false')
+parser.set_defaults(soma_detection=False)
 
 # Args for tracing
 parser.add_argument(
@@ -97,23 +118,42 @@ args = parser.parse_args()
 starttime = time.time()
 img = loadimg(args.file)
 imgdtype = img.dtype
-img, crop_region = crop(img, args.threshold)  # Crop by default
 
+# Soma detection is run only when it is required Otherwise simple soma will be used
+soma = soma_detect(img, args.threshold, args.soma_detection, args.silence)
+# Save the soma mask if required
+if (args.somaim & args.soma_detection):
+    smask = soma.mask
+    writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask)
+elif args.somaim:
+    smask = rescale(soma.mask.astype('int'))
+    writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask.astype(imgdtype))
+
+if not args.silence:
+    print('The shape of the image is', img.shape)
+# Modify the crop function so that it can crop somamask as well
+img, crop_region = crop(img, args.threshold)  # Crop by default
+if args.soma_detection:
+    cropsmask = smask[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]]
+    soma.set_mask(cropsmask)
+    soma.crop_centroid(crop_region)
+if args.soma_detection & (~args.silence):
+    print('The shape of somamask after being cropped', cropsmask.shape)
+# print('The shape of cropped image', img.shape)
 if args.zoom_factor != 1.:
     if not args.silence:
         print('-- Zooming image to %.2f of original size' % args.zoom_factor)
     img = zoom(img, args.zoom_factor)
 
 # Run rivulet2 for the first time
-swc, soma = r2(img,
-               threshold=args.threshold,
-               speed=args.speed,
-               is_msfm=args.msfm,
-               ssmiter=args.ssmiter,
-               silence=args.silence,
-               clean=args.clean,
-               radius=True if args.riveal else args.radius,
-               render=args.render)
+swc = r2(img, args.threshold, soma,
+         speed=args.speed,
+         is_msfm=args.msfm,
+         ssmiter=args.ssmiter,
+         silence=args.silence,
+         clean=args.clean,
+         radius=True if args.riveal else args.radius,
+         render=args.render)
 
 if args.debug:
     # Save soma rescaled_soma_mask for inspection

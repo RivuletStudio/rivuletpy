@@ -6,80 +6,30 @@ import skfmm
 import msfm
 from collections import Counter
 from scipy.interpolate import RegularGridInterpolator
-from scipy.ndimage.morphology import generate_binary_structure
-from scipy.ndimage import binary_dilation
 from .utils.preprocessing import distgradient
 from .utils.swc import getradius, cleanswc, match, match_r1
 from filtering.morphology import ssm
+from skimage.filters import threshold_otsu
 
 
-class Soma(object):
-    def __init__(self, pos, radius, mask=None):
-        self.pos = pos
-        self.radius = radius
-        self.mask = None
-
-    def make_soma_mask(self, bimg):
-        '''
-        Make soma binary mask with the original
-        binary image and its radius and position
-        '''
-
-        # Make a ball like mask with 2 X somaradius
-        ballvolume = np.zeros(bimg.shape)
-        ballvolume[self.pos[0], self.pos[1], self.pos[2]] = 1
-        stt = generate_binary_structure(3, 1)
-        for i in range(math.ceil(self.radius * 2.5)):
-            ballvolume = binary_dilation(ballvolume, structure=stt)
-
-        # Make the soma mask with the intersection
-        #between the ball area and the original binary
-        self.mask = np.logical_and(ballvolume, bimg)
-
-
-def r2(img,
-       threshold,
-       speed='dt',
-       is_msfm=True,
-       ssmiter=20,
-       silence=False,
-       clean=False,
-       radius=False,
-       render=False,
-       fast=False):
+def r2(img, threshold, soma,
+        speed='dt',
+        is_msfm=True,
+        ssmiter=20,
+        silence=False,
+        clean=False,
+        radius=False,
+        render=False,
+        fast=False):
     '''
     The main entry for rivulet2 tracing algorithm
     Note: the returned swc has 8 columns where the
     8-th column is the online confidence
     '''
 
-    if threshold < 0:
-        try:
-            from skimage import filters
-        except ImportError:
-            from skimage import filter as filters
-        threshold = filters.threshold_otsu(img)
-
-    if not silence:
-        print('--DT to get soma location with threshold:', threshold)
-    bimg = (img > threshold).astype('int')  # Segment image
-    dt = skfmm.distance(bimg, dx=1)  # Boundary DT
-    somaradius = dt.max()
-    if not silence:
-        print('-- Soma radius:', somaradius)
-    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
-    marchmap = np.ones(img.shape)
-    marchmap[somapos[0], somapos[1], somapos[2]] = -1
-
-    # Make the soma object
-    soma = Soma(somapos, somaradius * 2)
-    if not silence:
-        print('-- Making Soma Mask...')
-    soma.make_soma_mask(bimg)
-
     ## Trace
     if threshold < 0:
-        threshold = filters.threshold_otsu(img)
+        threshold = threshold_otsu(img)
         if not silence:
             print('--Otus for threshold: ', threshold)
     else:
@@ -97,17 +47,22 @@ def r2(img,
     marchmap = np.ones(img.shape)
     marchmap[maxdpt[0], maxdpt[1], maxdpt[2]] = -1
 
+    somapos = np.asarray(np.unravel_index(dt.argmax(), dt.shape))
+    if not silence:
+        print('Original soma point is', somapos)
+
+
     if speed == 'ssm':
         if not silence:
             print('--SSM with GVF...')
         dt = ssm(dt, anisotropic=True, iterations=ssmiter)
-        img = dt > filters.threshold_otsu(dt)
+        img = dt > threshold_otsu(dt)
         dt = skfmm.distance(img, dx=5e-2)
         dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
         dt[dt > 0.04] = 0.04
         dt = dt.max() - dt
 
-    # Fast Marching
+    # # Fast Marching
     if is_msfm:
         if not silence: print('--MSFM...')
         t = msfm.run(makespeed(dt), somapos, False, True)
@@ -120,8 +75,7 @@ def r2(img,
     swc = iterative_backtrack(
         t,
         img,
-        somapos,
-        somaradius,
+        soma,
         render=render,
         silence=silence,
         eraseratio=1.7 if speed == 'ssm' else 1.5,
@@ -129,13 +83,13 @@ def r2(img,
 
     # Clean SWC
     if clean:
-        # This will only keep the largest connected component of the graph in swc
+        # Only keep the largest connected component of the graph in swc
         print('-- Cleaning swc')
         swc = cleanswc(swc, radius)
     elif not radius:
         swc[:, 5] = 1
 
-    return swc, soma
+    return swc
 
 
 def makespeed(dt, threshold=0):
@@ -151,8 +105,7 @@ def makespeed(dt, threshold=0):
 
 def iterative_backtrack(t,
                         bimg,
-                        somapt,
-                        somaradius,
+                        soma,
                         length=5,
                         render=False,
                         silence=False,
@@ -174,6 +127,14 @@ def iterative_backtrack(t,
                           branch erasing
     '''
 
+    # The soma position as a 3D coordinate in 3D numpy ndarray
+    somapt = soma.centroid
+    # The approximate soma radius
+    somaradius = soma.radius
+    # Soma detection is perfomred or not
+    soma_detection = soma.detect
+    # Somatic volume
+    somamask = soma.mask
     config = {'coverage': 0.98, 'gap': 15}
 
     # Get the gradient of the Time-crossing map
@@ -187,9 +148,13 @@ def iterative_backtrack(t,
     bounds = t.shape
     tt = t.copy()
     tt[bimg <= 0] = -2
-    bb = np.zeros(
-        shape=tt.
-        shape)  # For making a large tube to contain the last traced branch
+
+    # Label all voxels of soma with -3
+    if soma_detection:
+        tt[somamask > 0] = -3
+        print('Somamask modifies the time map')
+    # For making a large tube to contain the last traced branch
+    bb = np.zeros(shape=tt.shape)
 
     if render:
         from .utils.rendering3 import Viewer3, Line3, Ball3
@@ -199,7 +164,7 @@ def iterative_backtrack(t,
     # Start tracing loop
     nforeground = bimg.sum()
     coverage = 0.0
-    iteridx = 0
+    # iteridx = 0
     swc = None
     if not silence:
         pbar = tqdm(total=math.floor(nforeground * config['coverage']))
@@ -207,7 +172,6 @@ def iterative_backtrack(t,
     coveredctr_old = 0
 
     while coverage < config['coverage']:
-        iteridx += 1
         coveredctr_new = np.logical_and(tt < 0, bimg > 0).sum()
         coverage = coveredctr_new / nforeground
         if not silence:
@@ -261,10 +225,48 @@ def iterative_backtrack(t,
                 online_voxsum += endpt_b
                 online_confidence = online_voxsum / (len(branch) + 1)
 
-                if np.linalg.norm(
-                        somapt - endpt
-                ) < 1.2 * somaradius:  # Stop due to reaching soma point
+                # Reach somatic area or the distance between the somatic centroid
+                # And traced point is less than somatic radius
+                if soma_detection:
+                    soma_one = (tt[endptint[0], endptint[1], endptint[2]] == -3)
+                    soma_criteria = soma_one
+                else:
+                    # Stop due to reaching soma point
+                    soma_criteria = (np.linalg.norm(somapt - endpt) < 1.2 * somaradius)
+                
+                if soma_criteria:
                     reachedsoma = True
+                    if soma_detection:
+
+                        # Initial branch length is set to zero for each branch
+                        branchlen = 0
+
+                        for i in range(len(branch)-1):
+                            # The starting point 
+                            stptbr = branch[i]
+
+                            # Convert it to Numpy for better manipulation
+                            stptbr = np.asarray(stptbr)
+
+                            # The point adjacent to the starting point
+                            ntptbr = branch[i+1]
+
+                            # Convert it to numpy for better manipulation
+                            ntptbr = np.asarray(ntptbr)
+
+                            # Use Numpy subtract rather than minus
+                            # operation sign to avoid dimension confusion
+                            diffpt = np.subtract(stptbr, ntptbr)
+
+                            # The variable normbt is the step length for each step
+                            normnt = np.linalg.norm(diffpt)
+
+                            # Calculate the length of whole branch iteratively
+                            branchlen = branchlen + normnt
+
+                        # Only the long branches connected to the soma are preserved.
+                        if (branchlen < 15):
+                            low_online_conf = True
 
                     # Render a yellow node at fork point
                     if render:
