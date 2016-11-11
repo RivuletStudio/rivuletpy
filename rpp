@@ -12,7 +12,7 @@ from filtering.thresholding import suppress, rescale
 import skfmm
 from scipy.ndimage.filters import gaussian_filter, median_filter
 from scipy.ndimage.interpolation import zoom
-from filtering.morphology import ssm
+from filtering.morphology import ssmdt
 
 try:
     from skimage import filters
@@ -22,7 +22,8 @@ except ImportError:
 
 def anisotropic_enhance(img):
     '''
-    Using the anisodiff_littlequick plugin of Vaa3D to perform the preprocessing
+    Using the anisodiff_littlequick plugin of Vaa3D
+    to perform the preprocessing
     To use this option, add the following 2 lines in ~/.bashrc
     export V3DPATH=PATH/2/Vaa3Droot;
     export LD_LIBRARY=$LD_LIBRARY:$V3DPATH;
@@ -84,13 +85,17 @@ if __name__ == '__main__':
         type=float,
         default=[0, ],
         nargs='+',
-        help='The thresohld to suppress the weak signals. Voxels values  <= threshold will be set 0). '
+        help="""The thresohld to suppress the weak signals.
+                  Voxels values  <= threshold will be set 0)."""
     )
     parser.add_argument(
         '--pipeline',
         type=str,
         default='TA',
-        help='A string with the pipeline components to run in order. T for thresholding; A for anisotropic diffusion (VED); G for Gaussian Filtering; M for median filtering.'
+        help="""A string with the pipeline components to run in order.
+                     T for thresholding; A for anisotropic diffusion (VED);
+                     G for Gaussian Filtering;
+                     M for median filtering."""
     )
     parser.add_argument(
         '--sigma',
@@ -117,12 +122,14 @@ if __name__ == '__main__':
         '--zoom_factor',
         type=float,
         default=1.,
-        help='The factor to zoom the image to speed up the whole thing. Default 1.'
+        help="""The factor to zoom the image to speed up the whole thing.
+                      Default 1."""
     )
     args = parser.parse_args()
 
     img = loadimg(args.file)
-    img = zoom(img, args.zoom_factor)  # Zoom to speed up
+    if args.zoom_factor != 1:
+        img = zoom(img, args.zoom_factor)  # Zoom to speed up
     imgtype = img.dtype
     lastthreshold = args.threshold[0]
     for c in args.pipeline:
@@ -143,12 +150,15 @@ if __name__ == '__main__':
         elif c == 'O':
             threshold = filters.threshold_otsu(img)
             img[img <= threshold] = 0
-        elif c == 'D':
-            img = skfmm.distance((img > 0).astype('int'), dx=1)  # Boundary DT
-            img = rescale(img)
         elif c == 'S':
-            img = ssm(img, anisotropic=True, iterations=args.ssmiter)
-            img = rescale(img)
+            dt = skfmm.distance((img > 0).astype('int'), dx=5e-2)
+            img = ssmdt(dt, ssmiter=args.ssmiter)
+            # from matplotlib import pyplot as plt
+            # plt.imshow(img.max(axis=-1))
+            # plt.show()
+            # img = rescale(img)
+            img[img > 0] = 180
+            # img[img <= 1] = 0
         else:
             raise Exception(
                 'Pipeline %s not defined. Valid options are T/G/M/A')
@@ -160,8 +170,15 @@ if __name__ == '__main__':
         outfile = basename + '.pp.tif'
 
     # img = np.flipud(img) # Needed to show in v3d
-    img = zoom(img, 1 / args.zoom_factor)  # Zoom back
+    if args.zoom_factor != 1.:
+        img = zoom(img, 1 / args.zoom_factor)  # Zoom back
+
     img = np.floor(img)
+    # from matplotlib import pyplot as plt
+    # plt.imshow(img.max(axis=-1))
+    # plt.show()
+    img = rescale(img)
+    print('Saving Image to %s' % outfile)
     writetiff3d(outfile, img.astype(imgtype))
     img[img > 0] = 180
     writetiff3d(os.path.splitext(outfile)[0] + '.seg.tif', img.astype(imgtype))

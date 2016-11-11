@@ -1,9 +1,25 @@
 import numpy as np
-from scipy.ndimage import gaussian_gradient_magnitude, gaussian_filter, sobel, gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage.filters import laplace
+try:
+    from skimage import filters
+except ImportError:
+    from skimage import filter as filters
 from tqdm import tqdm
 from functools import reduce
 from scipy.interpolate import RegularGridInterpolator
+import skfmm
+
+
+def ssmdt(dt, ssmiter):
+    dt = ssm(dt, anisotropic=True, iterations=ssmiter)
+    dt[dt < filters.threshold_otsu(dt)] = 0
+    dt = skfmm.distance(dt, dx=5e-2)
+    dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
+    dt[dt > 0.04] = 0.04
+    dt = dt.max() - dt
+    dt[dt <= 0.038] = 0
+    return dt
 
 
 def ssm(img, anisotropic=False, iterations=30):
