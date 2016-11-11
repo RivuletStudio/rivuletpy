@@ -30,6 +30,48 @@ from scipy.ndimage.morphology import generate_binary_structure
 import skfmm
 
 
+class Soma(object):
+    def __init__(self, centroid, radius, detect, mask=None):
+        self.centroid = centroid
+        self.radius = radius
+        self.mask = mask
+        self.detect = detect
+
+    def simple_mask(self, bimg):
+        '''
+        Make soma binary mask with the original
+        binary image and its radius and position
+        '''
+
+        # Make a ball like mask with 2 X somaradius
+        ballvolume = np.zeros(bimg.shape)
+        ballvolume[self.centroid[0], self.centroid[1], self.centroid[2]] = 1
+        stt = generate_binary_structure(3, 1)
+        for i in range(math.ceil(self.radius * 2.5)):
+            ballvolume = binary_dilation(ballvolume, structure=stt)
+
+        # Make the soma mask with the intersection
+        #between the ball area and the original binary
+        self.mask = np.logical_and(ballvolume, bimg)
+
+    # Set centroid of Soma class
+    def set_centroid(self, centroid):
+        self.centroid = centroid
+
+    # Set mask of Soma class
+    def set_mask(self, mask):
+        self.mask = mask
+
+    # Set radius of Soma class
+    def set_radius(self, radius):
+        self.radius = radius
+
+    # Shift the centroid according to the cropped region
+    def crop_centroid(self, crop_region):
+        self.centroid[0] = self.centroid[0] - crop_region[0, 0]
+        self.centroid[1] = self.centroid[1] - crop_region[1, 0]
+        self.centroid[2] = self.centroid[2] - crop_region[2, 0]
+
 class Fcycle(object):
 
     def __init__(self, iterable):
@@ -368,47 +410,7 @@ class MorphACWE(object):
                 break
 
 
-class Soma(object):
-    def __init__(self, centroid, radius, detect, mask=None):
-        self.centroid = centroid
-        self.radius = radius
-        self.mask = mask
-        self.detect = detect
 
-    def simple_mask(self, bimg):
-        '''
-        Make soma binary mask with the original
-        binary image and its radius and position
-        '''
-
-        # Make a ball like mask with 2 X somaradius
-        ballvolume = np.zeros(bimg.shape)
-        ballvolume[self.centroid[0], self.centroid[1], self.centroid[2]] = 1
-        stt = generate_binary_structure(3, 1)
-        for i in range(math.ceil(self.radius * 2.5)):
-            ballvolume = binary_dilation(ballvolume, structure=stt)
-
-        # Make the soma mask with the intersection
-        #between the ball area and the original binary
-        self.mask = np.logical_and(ballvolume, bimg)
-
-    # Set centroid of Soma class
-    def set_centroid(self, centroid):
-        self.centroid = centroid
-
-    # Set mask of Soma class
-    def set_mask(self, mask):
-        self.mask = mask
-
-    # Set radius of Soma class
-    def set_radius(self, radius):
-        self.radius = radius
-
-    # Shift the centroid according to the cropped region
-    def crop_centroid(self, crop_region):
-        self.centroid[0] = self.centroid[0] - crop_region[0, 0]
-        self.centroid[1] = self.centroid[1] - crop_region[1, 0]
-        self.centroid[2] = self.centroid[2] - crop_region[2, 0]
 
 
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):

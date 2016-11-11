@@ -43,20 +43,20 @@ parser.add_argument(
 
 # Arguments for soma detection
 parser.add_argument(
-    '--somasaveim',
+    '--save-soma',
     dest='somaim',
     action='store_true')
 parser.add_argument(
-    '--no-somasaveim',
+    '--no-save-soma',
     dest='somaim',
     action='store_false')
 parser.set_defaults(somaim=False)
 parser.add_argument(
-    '--somadetect',
+    '--soma',
     dest='soma_detection',
     action='store_true')
 parser.add_argument(
-    '--no-somadetect',
+    '--no-soma',
     dest='soma_detection',
     action='store_false')
 parser.set_defaults(soma_detection=False)
