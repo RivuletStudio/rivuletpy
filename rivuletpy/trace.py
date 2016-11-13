@@ -259,6 +259,8 @@ def iterative_backtrack(t,
 
                 # Compute the online confidence
                 online_voxsum += endpt_b
+                # The online confidence (OC) starts from 0.5 due to the +1 term,
+                # It is helpful to make the OC score from noise points decay fast
                 online_confidence = online_voxsum / (len(branch) + 1)
 
                 if np.linalg.norm(
