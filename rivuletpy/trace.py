@@ -10,15 +10,16 @@ from .utils.preprocessing import distgradient
 from .utils.swc import getradius, cleanswc, match, match_r1
 from filtering.morphology import ssm
 from skimage.filters import threshold_otsu
+from .soma import soma_detect
 
-
-def r2(img, threshold, soma,
+def r2(img, threshold,
         speed='dt',
         is_msfm=True,
         ssmiter=20,
         silence=False,
         clean=False,
         radius=False,
+        soma_detection=False,
         render=False,
         fast=False):
     '''
@@ -26,6 +27,8 @@ def r2(img, threshold, soma,
     Note: the returned swc has 8 columns where the
     8-th column is the online confidence
     '''
+    # Soma detection is run only when it is required Otherwise simple soma will be used
+    soma = soma_detect(img, threshold, soma_detection, silence)
 
     ## Trace
     if threshold < 0:
@@ -89,7 +92,7 @@ def r2(img, threshold, soma,
     elif not radius:
         swc[:, 5] = 1
 
-    return swc
+    return swc, soma
 
 
 def makespeed(dt, threshold=0):

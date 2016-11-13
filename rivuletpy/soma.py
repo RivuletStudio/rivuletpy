@@ -72,6 +72,7 @@ class Soma(object):
         self.centroid[1] = self.centroid[1] - crop_region[1, 0]
         self.centroid[2] = self.centroid[2] - crop_region[2, 0]
 
+
 class Fcycle(object):
 
     def __init__(self, iterable):
