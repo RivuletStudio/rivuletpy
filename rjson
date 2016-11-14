@@ -206,6 +206,8 @@ def tracejsonfile(fpath,
     print('--Total time running algorithm: %f seconds' % total_time)
     print('--Mean time running algorithm: %f seconds' % (total_time /
           len(times)))
+    print('--Min time running algorithm: %f seconds' % min(times))
+    print('--Max time running algorithm: %f seconds' % max(times))
 
 
 if __name__ == '__main__':
