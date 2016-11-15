@@ -31,10 +31,15 @@ import skfmm
 
 
 class Soma(object):
+    """Store information related to soma"""
     def __init__(self, centroid, radius, detect, mask=None):
+        # Coordinates of the centroid
         self.centroid = centroid
+        # Estimated radius by distance transform
         self.radius = radius
+        # Soma volume
         self.mask = mask
+        # Run soma detection or not
         self.detect = detect
 
     def simple_mask(self, bimg):
@@ -601,7 +606,17 @@ def soma_detect(img, threshold, detect, noprint):
             # Copy the values to new variables for the safe purpose
             startpt = macwe.enlrspt.copy()
             endpt = macwe.enlrept.copy()
+            startpt[0] = min(max(0, startpt[0]), img.shape[0])
+            startpt[1] = min(max(0, startpt[1]), img.shape[1])
+            startpt[2] = min(max(0, startpt[2]), img.shape[2])
+
+            endpt[0] = min(max(0, endpt[0]), img.shape[0])
+            endpt[1] = min(max(0, endpt[1]), img.shape[1])
+            endpt[2] = min(max(0, endpt[2]), img.shape[2])
+            print('The current start point is', startpt)
+            print('The current end point is', endpt)
             somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+            somaimg.shape
             fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
 
             # Put the detected somas into the whole image

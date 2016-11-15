@@ -10,7 +10,6 @@ from rivuletpy.utils.preprocessing import crop
 from rivuletpy.utils.swc import reset_swc
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
-from rivuletpy.soma import soma_detect
 
 
 parser = argparse.ArgumentParser(
@@ -122,21 +121,11 @@ img = loadimg(args.file)
 imgdtype = img.dtype
 imgshape = img.shape
 
-# Soma detection is run only when it is required Otherwise simple soma will be used
-# soma = soma_detect(img, args.threshold, args.soma_detection, args.silence)
-
-
 if not args.silence:
     print('The shape of the image is', img.shape)
 # Modify the crop function so that it can crop somamask as well
 img, crop_region = crop(img, args.threshold)  # Crop by default
-# if args.soma_detection:
-#     cropsmask = smask[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]]
-#     soma.set_mask(cropsmask)
-#     soma.crop_centroid(crop_region)
-# if args.soma_detection & (~args.silence):
-#     print('The shape of somamask after being cropped', cropsmask.shape)
-# print('The shape of cropped image', img.shape)
+
 if args.zoom_factor != 1.:
     if not args.silence:
         print('-- Zooming image to %.2f of original size' % args.zoom_factor)
@@ -155,12 +144,16 @@ swc, soma = r2(img, args.threshold,
 
 # Save the soma mask if required
 if (args.somaim & args.soma_detection):
+    # Create the image with the shape of original input image
     somasave = np.zeros(imgshape, dtype=imgdtype)
+    # Put soma volume into the cropped region of zero mask
     somasave[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]] = soma.mask
     writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somasave)
 elif args.somaim:
     smask = rescale(soma.mask.astype('int'))
+    # Create the image with the shape of original input image
     somasave = np.zeros(imgshape, dtype=imgdtype)
+    # Put soma volume into the cropped region of zero mask
     somasave[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]] = smask    
     writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask.astype(imgdtype))
 
