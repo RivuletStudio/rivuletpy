@@ -54,18 +54,6 @@ class Soma(object):
         #between the ball area and the original binary
         self.mask = np.logical_and(ballvolume, bimg)
 
-    # Set centroid of Soma class
-    def set_centroid(self, centroid):
-        self.centroid = centroid
-
-    # Set mask of Soma class
-    def set_mask(self, mask):
-        self.mask = mask
-
-    # Set radius of Soma class
-    def set_radius(self, radius):
-        self.radius = radius
-
     # Shift the centroid according to the cropped region
     def crop_centroid(self, crop_region):
         self.centroid[0] = self.centroid[0] - crop_region[0, 0]
@@ -74,7 +62,6 @@ class Soma(object):
 
 
 class Fcycle(object):
-
     def __init__(self, iterable):
         """Call functions from the iterable each time it is called."""
         self.funcs = cycle(iterable)
@@ -85,7 +72,10 @@ class Fcycle(object):
 
 
 # SI and IS operators for 2D and 3D.
-_P2 = [np.eye(3), np.array([[0, 1, 0]]*3), np.flipud(np.eye(3)), np.rot90([[0, 1, 0]]*3)]
+_P2 = [
+    np.eye(3), np.array([[0, 1, 0]] * 3), np.flipud(np.eye(3)),
+    np.rot90([[0, 1, 0]] * 3)
+]
 _P3 = [np.zeros((3, 3, 3)) for i in range(9)]
 
 _P3[0][:, :, 1] = 1
@@ -110,10 +100,11 @@ def SI(u):
     elif np.ndim(u) == 3:
         P = _P3
     else:
-        raise ValueError("u has an invalid number of dimensions (should be 2 or 3)")
+        raise ValueError(
+            "u has an invalid number of dimensions (should be 2 or 3)")
 
     if u.shape != _aux.shape[1:]:
-        _aux = np.zeros((len(P),) + u.shape)
+        _aux = np.zeros((len(P), ) + u.shape)
 
     for i in range(len(P)):
         _aux[i] = binary_erosion(u, P[i])
@@ -138,15 +129,17 @@ def IS(u):
     elif np.ndim(u) == 3:
         P = _P3
     else:
-        raise ValueError("u has an invalid number of dimensions (should be 2 or 3)")
-    
+        raise ValueError(
+            "u has an invalid number of dimensions (should be 2 or 3)")
+
     if u.shape != _aux.shape[1:]:
-        _aux = np.zeros((len(P),) + u.shape)
+        _aux = np.zeros((len(P), ) + u.shape)
 
     for i in range(len(P)):
         _aux[i] = binary_dilation(u, P[i])
 
     return _aux.min(0)
+
 
 # SIoIS operator.
 SIoIS = lambda u: SI(IS(u))
@@ -161,7 +154,7 @@ def gborders(img, alpha=1.0, sigma=1.0):
 
     # The norm of the gradient.
     gradnorm = gaussian_gradient_magnitude(img, sigma, mode='constant')
-    return 1.0/np.sqrt(1.0 + alpha*gradnorm)
+    return 1.0 / np.sqrt(1.0 + alpha * gradnorm)
 
 
 def glines(img, sigma=1.0):
@@ -172,7 +165,14 @@ def glines(img, sigma=1.0):
 class MorphACWE(object):
     """Morphological ACWE based on the Chan-Vese energy functional."""
 
-    def __init__(self, data, startpoint, endpoint, imgshape, smoothing=1, lambda1=1, lambda2=1.5):
+    def __init__(self,
+                 data,
+                 startpoint,
+                 endpoint,
+                 imgshape,
+                 smoothing=1,
+                 lambda1=1,
+                 lambda2=1.5):
         """Create a Morphological ACWE solver.
 
         Parameters
@@ -207,9 +207,10 @@ class MorphACWE(object):
         self._u[u > 0] = 1
         self._u[u <= 0] = 0
 
-    levelset = property(lambda self: self._u,
-                        set_levelset,
-                        doc="The level set embedding function (u).")
+    levelset = property(
+        lambda self: self._u,
+        set_levelset,
+        doc="The level set embedding function (u).")
 
     def step(self):
         """Perform a single step of the morphological Chan-Vese evolution."""
@@ -218,7 +219,8 @@ class MorphACWE(object):
         u = self._u
 
         if u is None:
-            raise ValueError("the levelset function is not set (use set_levelset)")
+            raise ValueError(
+                "the levelset function is not set (use set_levelset)")
 
         data = self.data
 
@@ -232,7 +234,8 @@ class MorphACWE(object):
         dres = np.array(np.gradient(u))
         abs_dres = np.abs(dres).sum(0)
         #aux = abs_dres * (c0 - c1) * (c0 + c1 - 2*data)
-        aux = abs_dres * (self.lambda1*(data - c1)**2 - self.lambda2*(data - c0)**2)
+        aux = abs_dres * (self.lambda1 * (data - c1)**2 - self.lambda2 *
+                          (data - c0)**2)
 
         res = np.copy(u)
         res[aux < 0] = 1
@@ -252,7 +255,8 @@ class MorphACWE(object):
         u = self._u
 
         if u is None:
-            raise ValueError("the levelset function is not set (use set_levelset)")
+            raise ValueError(
+                "the levelset function is not set (use set_levelset)")
         res = np.copy(u)
 
         # Smoothing.
@@ -285,14 +289,14 @@ class MorphACWE(object):
             # print('The volume of volu :', volu)
             if i > 0:
                 # The variable diff_step is the current first order difference
-                diff_step = foreground_num[i] - foreground_num[i-1]
-                forward_diff_store[i-1] = diff_step
+                diff_step = foreground_num[i] - foreground_num[i - 1]
+                forward_diff_store[i - 1] = diff_step
                 if i > 6:
                     # The variable cur_slider_diff is the sum of sliding window
                     # The size of sliding window is 6
-                    cur_slider_diff = np.sum(forward_diff_store[i-6:i-1])
+                    cur_slider_diff = np.sum(forward_diff_store[i - 6:i - 1])
                     # print('The value of cur_slider_diff is', cur_slider_diff)
-                    volu_thres = 0.05*foreground_num[i]
+                    volu_thres = 0.05 * foreground_num[i]
                     # print('volu_thres :', volu_thres)
                     convg_one = np.absolute(cur_slider_diff) < 20
                     # print('converge criteria one is :', convg_one)
@@ -315,7 +319,7 @@ class MorphACWE(object):
         slicevalarray[0] = sliceval
 
         # Back face along dimension 1
-        somaslice = A[A.shape[0]-1, :, :]
+        somaslice = A[A.shape[0] - 1, :, :]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[1] = sliceval
@@ -327,7 +331,7 @@ class MorphACWE(object):
         slicevalarray[2] = sliceval
 
         # Back face along dimension 2
-        somaslice = A[:, A.shape[1]-1, :]
+        somaslice = A[:, A.shape[1] - 1, :]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[3] = sliceval
@@ -339,7 +343,7 @@ class MorphACWE(object):
         slicevalarray[4] = sliceval
 
         # Back face along dimension 3
-        somaslice = A[:, :, A.shape[2]-1]
+        somaslice = A[:, :, A.shape[2] - 1]
         slicearray = np.sum(somaslice, axis=0)
         sliceval = np.sum(slicearray, axis=0)
         slicevalarray[5] = sliceval
@@ -365,17 +369,17 @@ class MorphACWE(object):
             # The following code determines the most possible wall(face)
             # which requires the extension
             if (maxind == 0):
-                self.enlrspt[0] = self.enlrspt[0] - (sz1/4)
+                self.enlrspt[0] = self.enlrspt[0] - (sz1 / 4)
             elif (maxind == 1):
-                self.enlrept[0] = self.enlrept[0] + (sz1/4)
+                self.enlrept[0] = self.enlrept[0] + (sz1 / 4)
             elif (maxind == 2):
-                self.enlrspt[1] = self.enlrspt[1] - (sz1/4)
+                self.enlrspt[1] = self.enlrspt[1] - (sz1 / 4)
             elif (maxind == 3):
-                self.enlrept[1] = self.enlrept[1] + (sz1/4)
+                self.enlrept[1] = self.enlrept[1] + (sz1 / 4)
             elif (maxind == 4):
-                self.enlrspt[2] = self.enlrspt[2] - (sz1/4)
+                self.enlrspt[2] = self.enlrspt[2] - (sz1 / 4)
             elif (maxind == 5):
-                self.enlrept[2] = self.enlrept[2] + (sz1/4)
+                self.enlrept[2] = self.enlrept[2] + (sz1 / 4)
 
             # To constrain new bounding box inside the image size
         else:
@@ -409,9 +413,6 @@ class MorphACWE(object):
             judge_criteria = np.logical_or(judge_one, judge_two)
             if judge_criteria:
                 break
-
-
-
 
 
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
@@ -489,7 +490,8 @@ def evolve_visual3d(msnake, levelset=None, num_iters=20):
     fig = mlab.gcf()
     mlab.clf()
     src = mlab.pipeline.scalar_field(msnake.data)
-    mlab.pipeline.image_plane_widget(src, plane_orientation='x_axes', colormap='gray')
+    mlab.pipeline.image_plane_widget(
+        src, plane_orientation='x_axes', colormap='gray')
     cnt = mlab.contour3d(msnake.levelset, contours=[0.5])
 
     @mlab.animate(ui=True)
@@ -547,7 +549,7 @@ def soma_detect(img, threshold, detect, noprint):
         ratioxz = img.shape[0] / img.shape[2]
         ratioyz = img.shape[1] / img.shape[2]
         sqrval = (somaradius**0.5 * max(ratioxz, ratioyz))
-        sqrval = np.floor(min(max(sqrval, 3), (somaradius**0.5)*6))
+        sqrval = np.floor(min(max(sqrval, 3), (somaradius**0.5) * 6))
 
         if not noprint:
             print('DT max:', somaradius)
@@ -558,18 +560,19 @@ def soma_detect(img, threshold, detect, noprint):
 
         # # To constrain the soma growth region inside the cubic region
         # # Python index start from 0
-        startpt[0] = min(max(0, startpt[0]), img.shape[0]-1)
-        startpt[1] = min(max(0, startpt[1]), img.shape[1]-1)
-        startpt[2] = min(max(0, startpt[2]), img.shape[2]-1)
+        startpt[0] = min(max(0, startpt[0]), img.shape[0] - 1)
+        startpt[1] = min(max(0, startpt[1]), img.shape[1] - 1)
+        startpt[2] = min(max(0, startpt[2]), img.shape[2] - 1)
 
-        endpt[0] = min(max(0, endpt[0]), img.shape[0]-1)
-        endpt[1] = min(max(0, endpt[1]), img.shape[1]-1)
-        endpt[2] = min(max(0, endpt[2]), img.shape[2]-1)
+        endpt[0] = min(max(0, endpt[0]), img.shape[0] - 1)
+        endpt[1] = min(max(0, endpt[1]), img.shape[1] - 1)
+        endpt[2] = min(max(0, endpt[2]), img.shape[2] - 1)
         startpt = startpt.astype(int)  # Convert type to int for indexing
         endpt = endpt.astype(int)
 
         # # Extract soma region for fast soma detection
-        somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+        somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:
+                       endpt[2]]
         centerpt = np.zeros(3)
         centerpt[0] = somaimg.shape[0] / 2
         centerpt[1] = somaimg.shape[1] / 2
@@ -578,7 +581,8 @@ def soma_detect(img, threshold, detect, noprint):
 
         # Morphological ACWE. Initialization of the level-set.
         macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
-        macwe.levelset = circle_levelset(somaimg.shape, np.floor(centerpt), sqrval)
+        macwe.levelset = circle_levelset(somaimg.shape,
+                                         np.floor(centerpt), sqrval)
 
         # -1 means the automatic detection
         # Positive integers means the number of iterations
@@ -601,24 +605,36 @@ def soma_detect(img, threshold, detect, noprint):
             # Copy the values to new variables for the safe purpose
             startpt = macwe.enlrspt.copy()
             endpt = macwe.enlrept.copy()
-            somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
-            fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
+            startpt[0] = min(max(0, startpt[0]), img.shape[0])
+            startpt[1] = min(max(0, startpt[1]), img.shape[1])
+            startpt[2] = min(max(0, startpt[2]), img.shape[2])
+
+            endpt[0] = min(max(0, endpt[0]), img.shape[0])
+            endpt[1] = min(max(0, endpt[1]), img.shape[1])
+            endpt[2] = min(max(0, endpt[2]), img.shape[2])
+            somaimg = img[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:
+                          endpt[2]]
+            full_soma_mask = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
 
             # Put the detected somas into the whole image
             # It is either true or false
-            fullsomaimg[macwe.startpoint[0]:macwe.endpoint[0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:macwe.endpoint[2]] = macwe._u
+            full_soma_mask[macwe.startpoint[0]:macwe.endpoint[
+                0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:
+                        macwe.endpoint[2]] = macwe._u
 
             # The newlevelset is the initial soma volume from previous iteration
             #(the automatic converge operation)
-            newlevelset = fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]]
+            newlevelset = full_soma_mask[startpt[0]:endpt[0], startpt[1]:endpt[1],
+                                      startpt[2]:endpt[2]]
 
             # The previous macwe class is released
             # To avoid the conflicts with the new initialisation of the macwe class
             del macwe
 
             # Initialisation for the new class
-            macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
-            del somaimg, fullsomaimg, startpt, endpt
+            macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1,
+                              lambda2)
+            del somaimg, full_soma_mask, startpt, endpt
 
             # Reuse the soma volume from previous iteration
             macwe.set_levelset(newlevelset)
@@ -631,7 +647,7 @@ def soma_detect(img, threshold, detect, noprint):
         macwe.autosmooth()
 
         # Initialise soma mask image
-        fullsomaimg = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
+        full_soma_mask = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
 
         if not noprint:
             print('The startpt of the soma snake is', macwe.startpoint)
@@ -650,25 +666,15 @@ def soma_detect(img, threshold, detect, noprint):
         # The soma mask image contains only two possible values
         # Each element is either 0 or 40
         # Value 40 is assigned for the visualisation purpose.
-        fullsomaimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[2]] = macwe._u * 40
-        fullsomaimg.astype(int)
-
-        # Convert to uint8 so the soma mask image can be saved
-        fullsomaimg = fullsomaimg.astype(np.uint8)
-        somabimg = (fullsomaimg > 0).astype('int')
+        full_soma_mask[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:endpt[
+            2]] = macwe._u > 0
 
         # Calculate the new centroid using the soma volume
-        newsomapos = center_of_mass(somabimg)
+        newsomapos = center_of_mass(full_soma_mask)
 
         # Round the float coordinates into integers
-        newsomapos = np.round(newsomapos)
-
-        # Release the memory of binary soma image
-        del somabimg, somapos
-        somapos = newsomapos.astype('int')
-        if not noprint:
-            print('The new calculated soma point is', somapos)
-        soma = Soma(somapos, somaradius, detect, fullsomaimg)
+        newsomapos = [math.floor(p) for p in newsomapos]
+        soma = Soma(newsomapos, somaradius, detect, full_soma_mask)
     else:
         soma = Soma(somapos, somaradius, detect)
         soma.simple_mask(bimg)

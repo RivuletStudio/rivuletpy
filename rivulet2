@@ -10,8 +10,6 @@ from rivuletpy.utils.preprocessing import crop
 from rivuletpy.utils.swc import reset_swc
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
-from rivuletpy.soma import soma_detect
-
 
 parser = argparse.ArgumentParser(
     description='Arguments to perform the Rivulet2 tracing algorithm.')
@@ -44,23 +42,11 @@ parser.add_argument(
     help='The factor to zoom the image to speed up the whole thing. Default 1.')
 
 # Arguments for soma detection
-parser.add_argument(
-    '--save-soma',
-    dest='somaim',
-    action='store_true')
-parser.add_argument(
-    '--no-save-soma',
-    dest='somaim',
-    action='store_false')
+parser.add_argument('--save-soma', dest='somaim', action='store_true')
+parser.add_argument('--no-save-soma', dest='somaim', action='store_false')
 parser.set_defaults(somaim=False)
-parser.add_argument(
-    '--soma',
-    dest='soma_detection',
-    action='store_true')
-parser.add_argument(
-    '--no-soma',
-    dest='soma_detection',
-    action='store_false')
+parser.add_argument('--soma', dest='soma_detection', action='store_true')
+parser.add_argument('--no-soma', dest='soma_detection', action='store_false')
 parser.set_defaults(soma_detection=False)
 
 # Args for tracing
@@ -122,28 +108,20 @@ img = loadimg(args.file)
 imgdtype = img.dtype
 imgshape = img.shape
 
-# Soma detection is run only when it is required Otherwise simple soma will be used
-# soma = soma_detect(img, args.threshold, args.soma_detection, args.silence)
-
-
 if not args.silence:
     print('The shape of the image is', img.shape)
 # Modify the crop function so that it can crop somamask as well
+
 img, crop_region = crop(img, args.threshold)  # Crop by default
-# if args.soma_detection:
-#     cropsmask = smask[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]]
-#     soma.set_mask(cropsmask)
-#     soma.crop_centroid(crop_region)
-# if args.soma_detection & (~args.silence):
-#     print('The shape of somamask after being cropped', cropsmask.shape)
-# print('The shape of cropped image', img.shape)
+
 if args.zoom_factor != 1.:
     if not args.silence:
         print('-- Zooming image to %.2f of original size' % args.zoom_factor)
     img = zoom(img, args.zoom_factor)
 
 # Run rivulet2 for the first time
-swc, soma = r2(img, args.threshold,
+swc, soma = r2(img,
+               args.threshold,
                speed=args.speed,
                is_msfm=args.msfm,
                ssmiter=args.ssmiter,
@@ -152,17 +130,6 @@ swc, soma = r2(img, args.threshold,
                radius=True if args.riveal else args.radius,
                soma_detection=args.soma_detection,
                render=args.render)
-
-# Save the soma mask if required
-if (args.somaim & args.soma_detection):
-    somasave = np.zeros(imgshape, dtype=imgdtype)
-    somasave[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]] = soma.mask
-    writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), somasave)
-elif args.somaim:
-    smask = rescale(soma.mask.astype('int'))
-    somasave = np.zeros(imgshape, dtype=imgdtype)
-    somasave[crop_region[0,0]:crop_region[0,1], crop_region[1,0]:crop_region[1,1], crop_region[2,0]:crop_region[2,1]] = smask    
-    writetiff3d((os.path.splitext(args.file)[0] + 'soma.tif'), smask.astype(imgdtype))
 
 if args.debug:
     # Save soma rescaled_soma_mask for inspection
@@ -220,11 +187,34 @@ if args.riveal:
                 render=args.render)
 
 swc = reset_swc(swc, crop_region, args.zoom_factor)
+
 # Save the final swc
 if args.out:
     outswcfile = args.out
 else:  # Make the long file name
     outswcfile = os.path.splitext(args.file)[0] + '.r2.swc'
+
+# Save the soma mask if required
+if args.somaim:
+    if args.soma_detection:
+        smask = soma.mask
+    else:
+        smask = rescale(soma.mask.astype('int'))
+    soma_padded = np.zeros(imgshape)
+
+    if args.zoom_factor != 1.:
+        smask = zoom(smask.astype(int), 1. / args.zoom_factor)
+
+        from matplotlib import pyplot as plt
+        plt.imshow(np.squeeze(smask.max(axis=-1)))
+        plt.show()
+
+        smask[smask > 0] = 200
+
+    soma_padded[crop_region[0, 0]:crop_region[0, 1], crop_region[1, 0]:
+                crop_region[1, 1], crop_region[2, 0]:crop_region[2, 1]] = smask
+    writetiff3d((os.path.splitext(outswcfile)[0] + 'soma.tif'),
+                soma_padded.astype(imgdtype))
 
 saveswc(outswcfile, swc)
 print('SWC saved to ' + outswcfile)
