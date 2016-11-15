@@ -663,6 +663,13 @@ def soma_detect(img, threshold, detect, noprint):
             startpt = macwe.enlrspt.copy()
             endpt = macwe.enlrept.copy()
 
+        startpt[0] = min(max(0, startpt[0]), img.shape[0])
+        startpt[1] = min(max(0, startpt[1]), img.shape[1])
+        startpt[2] = min(max(0, startpt[2]), img.shape[2])
+
+        endpt[0] = min(max(0, endpt[0]), img.shape[0])
+        endpt[1] = min(max(0, endpt[1]), img.shape[1])
+        endpt[2] = min(max(0, endpt[2]), img.shape[2])
         # The soma mask image contains only two possible values
         # Each element is either 0 or 40
         # Value 40 is assigned for the visualisation purpose.
