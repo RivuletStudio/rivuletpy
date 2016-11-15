@@ -5,6 +5,7 @@ import subprocess
 import time
 import argparse
 import threading
+import numpy as np
 from rivuletpy.utils.io import loadswc, saveswc, loadimg, writetiff3d
 from scipy.ndimage.interpolation import zoom
 
@@ -205,7 +206,9 @@ def tracejsonfile(fpath,
     print('--rjson finished')
     print('--Total time running algorithm: %f seconds' % total_time)
     print('--Mean time running algorithm: %f seconds' % (total_time /
-          len(times)))
+                                                         len(times)))
+    print('--Std time running algorithm: %f seconds' %
+          np.std(np.asarray(times)))
     print('--Min time running algorithm: %f seconds' % min(times))
     print('--Max time running algorithm: %f seconds' % max(times))
 
