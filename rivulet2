@@ -5,8 +5,7 @@ import math
 import time
 import numpy as np
 from rivuletpy.trace import R2Tracer
-from rivuletpy.utils.io import loadimg, writetiff3d
-from rivuletpy.utils.preprocessing import crop
+from rivuletpy.utils.io import loadimg, writetiff3d, crop
 from filtering.thresholding import rescale
 from scipy.ndimage.interpolation import zoom
 
