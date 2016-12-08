@@ -4,16 +4,11 @@
 # Can be tweaked to install locally with virtualenv
 
 # -- Setup the dependencies for scipy and pip3
-sudo apt-get -y install libblas-dev liblapack-dev libatlas-base-dev gfortran;
 sudo apt-get -y install python3;
 sudo apt-get -y install python3-pip;
-sudo apt-get -y install python3-matplotlib; # Matplotlib easier to install from ubuntu repo 
 
 # -- Install pip packages
 sudo pip3 install pip --upgrade  # Upgrade pip3 at first
-sudo pip3 install numpy==1.11.1 --upgrade; # Needs to be installed outside of requirements
-sudo pip3 install numpy --upgrade;
-sudo pip3 install scipy; # Needs to be installed outside of requirements
 sudo pip3 install Cython; # Needs to be installed outside of requirements
 sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtiff from its github master branch
 
