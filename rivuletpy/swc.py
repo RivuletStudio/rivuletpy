@@ -61,6 +61,7 @@ class SWC(object):
         leafidlist = [id for id in self._data[:, 0]
                       if id not in self._data[:, 6]]
         id2dump = []
+        rmean = self._data[:,5].mean() # Mean radius
 
         for leafid in leafidlist:  # Iterate each leaf node
             nodeid = leafid
@@ -83,7 +84,7 @@ class SWC(object):
 
             # Prune if the leave is too short or
             # the confidence of the leave branch is too low
-            if leaflen <= 5:
+            if leaflen <= 4 * rmean:
                 id2dump.extend([node[0] for node in branch])
 
         # Only keep the swc nodes not in the dump id list

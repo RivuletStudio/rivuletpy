@@ -106,7 +106,7 @@ class R2Tracer(Tracer):
 
     def _make_grad(self):
         # Get the gradient of the Time-crossing map
-        dx, dy, dz = self._dist_gradient(self._t.astype('float64'))
+        dx, dy, dz = self._dist_gradient()
         standard_grid = (np.arange(self._t.shape[0]), np.arange(self._t.shape[1]),
                          np.arange(self._t.shape[2]))
         self._grad = (RegularGridInterpolator(standard_grid, dx),
@@ -241,21 +241,18 @@ class R2Tracer(Tracer):
                 # 1. Check out of bound
                 if not inbound(head, self._bimg.shape):
                     branch.slice(0, -1)
-                    # print('OOB')
                     break
 
                 # 2. Check for the large gap criterion
                 if branch.gap > np.asarray(branch.radius).mean() * 8:
-                    # print('GAP')
                     break
                 else:
                     branch.reset_gap()
 
                 # 3. Check if Soma has been reached
                 if tt_head  == -3:
-                    keep = True if branch.branchlen > 10 else False
+                    keep = True if branch.branchlen > self._soma.radius * 3 else False
                     branch.reached_soma = True
-                    # print('SOMA')
                     break
 
                 # 4. Check if not moved for 15 iterations
@@ -265,7 +262,6 @@ class R2Tracer(Tracer):
                 # 5. Check for low online confidence 
                 if branch.low_conf:
                     keep = False
-                    # print('CONF')
                     break
 
                 # 6. Check for branch merge
@@ -283,10 +279,8 @@ class R2Tracer(Tracer):
                         break
 
                     if branch.steps_after_reach > 200:
-                        print('Missed')
                         break
             
-            # print('Branch Len:', len(branch.pts), ' keep:', keep)
             self._erase(branch)
 
             # Add to SWC if it was decided to be kept
@@ -398,6 +392,11 @@ class R2Branch(Branch):
                 self.ma_long = exponential_moving_average(
                     oc, self.ma_long, self.ma_long_window
                     if len(self.pts) >= self.ma_long_window else len(self.pts))
+
+    def slice(self, start, end):
+        self.pts = self.pts[start: end]
+        self.radius = self.radius[start: end]
+        self.conf = self.conf[start: end]
 
     def estimate_radius(self, pt, bimg):
         r = 0
