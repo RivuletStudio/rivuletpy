@@ -30,9 +30,7 @@ def r2(img, threshold,
     8-th column is the online confidence
     '''
     # Soma detection is run only when it is required Otherwise simple soma will be used
-    print('img size before soma_detect', img.shape)
     soma = soma_detect(img, threshold, soma_detection, silence)
-    print('img size after soma_detect', img.shape)
 
     ## Trace
     if threshold < 0:
