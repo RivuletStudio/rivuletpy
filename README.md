@@ -78,9 +78,9 @@ This will download a simple neuron image and perform a neuron tracing with rivul
 ## Usage
 - Reconstruct single neuron file.
 
-The script rivulet2 command will be installed
+The script rtrace command will be installed
 ```bash
-$ rivulet2 --help
+$ rtrace --help
 usage: rivulet2 [-h] -f FILE [-o OUT] [-t THRESHOLD] [-z ZOOM_FACTOR]
                 [--save-soma] [--no-save-soma] [--soma] [--no-soma]
                 [--speed SPEED] [--quality] [--no-quality] [--clean]
@@ -111,8 +111,8 @@ optional arguments:
   --silent
   --no-silent
 
-$ rivulet2 -f example.tif -t 10 # Simple like this
-$ rivulet2 -f example.tif -t 10 --quality # Better results with longer running time
+$ rtrace -f example.tif -t 10 # Simple like this
+$ rtrace -f example.tif -t 10 --quality # Better results with longer running time
 ```
 - Compare a swc reconstruction against the manual ground truth
 ```
