@@ -1,12 +1,18 @@
 #!/bin/bash
-mkdir -p tmp
-DATAPATH="tests/data";
-if [ ! -a tests/data/test.tif]; then
-	unzip $DATAPATH/test.tif.zip -d $DATAPATH;
+mkdir -p test_data;
+export TESTIMGZIP=./test_data/test.tif.zip;
+export TESTIMG=./test_data/test.tif;
+export TESTURL=https://s3-ap-southeast-2.amazonaws.com/rivulet/test.tif.zip;
+export OUT=$TESTIMG.r2.swc;
+if [ ! -f $TESTIMG ];
+then
+  rm -rf test_data/*;
+  echo "Downloading test image from $TESTURL";
+  wget -P ./test_data/ $TESTURL;
+  unzip $TESTIMGZIP -d ./test_data;
 fi
-OUT=$DATAPATH/test.swc;
-IN=$DATAPATH/test.tif;
-python3 apps/rivulet2 --threshold 0 --file $IN  --out $OUT;
+
+python3 apps/rivulet2 --threshold 0 --file $TESTIMG  --out $OUT;
 if [ -z ${V3DPATH+x} ]; then 
 	echo "V3DPATH is unset"; 
 else 
