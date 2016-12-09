@@ -54,7 +54,7 @@ class R2Tracer(Tracer):
         The main entry for Rivulet2
         '''
         self._bimg = (img > threshold).astype('int')  # Segment image
-        if not self._silent: print('(1)-- Detecting Soma...', end='')
+        if not self._silent: print('(1) -- Detecting Soma...', end='')
         self._soma = Soma()
         self._soma.detect(self._bimg, not self._quality, self._silent)
         self._prep()
