@@ -1,8 +1,6 @@
 # import numpy as np
 import os
-from distutils.core import setup, Extension
-
-from setuptools import setup
+from setuptools import setup, Extension, Command
 from setuptools import find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 import pip
@@ -10,7 +8,28 @@ from pip.req import parse_requirements
 from optparse import Option
 import numpy as np
 
-VERSION = 1.0
+VERSION = '0.2.0.dev5' 
+classifiers=[
+    # How mature is this project? Common values are
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    'Development Status :: 3 - Alpha',
+
+    # Indicate who your project is intended for
+    'Intended Audience :: End Users/Desktop',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+
+    # Pick your license as you wish (should match "license" above)
+     'License :: OSI Approved :: BSD License',
+
+    # Specify the Python versions you support here. In particular, ensure
+    # that you indicate whether you support Python 2, Python 3 or both.
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: Implementation :: CPython'
+]
+
+keywords = 'neuron 3d reconstruction image-stack'
 
 def parse_reqs(reqs_file):
     ''' parse the requirements.txt '''
@@ -68,14 +87,15 @@ config = {
     'packages': find_packages(),
     'license': 'BSD',
     'scripts': [
-        os.path.join('apps','rivulet2'),
+        os.path.join('apps','rtrace'),
         os.path.join('apps','compareswc'),
     ],
     'name': 'rivuletpy',
     'include_package_data': True,
     'ext_modules': ext_modules,
     'include_dirs': [np.get_include()],  # Add include path of numpy
-    # 'configuration': configuration,
+    'setup_requires': 'numpy',
+    'classifiers': classifiers
 }
 
 setup(**config)

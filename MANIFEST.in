@@ -1,0 +1,3 @@
+include requirements.txt
+recursive-include rivuletpy *.h *.c
+recursive-include libtiff *.h *.c

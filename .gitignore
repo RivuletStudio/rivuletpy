@@ -7,4 +7,6 @@
 *.nii.gz
 *.eggs/*
 build/*
+*.so
+*.tar.gz
 scripts/recon_my_tif.sh*
