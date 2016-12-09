@@ -74,3 +74,20 @@ def saveswc(filepath, swc):
         for i in range(swc.shape[0]):
             print('%d %d %.3f %.3f %.3f %.3f %d' %
                   tuple(swc[i, :].tolist()), file=f)
+
+            
+def crop(img, thr):
+    """Crop a 3D block with value > thr"""
+    ind = np.argwhere(img > thr)
+    x = ind[:, 0]
+    y = ind[:, 1]
+    z = ind[:, 2]
+    xmin = max(x.min() - 10, 0)
+    xmax = min(x.max() + 10, img.shape[0])
+    ymin = max(y.min() - 10, 1)
+    ymax = min(y.max() + 10, img.shape[1])
+    zmin = max(z.min() - 10, 2)
+    zmax = min(z.max() + 10, img.shape[2])
+
+    return img[xmin:xmax, ymin:ymax, zmin:zmax], np.array(
+        [[xmin, xmax], [ymin, ymax], [zmin, zmax]])

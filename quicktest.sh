@@ -6,7 +6,7 @@ if [ ! -a tests/data/test.tif]; then
 fi
 OUT=$DATAPATH/test.swc;
 IN=$DATAPATH/test.tif;
-python3 rivulet2 --threshold 0 --file $IN  --out $OUT;
+python3 apps/rivulet2 --threshold 0 --file $IN  --out $OUT;
 if [ -z ${V3DPATH+x} ]; then 
 	echo "V3DPATH is unset"; 
 else 

@@ -1,21 +1,81 @@
-import numpy as np
+# import numpy as np
+import os
 from distutils.core import setup, Extension
-from os.path import join
 
-packages = ['rivuletpy', 'rivuletpy.utils', 'filtering']
+from setuptools import setup
+from setuptools import find_packages
+from setuptools.command.build_ext import build_ext as _build_ext
+import pip
+from pip.req import parse_requirements
+from optparse import Option
+import numpy as np
 
-ext_modules = [Extension('msfm',
-                        sources = [join('rivuletpy', 'msfm', 'msfmmodule.c'),
-		                join('rivuletpy', 'msfm', '_msfm.c'),
-                                          ])]
+VERSION = 1.0
 
-setup(name = 'rivuletpy',
-      version = '0.1',
-      description = 'Single Neuron Reconstruction with the Rivulet2 algorithm',
-      ext_modules = ext_modules,
-      include_dirs = [np.get_include()], #Add Include path of numpy
-      packages = packages,
-      scripts = ['ubuntu_setup.sh',],
-      # url='http://adamlamers.com',
-      author='Siqi Liu',
-      author_email='lsqshr at gmail dot com')
+def parse_reqs(reqs_file):
+    ''' parse the requirements.txt '''
+    options = Option('--workaround')
+    options.skip_requirements_regex = None
+    # Hack for old pip versions
+    # Versions greater than 1.x have a required parameter "sessions" in
+    # parse_requierements
+    if pip.__version__.startswith('1.'):
+        install_reqs = parse_requirements(reqs_file, options=options)
+    else:
+        from pip.download import PipSession  # pylint:disable=E0611
+        options.isolated_mode = False
+        install_reqs = parse_requirements(reqs_file,  # pylint:disable=E1123
+                                          options=options,
+                                          session=PipSession)
+
+    return [str(ir.req) for ir in install_reqs]
+
+# Configuration for Lib tiff
+def configuration(parent_package='', top_path=None):
+    from numpy.distutils.misc_util import Configuration
+    config = Configuration(None, parent_package, top_path)
+    config.add_subpackage('libtiff')
+    config.get_version('libtiff/version.py')
+    config.add_data_files(('libtiff', 'LICENSE'))
+    return config
+
+# Parse Requirements
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
+REQS = parse_reqs(os.path.join(BASEDIR, 'requirements.txt'))
+
+ext_modules = [
+    Extension(
+        'msfm',
+        sources=[
+            os.path.join('rivuletpy', 'msfm', 'msfmmodule.c'),
+            os.path.join('rivuletpy', 'msfm', '_msfm.c'),
+        ]),
+    # For libtiff
+    Extension('bittools',
+            sources=[os.path.join('libtiff', 'src', 'bittools.c')]),
+    Extension('tif_lzw',
+            sources=[os.path.join('libtiff', 'src', 'tif_lzw.c')]),
+]
+
+config = {
+    'description':
+    'Rivuletpy: a powerful tool to automatically trace single neurons from 3D light microscopic images.',
+    'author': 'RivuletStuio',
+    'url': 'https://github.com/RivuletStudio/rivuletpy',
+    'author_email': 'lsqshr@gmail.com, zdhpeter1991@gmail.com',
+    'version': VERSION,
+    'install_requires': REQS,
+    'packages': find_packages(),
+    'license': 'BSD',
+    'scripts': [
+        os.path.join('apps','rivulet2'),
+        os.path.join('apps','compareswc'),
+    ],
+    'name': 'rivuletpy',
+    'include_package_data': True,
+    'ext_modules': ext_modules,
+    'include_dirs': [np.get_include()],  # Add include path of numpy
+    # 'configuration': configuration,
+}
+
+setup(**config)

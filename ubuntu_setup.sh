@@ -7,15 +7,15 @@
 sudo apt-get -y install libblas-dev liblapack-dev libatlas-base-dev gfortran;
 sudo apt-get -y install python3;
 sudo apt-get -y install python3-pip;
-sudo apt-get -y install python3-matplotlib; # Matplotlib easier to install from ubuntu repo 
+sudo apt-get -y install python3-matplotlib; 
 
-# -- Install pip packages
+# -- Setup numpy and scipy
 sudo pip3 install pip --upgrade  # Upgrade pip3 at first
-sudo pip3 install numpy==1.11.1 --upgrade; # Needs to be installed outside of requirements
+sudo pip3 install numpy;
 sudo pip3 install numpy --upgrade;
 sudo pip3 install scipy; # Needs to be installed outside of requirements
 sudo pip3 install Cython; # Needs to be installed outside of requirements
-sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtiff from its github master branch
+# sudo pip3 install git+https://github.com/pearu/pylibtiff.git; # Install pylibtiff from its github master branch
 
 # -- Get TensorFlow + Keras 
 # NOTE: Comment this area if you do nt use riveal for machine learning enhanced tracing
@@ -36,10 +36,8 @@ if [ "$riveal" == "y" ]; then
     fi
 
     sudo pip3 install --upgrade $TF_BINARY_URL # Install tensorflow
-    sudo pip3 install https://github.com/fchollet/keras.git; # Install keras from its github master branch
+    sudo pip3 install git+https://github.com/fchollet/keras.git; # Install keras from its github master branch
 fi
-
-
 
 # -- Install the requirements.txt friendly packages
 sudo pip3 install -r requirements.txt --upgrade; 
@@ -50,13 +48,11 @@ sudo pip3 install . --upgrade;
 sed -i '/^alias rivulet2=/d' ~/.bashrc;
 sed -i '/^alias rjson=/d' ~/.bashrc;
 sed -i '/^alias compareswc=/d' ~/.bashrc;
-# sed -i '/^alias anifilter=/d' ~/.bashrc;
 sed -i '/^alias rpp=/d' ~/.bashrc;
 sed -i '/^alias rswc=/d' ~/.bashrc;
 echo "alias r2=\"python3 $(pwd)/rivulet2\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias rj=\"python3 $(pwd)/rjson\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias compareswc=\"python3 $(pwd)/compareswc\";" >> ~/.bashrc; # Append the current path to PATH
-# echo "alias anifilter=\"python3 $(pwd)/anifilter\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias rpp=\"python3 $(pwd)/rpp\";" >> ~/.bashrc; # Append the current path to PATH
 echo "alias rswc=\"python3 $(pwd)/rswc\";" >> ~/.bashrc; # Append the current path to PATH
 bash ~/.bashrc;

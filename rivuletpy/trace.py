@@ -1,419 +1,421 @@
 import math
 from tqdm import tqdm
 import numpy as np
-from random import random, randrange
 import skfmm
 import msfm
-from collections import Counter
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import binary_dilation
-from .utils.preprocessing import distgradient
-from .utils.swc import getradius, cleanswc, match
 from filtering.morphology import ssm
 from skimage.filters import threshold_otsu
-from .soma import soma_detect
+from .soma import Soma
+from .swc import SWC
 
 
-def r2(img, threshold,
-        speed='dt',
-        is_msfm=True,
-        ssmiter=20,
-        silence=False,
-        clean=False,
-        radius=False,
-        soma_detection=False,
-        render=False,
-        fast=False):
-    '''
-    The main entry for rivulet2 tracing algorithm
-    Note: the returned swc has 8 columns where the
-    8-th column is the online confidence
-    '''
-    # Soma detection is run only when it is required Otherwise simple soma will be used
-    soma = soma_detect(img, threshold, soma_detection, silence)
+class Tracer(object):
 
-    ## Trace
-    if threshold < 0:
-        threshold = threshold_otsu(img)
-        if not silence:
-            print('--Otus for threshold: ', threshold)
-    else:
-        if not silence:
-            print('--Using the user threshold:', threshold)
+    def __init__(self):
+        pass
 
-    img = (img > threshold).astype('int')  # Segment image
+    def reset(self):
+        pass
 
-    if not silence:
-        print('--Boundary DT...')
-
-    dt = skfmm.distance(img, dx=5e-2)  # Boundary DT
-
-    if speed == 'ssm':
-        if not silence:
-            print('--SSM with GVF...')
-        dt = ssm(dt, anisotropic=True, iterations=ssmiter)
-        img = dt > threshold_otsu(dt)
-        dt = skfmm.distance(img, dx=5e-2)
-        dt = skfmm.distance(np.logical_not(dt), dx=5e-3)
-        dt[dt > 0.04] = 0.04
-        dt = dt.max() - dt
-
-    # # Fast Marching
-    if is_msfm:
-        if not silence:
-            print('--MSFM...')
-        t = msfm.run(makespeed(dt), soma.centroid, False, True)
-    else:
-        if not silence:
-            print('--FM...')
-        marchmap = np.ones(img.shape)
-        marchmap[soma.centroid[0], soma.centroid[1], soma.centroid[2]] = -1
-        t = skfmm.travel_time(marchmap, makespeed(dt), dx=5e-3)
-
-    # Iterative Back Tracking with Erasing
-    if not silence:
-        print('--Start Backtracking...')
-    swc = iterative_backtrack(
-        t,
-        img,
-        soma,
-        render=render,
-        silence=silence,
-        eraseratio=1.7 if speed == 'ssm' else 1.5,
-        length=5)
-
-    # Clean SWC
-    if clean and swc.shape[0] > 1:
-        # This will only keep the largest connected
-        # component of the graph in swc
-        if not silence:
-            print('-- Cleaning swc')
-        swc = cleanswc(swc, radius)
-    elif not radius:
-        swc[:, 5] = 1
-
-    return swc, soma
+    def trace(self):
+        pass
 
 
-def makespeed(dt, threshold=0):
-    '''
-    Make speed image for FM from distance transform
-    '''
+class R2Tracer(Tracer):
 
-    F = dt**4
-    F[F <= threshold] = 1e-10
+    def __init__(self, quality=False, silent=False, speed='dt', clean=False):
+        self._quality = quality
+        self._bimg = None
+        self._dilated_bimg = None
+        self._bsum = 0  # For counting the covered foreground
+        self._bb = None  # For making the erasing contour
+        self._t = None  # Original timemap
+        self._tt = None  # The copy of the timemap
+        self._grad = None
+        self._coverage = 0.
+        self._soma = None  # soma
+        self._silent = silent  # Disable all console outputs
+        # Tracing stops when 98% of the foreground has been covered
+        self._target_coverage = 0.98
+        self._cover_ctr_old = 0.
+        self._cover_ctr_new = 0.
+        # The type of speed image to use. Options are ['dt', 'ssm']
+        self._speed = speed
+        self._erase_ratio = 1.7 if self._speed == 'ssm' else 1.5
+        # Whether the unconnected branches will be discarded
+        self._clean = clean
+        self._eps = 1e-5
 
-    return F
+
+    def trace(self, img, threshold):
+        '''
+        The main entry for Rivulet2
+        '''
+        self._bimg = (img > threshold).astype('int')  # Segment image
+        if not self._silent: print('(1)-- Detecting Soma...', end='')
+        self._soma = Soma()
+        self._soma.detect(self._bimg, not self._quality, self._silent)
+        self._prep()
+
+        # Iterative Back Tracking with Erasing
+        if not self._silent:
+            print('(5) --Start Backtracking...')
+        swc = self._iterative_backtrack()
+
+        if self._clean:
+            swc.prune()
+
+        return swc, self._soma
+
+    def _prep(self):
+        self._nforeground = self._bimg.sum()        
+        # Dilate bimg to make it less strict for the big gap criteria
+        # It is needed since sometimes the tracing goes along the
+        # boundary of the thin fibre in the binary img
+        self._dilated_bimg = binary_dilation(self._bimg)
+
+        if not self._silent:
+            print('(2) --Boundary DT...')
+        self._make_dt()
+        if not self._silent:
+            print('(3) --Fast Marching with %s quality...' % ('high' if self._quality else 'low'))
+        self._fast_marching()
+        if not self._silent:
+            print('(4) --Compute Gradients...')
+        self._make_grad()
+
+        # Make copy of the timemap
+        self._tt = self._t.copy()
+        self._tt[self._bimg <= 0] = -2
+
+        # Label all voxels of soma with -3
+        self._tt[self._soma.mask > 0] = -3
+
+        # For making a large tube to contain the last traced branch
+        self._bb = np.zeros(shape=self._tt.shape)
+
+    def _update_coverage(self):
+        self._cover_ctr_new = np.logical_and(self._tt < 0, self._bimg > 0).sum()
+
+        self._coverage = self._cover_ctr_new / self._nforeground
+        if not self._silent: self._pbar.update(self._cover_ctr_new - self._cover_ctr_old)
+        self._cover_ctr_old = self._cover_ctr_new
 
 
-def iterative_backtrack(t,
-                        bimg,
-                        soma,
-                        length=5,
-                        render=False,
-                        silence=False,
-                        eraseratio=1.1):
-    '''
-    Trace the segmented image with a single neuron using Rivulet2 algorithm.
+    def _make_grad(self):
+        # Get the gradient of the Time-crossing map
+        dx, dy, dz = self._dist_gradient()
+        standard_grid = (np.arange(self._t.shape[0]), np.arange(self._t.shape[1]),
+                         np.arange(self._t.shape[2]))
+        self._grad = (RegularGridInterpolator(standard_grid, dx),
+                      RegularGridInterpolator(standard_grid, dy),
+                      RegularGridInterpolator(standard_grid, dz))
 
-    Parameters
-    ----------------
-    t  :  The time-crossing map generated by fast-marching
-    bimg  :  The binary image as 3D numpy ndarray with foreground (True)
-                and background (False)
-    somapt  :  The soma position as a 3D coordinate in 3D numpy ndarray
-    somaradius  :  The approximate soma radius
-    render  :  The flag to render the tracing progress for debugging
-    silence  :  The flag to silent the tracing progress without showing
-                    the progress bar
-    eraseratio  :  The ratio to enlarge the inital surface of the
-                          branch erasing
-    '''
 
-    # The soma position as a 3D coordinate in 3D numpy ndarray
-    somapt = soma.centroid
-    # The approximate soma radius
-    somaradius = soma.radius
-    # Soma detection is perfomred or not
-    soma_detection = soma.detect
-    # Somatic volume
-    somamask = soma.mask
-    config = {'coverage': 0.98, 'gap': 15}
-    eps = 1e-5
+    def _make_dt(self):
+        '''
+        Make the distance transform according to the speed type
+        '''
+        self._dt = skfmm.distance(self._bimg, dx=5e-2)  # Boundary DT
 
-    # Get the gradient of the Time-crossing map
-    dx, dy, dz = distgradient(t.astype('float64'))
-    standard_grid = (np.arange(t.shape[0]), np.arange(t.shape[1]),
-                     np.arange(t.shape[2]))
-    ginterp = (RegularGridInterpolator(standard_grid, dx),
-               RegularGridInterpolator(standard_grid, dy),
-               RegularGridInterpolator(standard_grid, dz))
+        if self._speed == 'ssm':
+            if not self._silence:
+                print('--SSM with GVF...')
+            self._dt = ssm(self._dt, anisotropic=True, iterations=40)
+            img = self._dt > threshold_otsu(self._dt)
+            self._dt = skfmm.distance(img, dx=5e-2)
+            self._dt = skfmm.distance(np.logical_not(self._dt), dx=5e-3)
+            self._dt[self._dt > 0.04] = 0.04
+            self._dt = self._dt.max() - self._dt
 
-    tt = t.copy()
-    tt[bimg <= 0] = -2
+    def _fast_marching(self):
+        speed = self._make_speed(self._dt)
+        # # Fast Marching
+        if self._quality:
+            # if not self._silent: print('--MSFM...')
+            self._t = msfm.run(speed, self._soma.centroid, True, True)
+        else:
+            # if not self._silent: print('--FM...')
+            marchmap = np.ones(self._bimg.shape)
+            marchmap[self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2]] = -1
+            self._t = skfmm.travel_time(marchmap, speed, dx=5e-3)
 
-    # Label all voxels of soma with -3
-    if soma_detection:
-        tt[somamask > 0] = -3
-        print('Somamask modifies the time map')
-    # For making a large tube to contain the last traced branch
-    bb = np.zeros(shape=tt.shape)
+    def _make_speed(self, dt):
+        F = dt**4
+        F[F <= 0] = 1e-10
+        return F
 
-    # Start tracing loop
-    nforeground = bimg.sum()
+    def _dist_gradient(self):
+        fx = np.zeros(shape=self._t.shape)
+        fy = np.zeros(shape=self._t.shape)
+        fz = np.zeros(shape=self._t.shape)
 
-    # Dilate bimg to make it less strict for the big gap criteria
-    # It is needed since sometimes the tracing goes along the
-    # boundary of the thin fibre in the binary img
-    dilated_bimg = binary_dilation(bimg)
+        J = np.zeros(shape=[s + 2 for s in self._t.shape])  # Padded Image
+        J[:, :, :] = self._t.max()
+        J[1:-1, 1:-1, 1:-1] = self._t
+        Ne = [[-1, -1, -1], [-1, -1, 0], [-1, -1, 1], [-1, 0, -1], [-1, 0, 0],
+              [-1, 0, 1], [-1, 1, -1], [-1, 1, 0], [-1, 1, 1], [0, -1, -1],
+              [0, -1, 0], [0, -1, 1], [0, 0, -1], [0, 0, 1], [0, 1, -1],
+              [0, 1, 0], [0, 1, 1], [1, -1, -1], [1, -1, 0], [1, -1, 1],
+              [1, 0, -1], [1, 0, 0], [1, 0, 1], [1, 1, -1], [1, 1, 0], [1, 1, 1]]
 
-    coverage = 0.
-    swc = np.asarray(
-        [0, 1, somapt[0], somapt[1], somapt[2], 1.2 * somaradius, -1, 1.])
-    swc = np.reshape(swc, (1, 8))
+        for n in Ne:
+            In = J[1 + n[0]:J.shape[0] - 1 + n[0], 1 + n[1]:J.shape[1] - 1 + n[1],
+                   1 + n[2]:J.shape[2] - 1 + n[2]]
+            check = In < self._t
+            self._t[check] = In[check]
+            D = np.divide(n, np.linalg.norm(n))
+            fx[check] = D[0]
+            fy[check] = D[1]
+            fz[check] = D[2]
+        return -fx, -fy, -fz
 
-    if not silence:
-        pbar = tqdm(total=math.floor(nforeground * config['coverage']))
+    def _step(self, branch):
+        # RK4 Walk for one step
+        p = rk4(branch.pts[-1], self._grad, self._t, 1)
+        branch.update(p, self._bimg, self._dilated_bimg)
 
-    velocity = None
-    coveredctr_old = 0
+    def _erase(self, branch):
+        # Erase it from the timemap
+        for i in range(len(branch.pts)):
+            n = [math.floor(n) for n in branch.pts[i]]
+            r = 1 if branch.radius[i] < 1 else branch.radius[i]
 
-    while coverage < config['coverage']:
-        coveredctr_new = np.logical_and(tt < 0, bimg > 0).sum()
-        coverage = coveredctr_new / nforeground
-        if not silence:
-            pbar.update(coveredctr_new - coveredctr_old)
-        coveredctr_old = coveredctr_new
+            # To make sure all the foreground voxels are included in bb
+            r = math.ceil(r * self._erase_ratio)
+            X, Y, Z = np.meshgrid(
+                        constrain_range(n[0] - r, n[0] + r + 1, 0, self._tt.shape[0]),
+                        constrain_range(n[1] - r, n[1] + r + 1, 0, self._tt.shape[1]),
+                        constrain_range(n[2] - r, n[2] + r + 1, 0, self._tt.shape[2]))
+            self._bb[X, Y, Z] = 1
 
-        # Find the geodesic furthest point on foreground time-crossing-map
-        endpt = srcpt = np.asarray(np.unravel_index(tt.argmax(
-        ), tt.shape)).astype('float64')
+        startidx, endidx = [math.floor(p) for p in branch.pts[0]], [math.floor(p) for p in branch.pts[-1]]
 
-        # Trace it back to maxd
-        branch = [srcpt, ]
-        branch_conf = [1, ]
-        reached = False
-        touched = False
-        fgctr = 0  # Count how many steps are made on foreground in this branch
-        steps_after_reach = 0
-        reachedsoma = False
-        gapdist = 0  # Length of the branch on gap
+        if len(branch.pts) > 5 and self._t[endidx[0], endidx[1], endidx[2]] < self._t[
+                startidx[0], startidx[1], startidx[2]]:
+            erase_region = np.logical_and(
+                self._t[endidx[0], endidx[1], endidx[2]] <= self._t,
+                self._t <= self._t[startidx[0], startidx[1], startidx[2]])
+            erase_region = np.logical_and(self._bb, erase_region)
+        else:
+            erase_region = self._bb.astype('bool')
 
-        # For online confidence comupting
-        online_voxsum = 0.
-        low_online_conf = False
-        ma_short = ma_long = -1
-        ma_short_window = 4
-        ma_long_window = 10
-        in_valley = False
-        rlist = []
-        idx = 0
+        if np.count_nonzero(erase_region) > 0:
+            self._tt[erase_region] = -2 if branch.low_conf else -1
+        self._bb.fill(0)
 
-        while True:  # Start 1 Back-tracking iteration
-            idx += 1
-            try:
-                endpt = rk4(srcpt, ginterp, t, 1)
-                endptint = [math.floor(p) for p in endpt]
-                velocity = endpt - srcpt
+    def _iterative_backtrack(self):
 
-                # Count the number of steps it travels on the foreground
-                endpt_b = dilated_bimg[endptint[0], endptint[1], endptint[2]]
-                fgctr += endpt_b
+        # Initialise swc with the soma centroid
+        swc = SWC(self._soma)
+        swc.add(np.reshape(
+            np.asarray([
+                0, 1, self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2],
+                self._soma.radius, -1, 1.
+            ]), (1, 8)))
+        
 
-                # Check for the large gap criterion
-                if not endpt_b:
-                    # Get the mean radius so far
-                    rmean = 1 if len(rlist) == 0 else np.mean(rlist)
-                    stepsz = np.linalg.norm(srcpt - endpt)
-                    gapdist += stepsz
+        if not self._silent:
+            self._pbar = tqdm(total=math.floor(self._nforeground * self._target_coverage))
 
-                    if gapdist > rmean * 8:
-                        break
-                else:
-                    gapdist = 0  # Reset gapdist
+        # Loop for all branches
+        while self._coverage < self._target_coverage:
+            self._update_coverage()
+            # Find the geodesic furthest point on foreground time-crossing-map
+            srcpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
+            branch = R2Branch()
+            branch.add(srcpt, 1., 1.)
 
-                # Compute the online confidence
-                online_voxsum += endpt_b
-                # The online confidence (OC) starts from 0.5 due to the +1 term,
-                # It is helpful to make the OC score from noise points decay fast
-                online_confidence = online_voxsum / (len(branch) + 1)
+            # Erase the source point just in case
+            self._tt[math.floor(srcpt[0]), math.floor(srcpt[1]), math.floor(srcpt[2])] = -2
+            keep = True
 
-                # Reach somatic area or the distance between the somatic centroid
-                # And traced point is less than somatic radius
-                if soma_detection:
-                    soma_one = (tt[endptint[0], endptint[1], endptint[2]] == -3)
-                    soma_criteria = soma_one
-                else:
-                    # Stop due to reaching soma point
-                    soma_criteria = (np.linalg.norm(somapt - endpt) < 1.2 * somaradius)
-                
-                if soma_criteria:
-                    reachedsoma = True
-                    if soma_detection:
-                        # Get the branch length
-                        branchlen = sum([
-                            np.linalg.norm(branch[i][2:5] - branch[i - 1][2:5])
-                            for i in range(1, len(branch))
-                        ])
+            # Loop for 1 back-tracking iteration
+            while True:
+                self._step(branch)
+                head = branch.pts[-1]
+                tt_head = self._tt[math.floor(head[0]), math.floor(head[1]), math.floor(head[2])]
 
-                        # Only the long branches connected
-                        # to the soma are preserved.
-                        if branchlen < 15:
-                            low_online_conf = True
-
-                # Compute the two MA curves of OC
-                if len(branch) > ma_long_window:
-                    if ma_short == -1:
-                        ma_short = online_confidence
-                    else:
-                        ma_short = exponential_moving_average(
-                            online_confidence, ma_short, ma_short_window
-                            if len(branch) >= ma_short_window else len(branch))
-
-                    if ma_long == -1:
-                        ma_long = online_confidence
-                    else:
-                        ma_long = exponential_moving_average(
-                            online_confidence, ma_long, ma_long_window
-                            if len(branch) >= ma_long_window else len(branch))
-
-                    # We are stepping in a valley
-                    if (ma_short < ma_long - eps and
-                            online_confidence < 0.5 and not in_valley):
-                        in_valley = True
-
-                    # Cut at the valley
-                    if in_valley and ma_short > ma_long:
-                        valleyidx = np.asarray(branch_conf).argmin()
-                        # Only cut if the valley confidence is below 0.5
-                        if branch_conf[valleyidx] < 0.5:
-                            branch = branch[:valleyidx]
-                            branch_conf = branch_conf[:valleyidx]
-                            low_online_conf = True
-                            break
-                        else:
-                            in_valley = False
-
-                # Stop due to reaching soma point
-                if np.linalg.norm(somapt - endpt) < 1.2 * somaradius:
-                    reachedsoma = True
+                # 1. Check out of bound
+                if not inbound(head, self._bimg.shape):
+                    branch.slice(0, -1)
                     break
 
+                # 2. Check for the large gap criterion
+                if branch.gap > np.asarray(branch.radius).mean() * 8:
+                    break
+                else:
+                    branch.reset_gap()
+
+                # 3. Check if Soma has been reached
+                if tt_head  == -3:
+                    keep = True if branch.branchlen > self._soma.radius * 3 else False
+                    branch.reached_soma = True
+                    break
+
+                # 4. Check if not moved for 15 iterations
+                if branch.is_stucked():
+                    break
+
+                # 5. Check for low online confidence 
+                if branch.low_conf:
+                    keep = False
+                    break
+
+                # 6. Check for branch merge
                 # Consider reaches previous explored area traced with branch
                 # Note: when the area was traced due to noise points
                 # (erased with -2), not considered as 'reached'
-                if tt[endptint[0], endptint[1], endptint[2]] == -1:
-                    reached = True
-
-                # If the endpoint reached previously traced area check for
-                # node to connect for at each step
-                if reached:
-                    if swc.shape[0] == 1:
-                        break  # There has not been any branch added yet
-
-                    steps_after_reach += 1
-                    endradius = getradius(bimg, endpt[0], endpt[1], endpt[2])
-                    touched, touchidx = match(swc, endpt, endradius)
-
-                    # if touched or steps_after_reach >= 200:
-                    if touched or steps_after_reach >= 200:
+                if tt_head == -1:
+                    branch.touched = True
+                    if swc.size() == 1:
                         break
 
-                # If the velocity is too small, sprint a bit with the momentum
-                if np.linalg.norm(velocity) <= 0.5 and len(branch) >= length:
-                    endpt = srcpt + (branch[-1] - branch[-4])
+                    matched, matched_idx = swc.match(head, branch.radius[-1])
+                    if matched > 0:
+                        branch.touch_idx = matched_idx
+                        break
 
-                if len(branch) > 15 and np.linalg.norm(branch[-15] -
-                                                       endpt) < 1.:
-                    break  # There could be zero gradients somewhere
+                    if branch.steps_after_reach > 200:
+                        break
+            
+            self._erase(branch)
 
-                if online_confidence <= 0.2:
-                    low_online_conf = True
+            # Add to SWC if it was decided to be kept
+            if keep:
+                pidx = None 
+                if branch.reached_soma:
+                    pidx = 0;
+                elif branch.touch_idx >= 0:
+                    pidx = branch.touch_idx
+                swc.add_branch(branch, pidx)
+        return swc
+
+class Branch(object):
+    def __init__(self):
+        self.pts = []
+        self.radius = []
+
+class R2Branch(Branch):
+    def __init__(self):
+        self.pts = []
+        self.conf = []
+        self.radius = []
+        self.steps_after_reach = 0
+        self.low_conf = False
+        self.touch_idx = -2
+        self.reached_soma = False
+        self.branchlen = 0
+        self.gap = 0
+        self.online_voxsum = 0
+        self.stepsz = 0
+        self.touched = False
+
+        self.ma_short = -1
+        self.ma_long = -1
+        self.ma_short_window = 4
+        self.ma_long_window = 10
+        self.in_valley = False
+
+
+    def add(self, pt, conf, radius):
+        self.pts.append(pt)
+        self.conf.append(conf)
+        self.radius.append(radius)
+
+    def is_stucked(self):
+        if self.stepsz == 0:
+            return True
+
+        if len(self.pts) > 15:
+            if np.linalg.norm(np.asarray(self.pts[-1]) - np.asarray(self.pts[-15])) < 1:
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def reset_gap(self):
+        self.gap = 0
+
+    def update(self, pt, bimg, dilated_bimg):
+        eps = 1e-5
+        head = self.pts[-1]
+        velocity = np.asarray(pt) - np.asarray(head)
+        self.stepsz = np.linalg.norm(velocity)
+        self.branchlen += self.stepsz
+        b = dilated_bimg[math.floor(pt[0]), math.floor(pt[1]), math.floor(pt[2])]
+        if b > 0:
+            self.gap += self.stepsz
+        
+        self.online_voxsum += b
+        oc = self.online_voxsum / (len(self.pts) + 1)
+        self.update_ma(oc)
+
+         # We are stepping in a valley
+        if (self.ma_short < self.ma_long - eps and
+                oc < 0.5 and not self.in_valley):
+            self.in_valley = True
+        
+        # Cut at the valley
+        if self.in_valley and self.ma_short > self.ma_long:
+            valleyidx = np.asarray(self.conf).argmin()
+            # Only cut if the valley confidence is below 0.5
+            if self.conf[valleyidx] < 0.5:
+                self.slice(0, valleyidx)
+                self.low_conf = True
+            else:
+                in_valley = False
+
+        if oc <= 0.2:
+            self.low_conf = True
+
+        if self.touched:
+            self.steps_after_reach += 1
+
+        r = self.estimate_radius(pt, bimg)
+        self.add(pt, oc, r)
+
+    def update_ma(self, oc):
+        if len(self.pts) > self.ma_long_window:
+            if self.ma_short == -1:
+                self.ma_short = oc
+            else:
+                self.ma_short = exponential_moving_average(
+                        oc, self.ma_short, self.ma_short_window
+                        if len(self.pts) >= self.ma_short_window else len(self.pts))
+            if self.ma_long == -1:
+                self.ma_long = oc
+            else:
+                self.ma_long = exponential_moving_average(
+                    oc, self.ma_long, self.ma_long_window
+                    if len(self.pts) >= self.ma_long_window else len(self.pts))
+
+    def slice(self, start, end):
+        self.pts = self.pts[start: end]
+        self.radius = self.radius[start: end]
+        self.conf = self.conf[start: end]
+
+    def estimate_radius(self, pt, bimg):
+        r = 0
+        x = math.floor(pt[0])
+        y = math.floor(pt[1])
+        z = math.floor(pt[2])
+
+        while True:
+            r += 1
+            try:
+                if bimg[max(x - r, 0):min(x + r + 1, bimg.shape[0]), max(y - r, 0):
+                        min(y + r + 1, bimg.shape[1]), max(z - r, 0):min(
+                            z + r + 1, bimg.shape[2])].sum() / (2 * r + 1)**3 < .6:
                     break
-
-                # All in vain finally if it traces out of bound
-                if not inbound(endpt, tt.shape):
-                    break
-
-            except ValueError:
+            except IndexError:
                 break
 
-            branch.append(endpt)  # Add the newly traced node to current branch
-            r = getradius(bimg, endpt[0], endpt[1], endpt[2])
-            rlist.append(r)
-            branch_conf.append(online_confidence)
-            srcpt = endpt  # Shift forward
+        return r
 
-        # Check forward confidence
-        cf = conf_forward(branch, bimg)
-
-        # Erase it from the timemap
-        for node in branch:
-            n = [math.floor(n) for n in node]
-            r = getradius(bimg, n[0], n[1], n[2])
-            r = 1 if r < 1 else r
-            rlist.append(r)
-
-            # To make sure all the foreground voxels are included in bb
-            r *= eraseratio
-            r = math.ceil(r)
-            X, Y, Z = np.meshgrid(
-                constrain_range(n[0] - r, n[0] + r + 1, 0, tt.shape[0]),
-                constrain_range(n[1] - r, n[1] + r + 1, 0, tt.shape[1]),
-                constrain_range(n[2] - r, n[2] + r + 1, 0, tt.shape[2]))
-            bb[X, Y, Z] = 1
-
-        startidx = [math.floor(p) for p in branch[0]]
-        endidx = [math.floor(p) for p in branch[-1]]
-
-        if len(branch) > length and tt[endidx[0], endidx[1], endidx[2]] < tt[
-                startidx[0], startidx[1], startidx[2]]:
-            erase_region = np.logical_and(
-                tt[endidx[0], endidx[1], endidx[2]] <= tt,
-                tt <= tt[startidx[0], startidx[1], startidx[2]])
-            erase_region = np.logical_and(bb, erase_region)
-        else:
-            erase_region = bb.astype('bool')
-
-        if np.count_nonzero(erase_region) > 0:
-            tt[erase_region] = -2 if low_online_conf else -1
-        bb.fill(0)
-
-        if touched:
-            connectid = swc[touchidx, 0]
-        elif reachedsoma:
-            connectid = 0
-        else:
-            connectid = None
-
-        # # Check the confidence of this branch
-        if cf[-1] < 0.5 or low_online_conf:
-            continue
-
-        for i, node in enumerate(branch):
-            n = [math.floor(n) for n in node]
-            if tt[n[0], n[1], n[2]] == -2:
-                branch_conf[i] = 0
-
-        swc = add2swc(swc, branch, rlist, branch_conf, connectid)
-
-    # After all tracing iterations, check all unconnected nodes
-    for nodeidx in range(swc.shape[0]):
-        if swc[nodeidx, 6] == -2:
-            # Find the closest node in swc, excluding the nodes traced earlier
-            # than this node in match
-            swc2consider = swc[swc[:, 0] > swc[nodeidx, 0], :]
-            connect, minidx = match(swc2consider, swc[nodeidx, 2:5], 3)
-            if connect:
-                swc[nodeidx, 6] = swc2consider[minidx, 0]
-
-    # Prune short leaves
-    swc = prune_leaves(swc, bimg, length, 0.5)
-
-    if not silence:
-        pbar.close()  # Close the progress bar
-
-    return swc  # The real swc and the confidence array
 
 
 def exponential_moving_average(p, ema, n):
@@ -433,35 +435,6 @@ def exponential_moving_average(p, ema, n):
 
     alpha = 2 / (1 + n)
     return p * alpha + ema * (1 - alpha)
-
-
-def conf_vox(branch, bimg):
-    '''
-    The confidence score used in Rivulet1.
-        The propotion of foreground voxels on a branch.
-        Repeatant voxels will only be counted once
-
-    Parameters
-    ----------------
-    branch: list of 1 X 3 np.ndarray
-    bimg: the binary image (3D np.ndarray)
-    '''
-    voxhash = {}
-    for node in branch:
-        nodevox = tuple([math.floor(x) for x in node])
-        voxhash[nodevox] = bimg[nodevox[0], nodevox[1], nodevox[2]]
-
-    foresum = np.sum(np.asarray(list(voxhash.values())))
-    return foresum / len(voxhash)
-
-
-def gd(srcpt, ginterp, t, stepsize):
-    gvec = np.asarray([g(srcpt)[0] for g in ginterp])
-    if np.linalg.norm(gvec) <= 0:
-        return np.array([-1, -1, -1])
-    gvec /= np.linalg.norm(gvec)
-    srcpt -= stepsize * gvec
-    return srcpt
 
 
 def rk4(srcpt, ginterp, t, stepsize):
@@ -497,133 +470,7 @@ def inbound(pt, shape):
     return all([True if 0 <= p <= s - 1 else False for p, s in zip(pt, shape)])
 
 
-def fibonacci_sphere(samples=1, randomize=True):
-    rnd = 1.
-    if randomize:
-        rnd = random() * samples
-
-    points = []
-    offset = 2. / samples
-    increment = math.pi * (3. - math.sqrt(5.))
-
-    for i in range(samples):
-        y = ((i * offset) - 1) + (offset / 2)
-        r = math.sqrt(1 - pow(y, 2))
-
-        phi = ((i + rnd) % samples) * increment
-
-        x = math.cos(phi) * r
-        z = math.sin(phi) * r
-
-        points.append(np.array([x, y, z]))
-
-    return points
-
-
-def add2swc(swc, path, radius, branch_conf, connectid=None, random_color=True):
-    '''
-    Add a branch to swc.
-    Note: This swc is special with N X 8 shape. The 8-th column is the online confidence
-    '''
-
-    if random_color:
-        rand_node_type = randrange(256)
-
-    newbranch = np.zeros((len(path), 7))
-    if swc.shape[0] == 1:  # It is the first branch to be added
-        idstart = 1
-    else:
-        idstart = swc[:, 0].max() + 1
-
-    for i, p in enumerate(path):
-        id = idstart + i
-        # 3 for basal dendrite; 4 for apical dendrite;
-        # However now we cannot differentiate them automatically
-        nodetype = 3
-
-        if i == len(path) - 1:  # The end of this branch
-            pid = connectid if connectid is not None else -2
-            if connectid is not None and connectid != 0 and swc.shape[0] != 1:
-                swc[swc[:, 0] == connectid,
-                    1] = 5  # its connected node is fork point
-        else:
-            pid = idstart + i + 1
-            if i == 0:
-                nodetype = 6  # Endpoint
-
-        newbranch[i] = np.asarray([
-            id, rand_node_type
-            if random_color else nodetype, p[0], p[1], p[2], radius[i], pid
-        ])
-
-    branch_conf = np.reshape(np.asarray(branch_conf), (len(branch_conf), 1))
-    newbranch = np.hstack((newbranch, branch_conf))
-
-    # Check if any tail should be connected to its head
-    head = newbranch[0]
-    matched, minidx = match(swc, head[2:5], head[5])
-    if matched and swc[minidx, 6] is -2:
-        swc[minidx, 6] = head[0]
-    swc = np.vstack((swc, newbranch))
-
-    return swc
-
-
 def constrain_range(min, max, minlimit, maxlimit):
     return list(
         range(min if min > minlimit else minlimit, max
               if max < maxlimit else maxlimit))
-
-
-def prune_leaves(swc, img, length, conf):
-
-    # Find all the leaves
-    childctr = Counter(swc[:, 6])
-    leafidlist = [id for id in swc[:, 0]
-                  if id not in swc[:, 6]]  # Does not work
-    id2dump = []
-
-    for leafid in leafidlist:  # Iterate each leaf node
-        nodeid = leafid
-        branch = []
-        while True:  # Get the leaf branch out
-            node = swc[swc[:, 0] == nodeid, :].flatten()
-            if node.size == 0:
-                break
-            branch.append(node)
-            parentid = node[6]
-            if childctr[parentid] is not 1:
-                break  # merged / unconnected
-            nodeid = parentid
-
-        # Get the length of the leaf
-        leaflen = sum([
-            np.linalg.norm(branch[i][2:5] - branch[i - 1][2:5])
-            for i in range(1, len(branch))
-        ])
-
-        # Prune if the leave is too short or
-        # the confidence of the leave branch is too low
-        if len(branch) < length or conf_forward(
-            [b[2:5] for b in branch], img)[-1] < conf or leaflen <= 3:
-            id2dump.extend([node[0] for node in branch])
-
-    # Only keep the swc nodes not in the dump id list
-    cuttedswc = []
-    for nodeidx in range(swc.shape[0]):
-        if swc[nodeidx, 0] not in id2dump:
-            cuttedswc.append(swc[nodeidx, :])
-
-    cuttedswc = np.squeeze(np.dstack(cuttedswc)).T
-    return cuttedswc
-
-
-def conf_forward(path, img):
-    conf_forward = np.zeros(shape=(len(path), ))
-    branchvox = np.asarray([
-        img[math.floor(p[0]), math.floor(p[1]), math.floor(p[2])] for p in path
-    ])
-    for i in range(len(path, )):
-        conf_forward[i] = branchvox[:i].sum() / (i + 1)
-
-    return conf_forward
