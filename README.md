@@ -50,13 +50,20 @@ To install rivuletpy, you need to install the following packages beforehand:
 * `scipy>=0.17.0`
 * `Cython>=0.25.1`
 
-### 2A. Install Rivuletpy from the git repo (Recommended)
+### 2A. Install Rivuletpy from the Pypi (Recommended)
+
+```
+(riv)$ pip3 install rivuletpy
+```
+
+
+### 2B. Install Rivuletpy from the git repo (Optional)
 
 ```
 (riv)$ pip3 install git+https://github.com/RivuletStudio/rivuletpy
 ```
 
-### 2B. Install Rivuletpy from source (Optional)
+### 2C. Install Rivuletpy from source (Optional)
 Optionally you can install Rivuletpy from the source files
 
 ```
