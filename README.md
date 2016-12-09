@@ -78,7 +78,7 @@ This will download a simple neuron image and perform a neuron tracing with rivul
 ## Usage
 - Reconstruct single neuron file.
 
-The script rivulet2 command will be 
+The script rivulet2 command will be installed
 ```bash
 $ rivulet2 --help
 usage: rivulet2 [-h] -f FILE [-o OUT] [-t THRESHOLD] [-z ZOOM_FACTOR]
@@ -114,6 +114,28 @@ optional arguments:
 $ rivulet2 -f example.tif -t 10 # Simple like this
 $ rivulet2 -f example.tif -t 10 --quality # Better results with longer running time
 ```
+- Compare a swc reconstruction against the manual ground truth
+```
+$ compareswc --help
+usage: compareswc [-h] --target TARGET --groundtruth GROUNDTRUTH
+                  [--sigma SIGMA]
+
+Arguments for comparing two swc files.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --target TARGET       The input target swc file.
+  --groundtruth GROUNDTRUTH
+                        The input ground truth swc file.
+  --sigma SIGMA         The sigma value to use for the Gaussian function in
+                        NetMets.
+
+$ compareswc --target r2_tracing.swc --groundtruth hand_tracing.swc
+0.9970 0.8946 0.9865 1 3
+```
+The `compareswc` command outputs five numbers which are in order: 
+
+precision, recall, f1-score, No. connection error type A, No. connection error type B
 
 ## Dependencies
 
