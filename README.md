@@ -32,6 +32,10 @@
 
 Rivuletpy is a Python3 toolkit for automatically reconstruct single neuron models from 3D microscopic image stacks.
 
+The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2.
+
+A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) under the Rivulet Plugin.
+
 ## Installation
 ### 0. Setup the virtualenv
 It is recommended that you use [`pip`](https://pip.pypa.io/en/stable/) to install
