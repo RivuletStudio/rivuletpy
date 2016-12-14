@@ -125,6 +125,9 @@ optional arguments:
 $ rtrace -f example.tif -t 10 # Simple like this
 $ rtrace -f example.tif -t 10 --quality # Better results with longer running time
 ```
+
+Please note that Rivulet2 is powerful of handling the noises, a relatively low intensity threshold is preferred to include all the candidate voxels.
+
 - Compare a swc reconstruction against the manual ground truth
 ```
 $ compareswc --help
