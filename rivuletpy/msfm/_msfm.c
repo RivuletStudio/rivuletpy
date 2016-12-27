@@ -844,11 +844,11 @@ void msfm3d(npy_double *F,             // The input speed image
   bool Ed = false;  // Skip the Y output for now
 
   /* Number of pixels in image */
-  int npixels = dims[0] * dims[1] * dims[2];
+  long npixels = dims[0] * dims[1] * dims[2];
 
   /* Neighbour list */
-  int neg_free;
-  int neg_pos;
+  long neg_free;
+  long neg_pos;
   npy_double* neg_listv;
   npy_double* neg_listx;
   npy_double* neg_listy;
@@ -862,13 +862,13 @@ void msfm3d(npy_double *F,             // The input speed image
   int ne[18] = {-1, 0, 0, 1, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, -1, 0, 0, 1};
 
   /* Loop variables */
-  int s, w, itt, q;
+  long s, w, itt, q;
 
   /* Current location */
   int x, y, z, i, j, k;
 
   /* Index */
-  int IJK_index, XYZ_index, index;
+  long IJK_index, XYZ_index, index;
 
   /* Count how many voxels in foreground is foreground */
   long nforeground = 0;
