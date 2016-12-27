@@ -825,7 +825,8 @@ npy_double CalculateDistance(npy_double* T, npy_double Fijk, int* dims, int i, i
 
 
 void msfm3d(npy_double *F,             // The input speed image
-            int dims[3],           // The size of the input speed image
+            npy_int64 *B, // The segmentation
+            int dims[3],           // The size of the input speed image and the binary image
             npy_int64 *SourcePoints,  // The source points
             int dims_sp[2],        // The size of the source point array
             bool usesecond, 
@@ -868,6 +869,14 @@ void msfm3d(npy_double *F,             // The input speed image
 
   /* Index */
   int IJK_index, XYZ_index, index;
+
+  /* Count how many voxels in foreground is foreground */
+  long nforeground = 0;
+  for (q = 0; q < npixels; q++){
+    if (B[q] > 0){
+      nforeground ++;
+    }
+  }
 
   /* Pixels which are processed and have a final distance are frozen */
   Frozen = (bool*)malloc(npixels * sizeof(int));
@@ -991,6 +1000,16 @@ void msfm3d(npy_double *F,             // The input speed image
     y = (int)neg_listy[index];
     z = (int)neg_listz[index];
     XYZ_index = mindex3(x, y, z, dims[0], dims[1]);
+
+    /* Decrease the foreground count if x y z is a foreground voxel */
+    if ( B[XYZ_index] > 0 ){
+      B[XYZ_index] = 0; // Erase it from the binary map
+      nforeground--;
+      if(nforeground <= 1){ // All the foreground pixels have been covered
+        break;
+      }
+    }
+
     Frozen[XYZ_index] = 1;
     T[XYZ_index] = neg_listv[index];
     if (Ed) {

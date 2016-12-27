@@ -135,7 +135,7 @@ class R2Tracer(Tracer):
         # # Fast Marching
         if self._quality:
             # if not self._silent: print('--MSFM...')
-            self._t = msfm.run(speed, self._soma.centroid, True, True)
+            self._t = msfm.run(speed, self._bimg.copy().astype('int64'), self._soma.centroid, True, True)
         else:
             # if not self._silent: print('--FM...')
             marchmap = np.ones(self._bimg.shape)

@@ -28,26 +28,32 @@
 /* Wrapped into python by Siqi Liu of Uni.Sydney (2016) */
 
 static PyObject* msfm_run(PyObject* self, PyObject* args) {
-  PyArrayObject *Fobj, *Farr, *spobj, *sparr = NULL; 
+  PyArrayObject *Fobj, *Farr, *Bobj, *Barr, *spobj, *sparr = NULL; 
   PyObject *secondobj, *crossobj = NULL;
   npy_double *F = NULL; 
+  npy_double *B = NULL; 
   npy_int64 *sp = NULL;  // Pointers hold the data of numpy array
   npy_double *T, *Y = NULL;   // The pointers to the return matrices
   npy_intp *Fdims, *spdims = NULL;
 
   // Parse the input args
   // Expecting args: F(3D numpy array), sourcepoints (2D numpy array), second(int), cross(int)
-  // 1. Parse F speed image
-  if (!PyArg_ParseTuple(args, "OObb", &Fobj, &spobj, &secondobj, &crossobj))
+  if (!PyArg_ParseTuple(args, "OOObb", &Fobj, &Bobj, &spobj, &secondobj, &crossobj))
     return NULL;  // TODO: raise error here
 
+  // 1. Parse F speed image
   if (!(Farr = PyArray_FROM_OTF(Fobj, NPY_DOUBLE, NPY_F_CONTIGUOUS | NPY_ARRAY_ALIGNED))) return NULL;
 
   F = (npy_double *) PyArray_DATA(Farr);
   Fdims = PyArray_DIMS(Farr);
   int nvox = Fdims[0] * Fdims[1] * Fdims[2];
 
-  // 2. Parse source points
+  // 2. Parse binary image
+  if (!(Barr = PyArray_FROM_OTF(Bobj, NPY_DOUBLE, NPY_F_CONTIGUOUS | NPY_ARRAY_ALIGNED))) return NULL;
+
+  B = (npy_int64 *) PyArray_DATA(Barr); // B and F should share the same dimensionality
+
+  // 3. Parse source points
   if(!(sparr = PyArray_FROM_OTF(spobj, NPY_INT64, NPY_IN_ARRAY))) return NULL;
 
   sp = (npy_int64*) PyArray_DATA(sparr);
@@ -79,7 +85,7 @@ static PyObject* msfm_run(PyObject* self, PyObject* args) {
 
 
   // Run the Meaty part MSFM
-  msfm3d(F, Fdims_int, sp, spdims_int, secondobj, crossobj, T, Y);
+  msfm3d(F, B, Fdims_int, sp, spdims_int, secondobj, crossobj, T, Y);
   PyObject* npT = PyArray_New(&PyArray_Type, 3, Fdims, NPY_DOUBLE, 0, 0, sizeof(npy_double), NPY_F_CONTIGUOUS, 0);
   memcpy(PyArray_DATA(npT), T, nvox * sizeof(double));
 
@@ -90,7 +96,6 @@ static PyObject* msfm_run(PyObject* self, PyObject* args) {
                            // Y, NPY_FORTRAN|NPY_WRITEABLE, NULL);
   // Py_INCREF(npY);
 
-  // TODO: Free up the pointers
   Py_DECREF(Farr);
   Py_DECREF(sparr);
   Py_INCREF(npT);

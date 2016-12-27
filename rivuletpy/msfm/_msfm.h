@@ -7,6 +7,7 @@
 #endif
 
 void msfm3d(npy_double* F,             // The input speed image
+	        npy_int64* bimg,
             int dims[3],           // The size of the input speed image
             npy_int64* SourcePoints,  // The source points
             int dims_sp[3],        // The size of the source point array
