@@ -89,6 +89,7 @@ config = {
     'scripts': [
         os.path.join('apps','rtrace'),
         os.path.join('apps','compareswc'),
+        os.path.join('apps','rswc'),
     ],
     'name': 'rivuletpy',
     'include_package_data': True,
