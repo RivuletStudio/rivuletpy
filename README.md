@@ -30,7 +30,7 @@
 
 # Rivuletpy
 
-Rivuletpy is a Python3 toolkit for automatically reconstruct single neuron models from 3D microscopic image stacks.
+Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks.
 
 The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2.
 
