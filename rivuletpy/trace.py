@@ -375,7 +375,7 @@ class R2Branch(Branch):
         if self.touched:
             self.steps_after_reach += 1
 
-        r = self.estimate_radius(pt, bimg)
+        r = estimate_radius(pt, bimg)
         self.add(pt, oc, r)
 
     def update_ma(self, oc):
@@ -398,23 +398,24 @@ class R2Branch(Branch):
         self.radius = self.radius[start: end]
         self.conf = self.conf[start: end]
 
-    def estimate_radius(self, pt, bimg):
-        r = 0
-        x = math.floor(pt[0])
-        y = math.floor(pt[1])
-        z = math.floor(pt[2])
 
-        while True:
-            r += 1
-            try:
-                if bimg[max(x - r, 0):min(x + r + 1, bimg.shape[0]), max(y - r, 0):
-                        min(y + r + 1, bimg.shape[1]), max(z - r, 0):min(
-                            z + r + 1, bimg.shape[2])].sum() / (2 * r + 1)**3 < .6:
-                    break
-            except IndexError:
+def estimate_radius(pt, bimg):
+    r = 0
+    x = math.floor(pt[0])
+    y = math.floor(pt[1])
+    z = math.floor(pt[2])
+
+    while True:
+        r += 1
+        try:
+            if bimg[max(x - r, 0):min(x + r + 1, bimg.shape[0]), max(y - r, 0):
+                    min(y + r + 1, bimg.shape[1]), max(z - r, 0):min(
+                        z + r + 1, bimg.shape[2])].sum() / (2 * r + 1)**3 < .6:
                 break
+        except IndexError:
+            break
 
-        return r
+    return r
 
 
 

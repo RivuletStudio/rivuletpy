@@ -26,10 +26,6 @@ parser.add_argument(
     help='The sigma value to use for the Gaussian function in NetMets.')
 args = parser.parse_args()
 
-# print('Comparing \033[1;33m%s\033[0m to \033[1;33m%s\033[0m' %
-      # (os.path.basename(args.target), os.path.basename(args.groundtruth)))
-# print('===================')
-
 # If ground truth is present, use the ground truth to evaluate the reconstruction
 # The results will be written to the front of the swc file
 swc1 = loadswc(args.target)  # Load the ground truth

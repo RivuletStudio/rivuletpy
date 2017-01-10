@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 import os
 import sys
-from rivuletpy.utils.swc import cleanswc, flipswc, swcradius
 from rivuletpy.utils.io import loadswc, saveswc, loadimg
+from rivuletpy.trace import estimate_radius
 import argparse
 
 if __name__ == '__main__':
@@ -32,19 +32,37 @@ if __name__ == '__main__':
         default=1.,
         help='Used to rescale swc points propotionally. It is only used when --action rescale'
     )
+
+    parser.add_argument(
+        '--shiftx',
+        type=float,
+        required=False,
+        default=0.,
+    )
+
+    parser.add_argument(
+        '--shifty',
+        type=float,
+        required=False,
+        default=0.
+    )
+
+    parser.add_argument(
+        '--shiftz',
+        type=float,
+        required=False,
+        default=0.
+    )
     parser.add_argument('--radius', dest='radius', action='store_true')
-    parser.add_argument('--no-radius', dest='radius', action='store_false')
     parser.set_defaults(radius=False)
     parser.add_argument('--overwrite', dest='overwrite', action='store_true')
-    parser.add_argument(
-        '--no-overwrite', dest='overwrite', action='store_false')
-    parser.set_defaults(overwrite=True)
+    parser.set_defaults(overwrite=False)
     parser.add_argument(
         '--action',
         type=str,
         default=None,
         required=True,
-        help='The processing of swc to perform. Possible actions are [clean, flip, radius, rescale, rescale]'
+        help='The processing of swc to perform. Possible actions are [radius, rescale]'
     )
     args = parser.parse_args()
 
@@ -56,15 +74,16 @@ if __name__ == '__main__':
         print('SWC in ', args.file, ' is empty...')
         sys.exit(1)
 
-    if args.action == 'clean':
-        outswc = cleanswc(swc, args.radius)
-    elif args.action == 'flip':
-        outswc = flipswc(swc)
-    elif args.action == 'radius':
+    if args.action == 'radius':
         img = loadimg(args.img)
-        outswc = swcradius(img > args.threshold, swc)
+        outswc = estimate_radius(swc[:, 2:5], img > args.threshold)
     elif args.action == 'rescale':
         swc[:, 2:5] *= args.zoom_factor
+        outswc = swc
+    elif args.action == 'shift':
+        swc[:, 2] += args.shiftx
+        swc[:, 3] += args.shifty
+        swc[:, 4] += args.shiftz
         outswc = swc
     else:
         print(
