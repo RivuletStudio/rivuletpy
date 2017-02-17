@@ -36,6 +36,8 @@ The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2.
 
 A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) under the Rivulet Plugin.
 
+![logo](https://github.com/lsqshr/Rivulet-Neuron-Tracing-Toolbox/blob/master/Rivulet_resources/Rivulet-Logo2.png)
+
 ## Installation
 ### 0A. Setup the virtualenv
 It is recommended that you use [`pip`](https://pip.pypa.io/en/stable/) to install
