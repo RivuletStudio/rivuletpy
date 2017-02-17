@@ -37,7 +37,7 @@ The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2.
 A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) under the Rivulet Plugin.
 
 ## Installation
-### 0. Setup the virtualenv
+### 0A. Setup the virtualenv
 It is recommended that you use [`pip`](https://pip.pypa.io/en/stable/) to install
 `Rivuletpy` into a [`virtualenv`](https://virtualenv.pypa.io/en/stable/). The following
 assumes a `virtualenv` named `riv` has been set up and
@@ -46,8 +46,13 @@ activated. We will see three ways to install `Rivuletpy`
 $ virtualenv -p python3 riv
 $ . riv/bin/activate
 ```
+### 0B. Setup the Anaconda environment (Alternative)
+```
+$ conda create -n riv python=python3.5 anaconda
+$ source activate riv
+```
 
-### 1. Setup the dependencies
+### 1. Setup the dependencies (Not required with Anaconda environment)
 To install rivuletpy, you need to install the following packages beforehand:
 
 * `numpy>=1.8.0`
@@ -59,7 +64,10 @@ To install rivuletpy, you need to install the following packages beforehand:
 ```
 (riv)$ pip3 install rivuletpy
 ```
-
+If you are using Anaconda
+```
+(riv)$ pip install rivuletpy # The pip should be correspnded to python3
+```
 
 ### 2B. Install Rivuletpy from the git repo (Optional)
 
@@ -84,7 +92,7 @@ the `-e`.
 In ./rivuletpy/
 `sh quicktest.sh`
 
-This will download a simple neuron image and perform a neuron tracing with rivulet2 algorithm.
+This will download a simple neuron image and perform a neuron tracing with rivulet2 algorithm. If you encountered any issues while installing Rivuletpy, you are welcome to raise an issue for the developers in the [issue tracker](https://github.com/RivuletStudio/rivuletpy/issues)
 
 ## Usage
 - Reconstruct single neuron file.
