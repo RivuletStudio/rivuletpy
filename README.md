@@ -161,6 +161,20 @@ The `compareswc` command outputs five numbers which are in order:
 
 precision, recall, f1-score, No. connection error type A, No. connection error type B
 
+## FAQ
+### What if I see ```...version `GLIBCXX_3.4.21' not found...``` when I run `rtrace` under Anaconda?
+Try
+```
+(riv)$ conda install libgcc # Upgrades the gcc in your conda environment to the newest
+```
+
+### What if I see ```Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.```?
+Try to get rid of the mkl in your conda, it has been reported to cause many issues
+```
+(riv)$ conda install nomkl numpy scipy scikit-learn numexpr
+(riv)$ conda remove mkl mkl-service
+```
+
 ## Dependencies
 
 The build-time and runtime dependencies of Rivuletpy are:
