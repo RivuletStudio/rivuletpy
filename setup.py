@@ -53,9 +53,9 @@ def parse_reqs(reqs_file):
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
     config = Configuration(None, parent_package, top_path)
-    config.add_subpackage('libtiff')
-    config.get_version('libtiff/version.py')
-    config.add_data_files(('libtiff', 'LICENSE'))
+    # config.add_subpackage('libtiff')
+    # config.get_version('libtiff/version.py')
+    # config.add_data_files(('libtiff', 'LICENSE'))
     return config
 
 # Parse Requirements
@@ -70,10 +70,10 @@ ext_modules = [
             os.path.join('rivuletpy', 'msfm', '_msfm.c'),
         ]),
     # For libtiff
-    Extension('bittools',
-            sources=[os.path.join('libtiff', 'src', 'bittools.c')]),
-    Extension('tif_lzw',
-            sources=[os.path.join('libtiff', 'src', 'tif_lzw.c')]),
+    # Extension('bittools',
+            # sources=[os.path.join('libtiff', 'src', 'bittools.c')]),
+    # Extension('tif_lzw',
+            # sources=[os.path.join('libtiff', 'src', 'tif_lzw.c')]),
 ]
 
 config = {
