@@ -63,7 +63,6 @@ BASEDIR = os.path.dirname(os.path.abspath(__file__))
 REQS = parse_reqs(os.path.join(BASEDIR, 'requirements.txt'))
 REQS.append("libtiff")
 REQS.append("tqdm")
-print(REQS)
 
 ext_modules = [
     Extension(
