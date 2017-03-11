@@ -30,17 +30,18 @@
 
 # Rivuletpy
 
-Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks.
+Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks. It is actively maintained by the RivuletStudio @ University of Sydney, AU.
 
 The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 (Preprint hosted on BioArxiv)
 Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking
 Siqi Liu, Donghao Zhang, Yang Song, Hanchuan Peng, Weidong Cai
 bioRxiv 109892; doi: https://doi.org/10.1101/109892
 
-
 A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) sources under the [Rivulet Plugin](https://github.com/Vaa3D/vaa3d_tools/tree/master/released_plugins/v3d_plugins/bigneuron_siqi_rivuletv3d) (Not yet available in the released build). However you can build Vaa3D easily on Mac/Linux following the [Vaa3D wiki](https://github.com/Vaa3D/Vaa3D_Wiki/wiki/Build-Vaa3D-on-Linux) carefully.
 
-## Reporting issues
+The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
+
+## Issues / questions / pull requests
 
 Issues should be reported to the
 [Rivuletpy github repository issue tracker](https://github.com/RivuletStudio/rivuletpy/issues).
@@ -54,6 +55,7 @@ information.
 Questions are also welcomed in the [Rivuletpy github repository issue tracker](https://github.com/RivuletStudio/rivuletpy/issues).
 If you put on a `question` label. We consider every question as an issue since it means we should have made things clearer/easier for the users.
 
+Pull requests are definitely welcomed! Before you make a pull requests, please kindly create an issue first to discuss the optimal solution.
 
 ![logo](https://github.com/lsqshr/Rivulet-Neuron-Tracing-Toolbox/blob/master/Rivulet_resources/Rivulet-Logo2.png)
 
