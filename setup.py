@@ -8,7 +8,7 @@ from pip.req import parse_requirements
 from optparse import Option
 import numpy as np
 
-VERSION = '0.2.0.dev7' 
+VERSION = '0.2.0.dev9' 
 classifiers=[
     # How mature is this project? Common values are
     #   3 - Alpha
@@ -89,6 +89,7 @@ config = {
     'scripts': [
         os.path.join('apps','rtrace'),
         os.path.join('apps','compareswc'),
+        os.path.join('apps','rswc'),
     ],
     'name': 'rivuletpy',
     'include_package_data': True,

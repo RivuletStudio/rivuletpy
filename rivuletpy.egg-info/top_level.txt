@@ -1,6 +1,0 @@
-bittools
-filtering
-libtiff
-msfm
-rivuletpy
-tif_lzw

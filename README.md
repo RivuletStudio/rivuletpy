@@ -30,14 +30,36 @@
 
 # Rivuletpy
 
-Rivuletpy is a Python3 toolkit for automatically reconstruct single neuron models from 3D microscopic image stacks.
+Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks. It is actively maintained by the RivuletStudio @ University of Sydney, AU.
 
-The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2.
+The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 (Preprint hosted on BioArxiv):
 
-A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) under the Rivulet Plugin.
+Siqi Liu, Donghao Zhang, Yang Song, Hanchuan Peng, Weidong Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking", bioRxiv 109892; doi: https://doi.org/10.1101/109892
+
+A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) sources under the [Rivulet Plugin](https://github.com/Vaa3D/vaa3d_tools/tree/master/released_plugins/v3d_plugins/bigneuron_siqi_rivuletv3d) (Not yet available in the released build). However you can build Vaa3D easily on Mac/Linux following the [Vaa3D wiki](https://github.com/Vaa3D/Vaa3D_Wiki/wiki/Build-Vaa3D-on-Linux) carefully.
+
+The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
+
+## Issues / questions / pull requests
+
+Issues should be reported to the
+[Rivuletpy github repository issue tracker](https://github.com/RivuletStudio/rivuletpy/issues).
+The ability and speed with which issues can be resolved depends on how complete and
+succinct the report is. For this reason, it is recommended that reports be accompanied
+with a minimal but self-contained code sample that reproduces the issue, the observed and
+expected output, and if possible, the commit ID of the version used. If reporting a
+regression, the commit ID of the change that introduced the problem is also extremely valuable
+information.
+
+Questions are also welcomed in the [Rivuletpy github repository issue tracker](https://github.com/RivuletStudio/rivuletpy/issues).
+If you put on a `question` label. We consider every question as an issue since it means we should have made things clearer/easier for the users.
+
+Pull requests are definitely welcomed! Before you make a pull requests, please kindly create an issue first to discuss the optimal solution.
+
+![logo](https://github.com/lsqshr/Rivulet-Neuron-Tracing-Toolbox/blob/master/Rivulet_resources/Rivulet-Logo2.png)
 
 ## Installation
-### 0. Setup the virtualenv
+### 0A. Setup the virtualenv
 It is recommended that you use [`pip`](https://pip.pypa.io/en/stable/) to install
 `Rivuletpy` into a [`virtualenv`](https://virtualenv.pypa.io/en/stable/). The following
 assumes a `virtualenv` named `riv` has been set up and
@@ -46,8 +68,13 @@ activated. We will see three ways to install `Rivuletpy`
 $ virtualenv -p python3 riv
 $ . riv/bin/activate
 ```
+### 0B. Setup the Anaconda environment (Alternative)
+```
+$ conda create -n riv python=python3.5 anaconda
+$ source activate riv
+```
 
-### 1. Setup the dependencies
+### 1. Setup the dependencies (Not required with Anaconda environment)
 To install rivuletpy, you need to install the following packages beforehand:
 
 * `numpy>=1.8.0`
@@ -59,7 +86,10 @@ To install rivuletpy, you need to install the following packages beforehand:
 ```
 (riv)$ pip3 install rivuletpy
 ```
-
+If you are using Anaconda
+```
+(riv)$ pip install rivuletpy # The pip should be correspnded to python3
+```
 
 ### 2B. Install Rivuletpy from the git repo (Optional)
 
@@ -84,7 +114,7 @@ the `-e`.
 In ./rivuletpy/
 `sh quicktest.sh`
 
-This will download a simple neuron image and perform a neuron tracing with rivulet2 algorithm.
+This will download a simple neuron image and perform a neuron tracing with rivulet2 algorithm. If you encountered any issues while installing Rivuletpy, you are welcome to raise an issue for the developers in the [issue tracker](https://github.com/RivuletStudio/rivuletpy/issues)
 
 ## Usage
 - Reconstruct single neuron file.
@@ -151,6 +181,20 @@ The `compareswc` command outputs five numbers which are in order:
 
 precision, recall, f1-score, No. connection error type A, No. connection error type B
 
+## FAQ
+### What if I see ```...version `GLIBCXX_3.4.21' not found...``` when I run `rtrace` under Anaconda?
+Try
+```
+(riv)$ conda install libgcc # Upgrades the gcc in your conda environment to the newest
+```
+
+### What if I see ```Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.```?
+Try to get rid of the mkl in your conda, it has been reported to cause many issues
+```
+(riv)$ conda install nomkl numpy scipy scikit-learn numexpr
+(riv)$ conda remove mkl mkl-service
+```
+
 ## Dependencies
 
 The build-time and runtime dependencies of Rivuletpy are:
@@ -163,17 +207,3 @@ The build-time and runtime dependencies of Rivuletpy are:
 * [matplotlib](http://www.matplotlib.org/)
 * [tqdm](https://github.com/noamraph/tqdm)
 * [nibabel](http://nipy.org/nibabel/)
-
-## Reporting issues
-
-Issues should be reported to the
-[Rivuletpy github repository issue tracker](https://github.com/RivuletStudio/rivuletpy/issues).
-The ability and speed with which issues can be resolved depends on how complete and
-succinct the report is. For this reason, it is recommended that reports be accompanied
-with a minimal but self-contained code sample that reproduces the issue, the observed and
-expected output, and if possible, the commit ID of the version used. If reporting a
-regression, the commit ID of the change that introduced the problem is also extremely valuable
-information.
-
-Questions are also welcomed in the [Rivuletpy github repository issue tracker](https://github.com/RivuletStudio/rivuletpy/issues).
-If you put on a `question` label
