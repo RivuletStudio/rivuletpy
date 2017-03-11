@@ -35,7 +35,9 @@ Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron mo
 The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 (Preprint hosted on BioArxiv):
 
 Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking
+
 Siqi Liu, Donghao Zhang, Yang Song, Hanchuan Peng, Weidong Cai
+
 bioRxiv 109892; doi: https://doi.org/10.1101/109892
 
 A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) sources under the [Rivulet Plugin](https://github.com/Vaa3D/vaa3d_tools/tree/master/released_plugins/v3d_plugins/bigneuron_siqi_rivuletv3d) (Not yet available in the released build). However you can build Vaa3D easily on Mac/Linux following the [Vaa3D wiki](https://github.com/Vaa3D/Vaa3D_Wiki/wiki/Build-Vaa3D-on-Linux) carefully.
