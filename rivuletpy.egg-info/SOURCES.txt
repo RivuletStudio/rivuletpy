@@ -1,8 +1,11 @@
+MANIFEST.in
+requirements.txt
+setup.cfg
 apps/compareswc
-apps/rivulet2
 apps/rjson
 apps/rpp
 apps/rswc
+apps/rtrace
 filtering/__init__.py
 filtering/anisotropic.py
 filtering/morphology.py
@@ -35,6 +38,8 @@ libtiff/tiff_image.py
 libtiff/tiff_sample_plane.py
 libtiff/utils.py
 libtiff/version.py
+libtiff/bitarray-0.3.5-numpy/bitarray/_bitarray.c
+libtiff/bitarray-a1646c0/bitarray/_bitarray.c
 libtiff/src/bittools.c
 libtiff/src/tif_lzw.c
 rivuletpy/__init__.py
@@ -47,6 +52,8 @@ rivuletpy.egg-info/dependency_links.txt
 rivuletpy.egg-info/requires.txt
 rivuletpy.egg-info/top_level.txt
 rivuletpy/msfm/_msfm.c
+rivuletpy/msfm/_msfm.h
+rivuletpy/msfm/common.c
 rivuletpy/msfm/msfmmodule.c
 rivuletpy/utils/__init__.py
 rivuletpy/utils/io.py
