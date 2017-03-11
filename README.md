@@ -59,7 +59,14 @@ Pull requests are definitely welcomed! Before you make a pull requests, please k
 ![logo](https://github.com/lsqshr/Rivulet-Neuron-Tracing-Toolbox/blob/master/Rivulet_resources/Rivulet-Logo2.png)
 
 ## Installation
-### 0A. Setup the virtualenv
+note: 3B means the option B for the third step
+
+### 0A. Setup the Anaconda environment (Easy)
+```
+$ conda create -n riv python=python3.5 anaconda
+$ source activate riv
+```
+### 0B. Setup the virtualenv (Alternative)
 It is recommended that you use [`pip`](https://pip.pypa.io/en/stable/) to install
 `Rivuletpy` into a [`virtualenv`](https://virtualenv.pypa.io/en/stable/). The following
 assumes a `virtualenv` named `riv` has been set up and
@@ -68,18 +75,19 @@ activated. We will see three ways to install `Rivuletpy`
 $ virtualenv -p python3 riv
 $ . riv/bin/activate
 ```
-### 0B. Setup the Anaconda environment (Alternative)
-```
-$ conda create -n riv python=python3.5 anaconda
-$ source activate riv
-```
 
 ### 1. Setup the dependencies (Not required with Anaconda environment)
-To install rivuletpy, you need to install the following packages beforehand:
-
+To install rivuletpy with pip, you need to install the following packages manually beforehand since some dependencies of rivuletpy uses them in their setup scripts
 * `numpy>=1.8.0`
 * `scipy>=0.17.0`
 * `Cython>=0.25.1`
+
+```
+(riv)$ pip install --upgrade pip
+(riv)$ pip install numpy scipy matplotlib
+(riv)$ pip install Cython
+```
+
 
 ### 2A. Install Rivuletpy from the Pypi (Recommended)
 
@@ -103,6 +111,7 @@ Optionally you can install Rivuletpy from the source files
 ```
 (riv)$ git clone https://github.com/RivuletStudio/rivuletpy.git
 (riv)$ cd rivuletpy
+(riv)$ python setup.py develop # Needed since we use the fast-forward 'tqdm' and 'pylibtiff'
 (riv)$ pip3 install -e .
 ```
 
