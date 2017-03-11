@@ -99,13 +99,7 @@ If you are using Anaconda
 (riv)$ pip install rivuletpy # The pip should be correspnded to python3
 ```
 
-### 2B. Install Rivuletpy from the git repo (Optional)
-
-```
-(riv)$ pip3 install git+https://github.com/RivuletStudio/rivuletpy
-```
-
-### 2C. Install Rivuletpy from source (Optional)
+### 2B. Install Rivuletpy from source (Optional)
 Optionally you can install Rivuletpy from the source files
 
 ```
