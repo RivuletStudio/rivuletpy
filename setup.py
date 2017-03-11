@@ -61,6 +61,9 @@ def configuration(parent_package='', top_path=None):
 # Parse Requirements
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 REQS = parse_reqs(os.path.join(BASEDIR, 'requirements.txt'))
+REQS.append("libtiff")
+REQS.append("tqdm")
+print(REQS)
 
 ext_modules = [
     Extension(
@@ -96,7 +99,10 @@ config = {
     'ext_modules': ext_modules,
     'include_dirs': [np.get_include()],  # Add include path of numpy
     'setup_requires': 'numpy',
-    'classifiers': classifiers
+    'classifiers': classifiers,
 }
 
-setup(**config)
+
+
+setup(**config, dependency_links=['git+https://github.com/tqdm/tqdm.git@a379e330d013cf5f7cec8e9460d1d5e03b543444#egg=tqdm',
+                                  'git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff'])
