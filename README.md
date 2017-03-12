@@ -76,16 +76,17 @@ $ virtualenv -p python3 riv
 $ . riv/bin/activate
 ```
 
-### 1. Setup the dependencies (Not required with Anaconda environment)
+### 1. Setup the dependencies
 To install rivuletpy with pip, you need to install the following packages manually beforehand since some dependencies of rivuletpy uses them in their setup scripts
 * `numpy>=1.8.0`
 * `scipy>=0.17.0`
 * `Cython>=0.25.1`
+* `tqdm-dev`
+* `libtiff-dev`
 
 ```
 (riv)$ pip install --upgrade pip
-(riv)$ pip install numpy scipy matplotlib
-(riv)$ pip install Cython
+(riv)$ pip install numpy scipy matplotlib cython git+https://github.com/tqdm/tqdm.git@a379e330d013cf5f7cec8e9460d1d5e03b543444#egg=tqdm git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff
 ```
 
 
