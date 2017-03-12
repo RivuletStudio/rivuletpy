@@ -8,7 +8,7 @@ from pip.req import parse_requirements
 from optparse import Option
 import numpy as np
 
-VERSION = '0.2.0.dev13' 
+VERSION = '0.2.0.dev17' 
 classifiers=[
     # How mature is this project? Common values are
     #   3 - Alpha

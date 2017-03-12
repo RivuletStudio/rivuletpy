@@ -186,7 +186,6 @@ class SWC(object):
         lid = self._data[:,0]
 
         line_color = [random(), random(), random()]
-        print('-- data shape: ', self._data.shape[0])
         for i in range(self._data.shape[0]):
             # Change color if its a bifurcation 
             if (self._data[i, 0] == self._data[:, -1]).sum() > 1:
@@ -195,19 +194,16 @@ class SWC(object):
             # Draw a line between this node and its parent
             if i < self._data.shape[0] - 1 and self._data[i, 0] == self._data[i+1, -1]:
                 l = Line3(translated[i, :], translated[i+1, :])
-                print('adding l')
                 l.set_color(*line_color)
                 viewer.add_geom(l)
             else:
                 pid = self._data[i, -1]
                 pidx = np.argwhere(pid == lid).flatten()
                 if len(pidx) == 1:
-                    print('adding l')
                     l = Line3(translated[i, :], translated[pidx, :].flatten())
                     l.set_color(*line_color)
                     viewer.add_geom(l)
 
-        print('-- Start rendering')
         while(True):
             try:
                 viewer.render(return_rgb_array=False)
