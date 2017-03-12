@@ -89,6 +89,11 @@ if __name__ == '__main__':
     parser.add_argument('--no-silent', dest='silent', action='store_false', help="Show the terminal outputs & the nice logo (default)")
     parser.set_defaults(silent=False)
 
+    parser.add_argument('-v', '--view', dest='view', action='store_true',
+        help="View the reconstructed neuron when rtrace finishes")
+    parser.add_argument('--no-view', dest='view', action='store_false')
+    parser.set_defaults(view=False)
+
     args = parser.parse_args()
 
     if not args.silent: show_logo()
@@ -112,7 +117,8 @@ if __name__ == '__main__':
     tracer = R2Tracer(quality=args.quality, silent=args.silent, speed=args.speed, clean=args.clean)
     swc, soma = tracer.trace(img, args.threshold)
     swc.reset(crop_region, args.zoom_factor)
-    swc.save(args.out if args.out else os.path.splitext(args.file)[0] + '.r2.swc')
+    outpath = args.out if args.out else os.path.splitext(args.file)[0] + '.r2.swc'
+    swc.save(outpath)
 
     # Save the soma mask if required
     if args.save_soma:
@@ -120,3 +126,11 @@ if __name__ == '__main__':
         soma.save((os.path.splitext(outswcfile)[0] + 'soma.tif'))
 
     print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+
+    if args.view:
+        from rivuletpy.utils.io import loadswc
+        from rivuletpy.swc import SWC
+        if os.path.exists(outpath):
+            s = SWC() 
+            s._data = loadswc(outpath)
+            s.view()

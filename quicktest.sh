@@ -12,7 +12,7 @@ then
   unzip $TESTIMGZIP -d ./test_data;
 fi
 
-python3 apps/rtrace --threshold 0 --file $TESTIMG  --out $OUT;
+python3 apps/rtrace --threshold 0 --file $TESTIMG  --out $OUT -v;
 if [ -z ${V3DPATH+x} ]; then 
 	echo "V3DPATH is unset"; 
 else 

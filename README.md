@@ -126,10 +126,10 @@ This will download a simple neuron image and perform a neuron tracing with rivul
 The script rtrace command will be installed
 ```bash
 $ rtrace --help
-usage: rivulet2 [-h] -f FILE [-o OUT] [-t THRESHOLD] [-z ZOOM_FACTOR]
-                [--save-soma] [--no-save-soma] [--soma] [--no-soma]
-                [--speed SPEED] [--quality] [--no-quality] [--clean]
-                [--no-clean] [--silent] [--no-silent]
+usage: rtrace [-h] -f FILE [-o OUT] [-t THRESHOLD] [-z ZOOM_FACTOR]
+              [--save-soma] [--no-save-soma] [--soma] [--no-soma]
+              [--speed SPEED] [--quality] [--no-quality] [--clean]
+              [--no-clean] [--silent] [--no-silent] [-v] [--no-view]
 
 Arguments to perform the Rivulet2 tracing algorithm.
 
@@ -144,20 +144,32 @@ optional arguments:
   -z ZOOM_FACTOR, --zoom_factor ZOOM_FACTOR
                         The factor to zoom the image to speed up the whole
                         thing. Default 1.
-  --save-soma
-  --no-save-soma
-  --soma
-  --no-soma
-  --speed SPEED         The type of speed image to use (dt, ssm)
-  --quality
-  --no-quality
-  --clean
-  --no-clean
-  --silent
-  --no-silent
+  --save-soma           Save the automatically reconstructed soma volume along
+                        with the SWC.
+  --no-save-soma        Don't save the automatically reconstructed soma volume
+                        along with the SWC (default)
+  --soma                Use the morphological operator based soma detection
+  --no-soma             Don't use the morphological operator based soma
+                        detection (default)
+  --speed SPEED         The type of speed image to use (dt, ssm). dt would
+                        work for most of the cases. ssm provides slightly
+                        better curves with extra computing time
+  --quality             Reconstruct the neuron with higher quality and
+                        slightly more computing time
+  --no-quality          Reconstruct the neuron with lower quality and slightly
+                        more computing time
+  --clean               Remove the unconnected segments (default). It is
+                        relatively safe to do with the Rivulet2 algorithm
+  --no-clean            Keep the unconnected segments
+  --silent              Omit the terminal outputs
+  --no-silent           Show the terminal outputs & the nice logo (default)
+  -v, --view            View the reconstructed neuron when rtrace finishes
+  --no-view
 
-$ rtrace -f example.tif -t 10 # Simple like this
+
+$ rtrace -f example.tif -t 10 # Simple like this. Reconstruct a neuron in example.tif with a background threshold of 10
 $ rtrace -f example.tif -t 10 --quality # Better results with longer running time
+$ rtrace -f example.tif -t 10 --quality -v # Open a 3D swc viewer after reconstruction 
 ```
 
 Please note that Rivulet2 is powerful of handling the noises, a relatively low intensity threshold is preferred to include all the candidate voxels.

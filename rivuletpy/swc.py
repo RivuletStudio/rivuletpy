@@ -171,6 +171,49 @@ class SWC(object):
     def save(self, fname):
         saveswc(fname, self._data)
 
+    def view(self):
+        from rivuletpy.utils.rendering3 import Viewer3, Line3
+
+        # Compute the center of mass
+        center = self._data[:,2:5].mean(axis=0)
+        translated = self._data[:,2:5] - np.tile(center, (self._data.shape[0], 1))
+
+        # Init viewer
+        viewer = Viewer3(800,800,800)
+        viewer.set_bounds(self._data[:, 2].min(), self._data[:, 2].max(),
+                          self._data[:, 3].min(), self._data[:, 3].max(),
+                          self._data[:, 4].min(), self._data[:, 4].max())
+        lid = self._data[:,0]
+
+        line_color = [random(), random(), random()]
+        print('-- data shape: ', self._data.shape[0])
+        for i in range(self._data.shape[0]):
+            # Change color if its a bifurcation 
+            if (self._data[i, 0] == self._data[:, -1]).sum() > 1:
+                line_color = [random(), random(), random()]
+
+            # Draw a line between this node and its parent
+            if i < self._data.shape[0] - 1 and self._data[i, 0] == self._data[i+1, -1]:
+                l = Line3(translated[i, :], translated[i+1, :])
+                print('adding l')
+                l.set_color(*line_color)
+                viewer.add_geom(l)
+            else:
+                pid = self._data[i, -1]
+                pidx = np.argwhere(pid == lid).flatten()
+                if len(pidx) == 1:
+                    print('adding l')
+                    l = Line3(translated[i, :], translated[pidx, :].flatten())
+                    l.set_color(*line_color)
+                    viewer.add_geom(l)
+
+        print('-- Start rendering')
+        while(True):
+            try:
+                viewer.render(return_rgb_array=False)
+            except KeyboardInterrupt:
+                break
+
 
 def get_subtree_nodeids(swc, node):
     subtreeids = np.array([])
@@ -189,6 +232,8 @@ def get_subtree_nodeids(swc, node):
             subtreeids = np.hstack((subtreeids, subids, node[0]))
 
     return subtreeids
+
+
 
 
 class Node(object):
