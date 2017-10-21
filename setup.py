@@ -53,16 +53,11 @@ def parse_reqs(reqs_file):
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
     config = Configuration(None, parent_package, top_path)
-    # config.add_subpackage('libtiff')
-    # config.get_version('libtiff/version.py')
-    # config.add_data_files(('libtiff', 'LICENSE'))
     return config
 
 # Parse Requirements
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 REQS = parse_reqs(os.path.join(BASEDIR, 'requirements.txt'))
-REQS.append("libtiff")
-REQS.append("tqdm")
 
 ext_modules = [
     Extension(
@@ -71,11 +66,6 @@ ext_modules = [
             os.path.join('rivuletpy', 'msfm', 'msfmmodule.c'),
             os.path.join('rivuletpy', 'msfm', '_msfm.c'),
         ]),
-    # For libtiff
-    # Extension('bittools',
-            # sources=[os.path.join('libtiff', 'src', 'bittools.c')]),
-    # Extension('tif_lzw',
-            # sources=[os.path.join('libtiff', 'src', 'tif_lzw.c')]),
 ]
 
 config = {
@@ -101,7 +91,4 @@ config = {
     'classifiers': classifiers,
 }
 
-
-
-setup(**config, dependency_links=['git+https://github.com/tqdm/tqdm.git@a379e330d013cf5f7cec8e9460d1d5e03b543444#egg=tqdm',
-                                  'git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff'])
+setup(**config)
