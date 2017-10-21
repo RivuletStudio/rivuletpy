@@ -38,7 +38,13 @@ def precision_recall(swc1, swc2, dist1=4, dist2=4):
     swc_compare = np.vstack((swc1, swc2_fn))
     swc_compare[:, -2]  = 1
 
-    return (precision, recall, f1), swc_compare
+    # Compute the SD, SSD, SSD% defined in Peng.et.al 2010
+    SD = (np.mean(mindist1) + np.mean(mindist2)) / 2
+    far1, far2 = mindist1[mindist1 > dist1], mindist2[mindist2 > dist2]   
+    SSD = (np.mean(far1) + np.mean(far2)) / 2
+    pSSD = (len(far1) / len(mindist1) + len(far2) / len(mindist2)) / 2
+
+    return (precision, recall, f1), (SD, SSD, pSSD), swc_compare
 
 
 def upsample_swc(swc):
