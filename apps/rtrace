@@ -84,6 +84,18 @@ if __name__ == '__main__':
         help="Keep the unconnected segments")
     parser.set_defaults(clean=True)
 
+    parser.add_argument('--gap_only', dest='gap_only', action='store_true',
+        help="")
+    parser.add_argument('--no_gap_only', dest='gap_only', action='store_false',
+        help="")
+    parser.set_defaults(gap_only=False)
+
+    parser.add_argument('--sphere_only', dest='sphere_only', action='store_true',
+        help="")
+    parser.add_argument('--no_sphere_only', dest='sphere_only', action='store_false',
+        help="")
+    parser.set_defaults(sphere_only=False)
+
     # MISC
     parser.add_argument('--silent', dest='silent', action='store_true', help="Omit the terminal outputs")
     parser.add_argument('--no-silent', dest='silent', action='store_false', help="Show the terminal outputs & the nice logo (default)")
@@ -114,7 +126,8 @@ if __name__ == '__main__':
         img = zoom(img, args.zoom_factor)
 
     # Run rivulet2 for the first time
-    tracer = R2Tracer(quality=args.quality, silent=args.silent, speed=args.speed, clean=args.clean)
+    print('gap_only:', args.gap_only)
+    tracer = R2Tracer(quality=args.quality, silent=args.silent, speed=args.speed, clean=args.clean, gap_only=args.gap_only, sphere_only=args.sphere_only)
     swc, soma = tracer.trace(img, args.threshold)
     swc.reset(crop_region, args.zoom_factor)
     outpath = args.out if args.out else os.path.splitext(args.file)[0] + '.r2.swc'

@@ -25,7 +25,7 @@ class Tracer(object):
 
 class R2Tracer(Tracer):
 
-    def __init__(self, quality=False, silent=False, speed='dt', clean=False):
+    def __init__(self, quality=False, silent=False, speed='dt', clean=False, gap_only=False, sphere_only=False):
         self._quality = quality
         self._bimg = None
         self._dilated_bimg = None
@@ -44,10 +44,14 @@ class R2Tracer(Tracer):
         # The type of speed image to use. Options are ['dt', 'ssm']
         self._speed = speed
         self._erase_ratio = 1.7 if self._speed == 'ssm' else 1.5
+        if sphere_only:
+            self._erase_ratio = 1.2
         # Whether the unconnected branches will be discarded
         self._clean = clean
         self._eps = 1e-5
-
+        # For ablative analysis only. Use the Rivulet1 gap threshold instead of the confidence cut
+        self.gap_only = gap_only
+        self.sphere_only = sphere_only
 
     def trace(self, img, threshold):
         '''
@@ -65,7 +69,8 @@ class R2Tracer(Tracer):
         swc = self._iterative_backtrack()
 
         if self._clean:
-            swc.prune()
+            swc._prune_unreached()
+        swc._prune_leaves()
 
         return swc, self._soma
 
@@ -134,10 +139,8 @@ class R2Tracer(Tracer):
         speed = self._make_speed(self._dt)
         # # Fast Marching
         if self._quality:
-            # if not self._silent: print('--MSFM...')
             self._t = msfm.run(speed, self._bimg.copy().astype('int64'), self._soma.centroid, True, True)
         else:
-            # if not self._silent: print('--FM...')
             marchmap = np.ones(self._bimg.shape)
             marchmap[self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2]] = -1
             self._t = skfmm.travel_time(marchmap, speed, dx=5e-3)
@@ -194,7 +197,7 @@ class R2Tracer(Tracer):
         startidx, endidx = [math.floor(p) for p in branch.pts[0]], [math.floor(p) for p in branch.pts[-1]]
 
         if len(branch.pts) > 5 and self._t[endidx[0], endidx[1], endidx[2]] < self._t[
-                startidx[0], startidx[1], startidx[2]]:
+                startidx[0], startidx[1], startidx[2]] and not self.sphere_only:
             erase_region = np.logical_and(
                 self._t[endidx[0], endidx[1], endidx[2]] <= self._t,
                 self._t <= self._t[startidx[0], startidx[1], startidx[2]])
@@ -244,10 +247,16 @@ class R2Tracer(Tracer):
                     break
 
                 # 2. Check for the large gap criterion
-                if branch.gap > np.asarray(branch.radius).mean() * 8:
-                    break
+                if self.gap_only:
+                    if branch.gap > 2.:
+                        break
+                    else:
+                        branch.reset_gap()
                 else:
-                    branch.reset_gap()
+                    if branch.gap > np.asarray(branch.radius).mean() * 8:
+                        break
+                    else:
+                        branch.reset_gap()
 
                 # 3. Check if Soma has been reached
                 if tt_head  == -3:
@@ -260,9 +269,10 @@ class R2Tracer(Tracer):
                     break
 
                 # 5. Check for low online confidence 
-                if branch.low_conf:
-                    keep = False
-                    break
+                if not self.gap_only:
+                    if branch.low_conf:
+                        keep = False
+                        break
 
                 # 6. Check for branch merge
                 # Consider reaches previous explored area traced with branch
