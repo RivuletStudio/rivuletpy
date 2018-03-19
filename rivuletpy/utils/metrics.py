@@ -158,7 +158,7 @@ def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
         leafidx2 = find_leaf_idx(swc2)
         midx2 = set(midx2) - set(leafidx2)
 
-    return midx1, midx2
+    return len(midx1) / len(mid1), len(midx2) / len(mid2)
 
 
 def find_leaf_idx(swc):
