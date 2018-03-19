@@ -64,6 +64,7 @@ saveswc(fpath + '.connect-err2.swc', swc2)
 
 metrics = {}
 metrics['PRF'] = {'precision': precision, 'recall': recall, 'f1': f1}
+metrics['Distance'] = {'SD': sd, "SSD": ssd, "SSD%": pssd}
 # metrics['NetMetsGeometry'] = {'G1': gd1.mean(), 'G2': gd2.mean()}
 metrics['NetMetsConectivity'] = {'C1': len(midx1), 'C2': len(midx2)}
 # print('===================')
