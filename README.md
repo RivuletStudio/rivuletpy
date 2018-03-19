@@ -204,6 +204,13 @@ The `compareswc` command outputs five numbers which are in order:
 precision, recall, f1-score, No. connection error type A, No. connection error type B
 
 ## FAQ
+### What if I see on Mac OS ```ImportError: Failed to find TIFF library. Make sure that libtiff is installed and its location is listed in PATH|LD_LIBRARY_PATH|..```
+
+Try
+```
+brew install libtiff
+```
+
 ### What if I see ```...version `GLIBCXX_3.4.21' not found...``` when I run `rtrace` under Anaconda?
 Try
 ```
