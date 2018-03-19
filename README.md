@@ -95,18 +95,7 @@ To install rivuletpy with pip, you need to install the following packages manual
 (riv)$ pip install numpy scipy matplotlib cython git+https://github.com/tqdm/tqdm.git@a379e330d013cf5f7cec8e9460d1d5e03b543444#egg=tqdm git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff
 ```
 
-
-### 2A. Install Rivuletpy from the Pypi (Recommended)
-
-```
-(riv)$ pip3 install rivuletpy
-```
-If you are using Anaconda
-```
-(riv)$ pip install rivuletpy # The pip should be correspnded to python3
-```
-
-### 2B. Install Rivuletpy from source (Optional)
+### 2A. Install Up-to-date Rivuletpy from source (Recommended)
 Optionally you can install Rivuletpy from the source files
 
 ```
@@ -119,6 +108,16 @@ Optionally you can install Rivuletpy from the source files
 This installs `Rivuletpy` into your `virtualenv` in "editable" mode. That means changes
 made to the source code are seen by the installation. To install in read-only mode, omit
 the `-e`.
+
+### 2B. Install Rivuletpy from the Pypi
+
+```
+(riv)$ pip3 install rivuletpy
+```
+If you are using Anaconda
+```
+(riv)$ pip install rivuletpy # The pip should be correspnded to python3
+```
 
 ## Test Installation
 In ./rivuletpy/
