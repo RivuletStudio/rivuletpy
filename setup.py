@@ -4,7 +4,10 @@ from setuptools import setup, Extension, Command
 from setuptools import find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 import pip
-from pip.req import parse_requirements
+try: # for pip >= 10
+        from pip._internal.req import parse_requirements
+except ImportError: # for pip <= 9.0.3
+        from pip.req import parse_requirements
 from optparse import Option
 import numpy as np
 
