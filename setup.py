@@ -1,18 +1,11 @@
 # import numpy as np
 import os
-from setuptools import setup, Extension, Command
+from setuptools import setup, Extension
 from setuptools import find_packages
-from setuptools.command.build_ext import build_ext as _build_ext
-import pip
-try: # for pip >= 10
-        from pip._internal.req import parse_requirements
-except ImportError: # for pip <= 9.0.3
-        from pip.req import parse_requirements
-from optparse import Option
 import numpy as np
 
 VERSION = '0.3.0'
-classifiers=[
+classifiers = [
     # How mature is this project? Common values are
     #   3 - Alpha
     #   4 - Beta
@@ -34,23 +27,6 @@ classifiers=[
 
 keywords = 'neuron 3d reconstruction image-stack'
 
-def parse_reqs(reqs_file):
-    ''' parse the requirements.txt '''
-    options = Option('--workaround')
-    options.skip_requirements_regex = None
-    # Hack for old pip versions
-    # Versions greater than 1.x have a required parameter "sessions" in
-    # parse_requierements
-    if pip.__version__.startswith('1.'):
-        install_reqs = parse_requirements(reqs_file, options=options)
-    else:
-        from pip.download import PipSession  # pylint:disable=E0611
-        options.isolated_mode = False
-        install_reqs = parse_requirements(reqs_file,  # pylint:disable=E1123
-                                          options=options,
-                                          session=PipSession)
-
-    return [str(ir.req) for ir in install_reqs]
 
 # Configuration for Lib tiff
 def configuration(parent_package='', top_path=None):
@@ -60,7 +36,16 @@ def configuration(parent_package='', top_path=None):
 
 # Parse Requirements
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
-REQS = parse_reqs(os.path.join(BASEDIR, 'requirements.txt'))
+REQS = ['numpy>=1.8.0',
+        'scipy>=0.17.0',
+        'Cython>=0.25.1',
+        'scikit-fmm>=0.0.9',
+        'scikit-image>=0.12.3',
+        'matplotlib>=1.3.1',
+        'nibabel>=2.1.0',
+        'pyglet>=1.2.4',
+        'tqdm>4.11.2',
+        'libtiff>=0.4.1']
 
 ext_modules = [
     Extension(
