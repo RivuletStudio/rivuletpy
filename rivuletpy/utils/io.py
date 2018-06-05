@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from scipy import io as sio
+import SimpleITK as sitk
 
 def loadimg(file):
     if file.endswith('.mat'):
@@ -11,6 +12,9 @@ def loadimg(file):
         img = np.swapaxes(img, 0, 1)
     elif file.endswith('.tif'):
         img = loadtiff3d(file)
+    elif file.endswith('.mhd'):
+        mhd = sitk.ReadImage(file)
+        img = sitk.GetArrayFromImage(mhd)
     elif file.endswith('.nii') or file.endswith('.nii.gz'):
         import nibabel as nib
         img = nib.load(file)
@@ -19,7 +23,7 @@ def loadimg(file):
         raise IOError("The extension of " + file + 'is not supported. File extension supported are: *.tif, *.mat, *.nii')
 
     return img
-    
+
 
 def loadtiff3d(filepath):
     """Load a tiff file into 3D numpy array"""

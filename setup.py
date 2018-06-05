@@ -11,7 +11,7 @@ except ImportError: # for pip <= 9.0.3
 from optparse import Option
 import numpy as np
 
-VERSION = '0.2.0.dev17' 
+VERSION = '0.3.0'
 classifiers=[
     # How mature is this project? Common values are
     #   3 - Alpha

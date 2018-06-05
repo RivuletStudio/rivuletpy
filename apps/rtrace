@@ -43,7 +43,7 @@ if __name__ == '__main__':
         '--threshold',
         type=float,
         default=0,
-        help='threshold to distinguish the foreground and background. Defulat 0. If threshold<0, otsu will be used.'
+        help='threshold to distinguish the foreground and background. Default 0. If threshold<0, otsu will be used.'
     )
     parser.add_argument(
         '-z',
@@ -66,11 +66,8 @@ if __name__ == '__main__':
     parser.set_defaults(soma_detection=False)
 
     # Args for tracing
-    parser.add_argument(
-        '--speed',
-        type=str,
-        default='dt',
-        help='The type of speed image to use (dt, ssm). dt would work for most of the cases. ssm provides slightly better curves with extra computing time')
+    parser.add_argument('--speed', dest='speed', action='store_true', help="Use the input directly as speed image")
+    parser.set_defaults(speed=False)
 
     parser.add_argument('--quality', dest='quality', action='store_true',
         help="Reconstruct the neuron with higher quality and slightly more computing time")
@@ -131,6 +128,6 @@ if __name__ == '__main__':
         from rivuletpy.utils.io import loadswc
         from rivuletpy.swc import SWC
         if os.path.exists(outpath):
-            s = SWC() 
+            s = SWC()
             s._data = loadswc(outpath)
             s.view()

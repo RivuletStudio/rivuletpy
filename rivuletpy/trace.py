@@ -5,7 +5,7 @@ import skfmm
 import msfm
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import binary_dilation
-from filtering.morphology import ssm
+# from filtering.morphology import ssm
 from skimage.filters import threshold_otsu
 from .soma import Soma
 from .swc import SWC
@@ -25,7 +25,7 @@ class Tracer(object):
 
 class R2Tracer(Tracer):
 
-    def __init__(self, quality=False, silent=False, speed='dt', clean=False):
+    def __init__(self, quality=False, silent=False, speed=False, clean=False):
         self._quality = quality
         self._bimg = None
         self._dilated_bimg = None
@@ -43,7 +43,7 @@ class R2Tracer(Tracer):
         self._cover_ctr_new = 0.
         # The type of speed image to use. Options are ['dt', 'ssm']
         self._speed = speed
-        self._erase_ratio = 1.7 if self._speed == 'ssm' else 1.5
+        self._erase_ratio = 1.5
         # Whether the unconnected branches will be discarded
         self._clean = clean
         self._eps = 1e-5
@@ -53,6 +53,7 @@ class R2Tracer(Tracer):
         '''
         The main entry for Rivulet2
         '''
+        self.img = img
         self._bimg = (img > threshold).astype('int')  # Segment image
         if not self._silent: print('(1) -- Detecting Soma...', end='')
         self._soma = Soma()
@@ -118,20 +119,15 @@ class R2Tracer(Tracer):
         '''
         Make the distance transform according to the speed type
         '''
-        self._dt = skfmm.distance(self._bimg, dx=5e-2)  # Boundary DT
-
-        if self._speed == 'ssm':
-            if not self._silence:
-                print('--SSM with GVF...')
-            self._dt = ssm(self._dt, anisotropic=True, iterations=40)
-            img = self._dt > threshold_otsu(self._dt)
-            self._dt = skfmm.distance(img, dx=5e-2)
-            self._dt = skfmm.distance(np.logical_not(self._dt), dx=5e-3)
-            self._dt[self._dt > 0.04] = 0.04
-            self._dt = self._dt.max() - self._dt
+        if self._speed:
+            self._dt = self.img.astype(float)  # The input image
+            self._dt /= self._dt.max()
+        else:
+            self._dt = skfmm.distance(self._bimg, dx=5e-2)  # Boundary DT
 
     def _fast_marching(self):
-        speed = self._make_speed(self._dt)
+        speed = self._make_speed()
+
         # # Fast Marching
         if self._quality:
             # if not self._silent: print('--MSFM...')
@@ -142,8 +138,8 @@ class R2Tracer(Tracer):
             marchmap[self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2]] = -1
             self._t = skfmm.travel_time(marchmap, speed, dx=5e-3)
 
-    def _make_speed(self, dt):
-        F = dt**4
+    def _make_speed(self):
+        F = self._dt ** 4
         F[F <= 0] = 1e-10
         return F
 
