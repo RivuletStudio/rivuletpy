@@ -91,12 +91,15 @@ if __name__ == '__main__':
     parser.add_argument('--no-view', dest='view', action='store_false')
     parser.set_defaults(view=False)
 
+    parser.add_argument('--tracing_resolution', type=int, required=False,
+                        help='Only valid for mhd input files. Will resample the mhd array into isotropic resolution before tracing. Default 1mm', default=1.)
+
     args = parser.parse_args()
 
     if not args.silent: show_logo()
 
     starttime = time.time()
-    img = loadimg(args.file)
+    img = loadimg(args.file, args.tracing_resolution)
     imgdtype = img.dtype
     imgshape = img.shape
 

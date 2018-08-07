@@ -3,25 +3,31 @@ import numpy as np
 from scipy import io as sio
 import SimpleITK as sitk
 
-def loadimg(file):
+def loadimg(file, target_resolution):
     if file.endswith('.mat'):
         filecont = sio.loadmat(file)
         img = filecont['img']
-        for z in range(img.shape[-1]): # Flip the image upside down
-            img[:,:,z] = np.flipud(img[:,:,z])
+        for z in range(img.shape[-1]):  # Flip the image upside down
+            img[:, :, z] = np.flipud(img[:, :, z])
         img = np.swapaxes(img, 0, 1)
     elif file.endswith('.tif'):
         img = loadtiff3d(file)
     elif file.endswith('.mhd'):
+        from scipy.ndimage.interpolation import zoom
         mhd = sitk.ReadImage(file)
         img = sitk.GetArrayFromImage(mhd)
+        # Resample the image to isotropic resolution
+        print('Resample Image to isotropic resolution 1mmx1mmx1mm')
+        sx, sy, sz = mhd.GetSpacing()
+        img = zoom(img, (sz / target_resolution,
+                         sy / target_resolution,
+                         sx / target_resolution), order=0)
     elif file.endswith('.nii') or file.endswith('.nii.gz'):
         import nibabel as nib
         img = nib.load(file)
         img = img.get_data()
     else:
         raise IOError("The extension of " + file + 'is not supported. File extension supported are: *.tif, *.mat, *.nii')
-
     return img
 
 
