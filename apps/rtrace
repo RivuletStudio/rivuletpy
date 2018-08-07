@@ -132,12 +132,16 @@ if __name__ == '__main__':
 
     # Save to vtk is required
     if args.vtk:
-        print('Converting to world space vtk...')
-        mhd = sitk.ReadImage(args.file)
-        swc = swc2world(swc.get_array(),
-                        mhd.GetOrigin(),
-                        [args.tracing_resolution] * 3)
+        if args.file.endswith('.mhd'):
+            print('Converting to world space...')
+            mhd = sitk.ReadImage(args.file)
+            swc = swc2world(swc.get_array(),
+                            mhd.GetOrigin(),
+                            [args.tracing_resolution] * 3)
+
+        print('Saving to VTK format...')
         swc2vtk(swc, outpath.replace('.swc', '.vtk'))
+
 
     if args.view:
         from rivuletpy.utils.io import loadswc
