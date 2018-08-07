@@ -168,6 +168,7 @@ $ rtrace -f example.tif -t 10 --quality -v # Open a 3D swc viewer after reconstr
 Example Usecases with general tree structures in a mhd image
 ```
 $ rtrace -f example.mhd -t 10 --tracing_resolution 1.5 --vtk # Perform the tracing under an isotropic resolution of 1.5mmx1.5mmx1.5mm and output a vtk output file under the world coordinates along side the swc.
+$ rtrace -f example.mhd -t 10 --tracing_resolution 1.5 --vtk --speed # Use the input image directly as the source of making speed image. Recommended if the input mhd is a probablity map of centerlines.
 ```
 
 Please note that Rivulet2 is powerful of handling the noises, a relatively low intensity threshold is preferred to include all the candidate voxels.
