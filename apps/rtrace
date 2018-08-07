@@ -1,13 +1,11 @@
 #!/usr/bin/python3
 import os
 import argparse
-import math
 import time
-import numpy as np
 from rivuletpy.trace import R2Tracer
-from rivuletpy.utils.io import loadimg, writetiff3d, crop
-from filtering.thresholding import rescale
+from rivuletpy.utils.io import loadimg, crop, swc2world, swc2vtk
 from scipy.ndimage.interpolation import zoom
+import SimpleITK as sitk
 
 def show_logo():
     s = "====================Welcome to Rivulet2=================================="
@@ -93,6 +91,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--tracing_resolution', type=int, required=False,
                         help='Only valid for mhd input files. Will resample the mhd array into isotropic resolution before tracing. Default 1mm', default=1.)
+    parser.add_argument('--vtk', action='store_true', help="Store the world coordinate vtk format along with the swc")
+
 
     args = parser.parse_args()
 
@@ -114,7 +114,10 @@ if __name__ == '__main__':
         img = zoom(img, args.zoom_factor)
 
     # Run rivulet2 for the first time
-    tracer = R2Tracer(quality=args.quality, silent=args.silent, speed=args.speed, clean=args.clean)
+    tracer = R2Tracer(quality=args.quality,
+                      silent=args.silent,
+                      speed=args.speed,
+                      clean=args.clean)
     swc, soma = tracer.trace(img, args.threshold)
     swc.reset(crop_region, args.zoom_factor)
     outpath = args.out if args.out else os.path.splitext(args.file)[0] + '.r2.swc'
@@ -123,9 +126,18 @@ if __name__ == '__main__':
     # Save the soma mask if required
     if args.save_soma:
         soma.pad(crop_region)
-        soma.save((os.path.splitext(outswcfile)[0] + 'soma.tif'))
+        soma.save((os.path.splitext(outpath)[0] + 'soma.tif'))
 
     print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+
+    # Save to vtk is required
+    if args.vtk:
+        print('Converting to world space vtk...')
+        mhd = sitk.ReadImage(args.file)
+        swc = swc2world(swc.get_array(),
+                        mhd.GetOrigin(),
+                        [args.tracing_resolution] * 3)
+        swc2vtk(swc, outpath.replace('.swc', '.vtk'))
 
     if args.view:
         from rivuletpy.utils.io import loadswc

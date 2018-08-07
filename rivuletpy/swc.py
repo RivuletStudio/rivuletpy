@@ -5,11 +5,14 @@ from collections import Counter
 from scipy.spatial.distance import cdist
 from .utils.io import saveswc
 
+
 class SWC(object):
+
     def __init__(self, soma=None):
-        self._data = np.zeros((1,8)) 
+        self._data = np.zeros((1, 8))
         if soma:
-            self._data[0, :] = np.asarray([0, 1, soma.centroid[0], soma.centroid[1], soma.centroid[2], soma.radius, -1, 1])
+            self._data[0, :] = np.asarray([0, 1, soma.centroid[0], soma.centroid[
+                                          1], soma.centroid[2], soma.radius, -1, 1])
 
     def add(self, swc_nodes):
         np.vstack((self._data, swc_nodes))
@@ -23,7 +26,8 @@ class SWC(object):
             rand_node_type = randrange(256)
 
         new_branch = np.zeros((len(branch.pts), 8))
-        id_start = 1 if self._data.shape[0] == 1 else self._data[:, 0].max() + 1
+        id_start = 1 if self._data.shape[
+            0] == 1 else self._data[:, 0].max() + 1
 
         for i in range(len(branch.pts)):
             p, r, c = branch.pts[i], branch.radius[i], branch.conf[i]
@@ -36,7 +40,7 @@ class SWC(object):
                 pid = self._data[pidx, 0] if pidx is not None else -2
                 if pid is not -2 and pid != 0 and self._data.shape[0] != 1:
                     # Its connected node is fork point
-                    self._data[self._data[:, 0] == pid, 1] = 5  
+                    self._data[self._data[:, 0] == pid, 1] = 5
             else:
                 pid = id_start + i + 1
                 if i == 0:
@@ -61,7 +65,7 @@ class SWC(object):
         leafidlist = [id for id in self._data[:, 0]
                       if id not in self._data[:, 6]]
         id2dump = []
-        rmean = self._data[:,5].mean() # Mean radius
+        rmean = self._data[:, 5].mean()  # Mean radius
 
         for leafid in leafidlist:  # Iterate each leaf node
             nodeid = leafid
@@ -124,7 +128,8 @@ class SWC(object):
         maxidx = lenlist.index(max(lenlist))
         set2keep = groups[maxidx]
         id2keep = [n.id for n in set2keep]
-        self._data = self._data[np.in1d(self._data[:, 0], np.asarray(id2keep)), :]
+        self._data = self._data[
+            np.in1d(self._data[:, 0], np.asarray(id2keep)), :]
 
     def prune(self):
         self._prune_unreached()
@@ -148,7 +153,6 @@ class SWC(object):
     def get_id(self, idx):
         return self._data[idx, 0]
 
-
     def match(self, pos, radius):
         '''
         Find the closest ground truth node 
@@ -161,7 +165,8 @@ class SWC(object):
         minidx = distlist.argmin()
         minnode = self._data[minidx, 2:5]
 
-        # See if either of them can cover each other with a ball of their own radius
+        # See if either of them can cover each other with a ball of their own
+        # radius
         mindist = np.linalg.norm(pos - minnode)
         return radius > mindist or self._data[minidx, 5] > mindist, minidx
 
@@ -171,29 +176,33 @@ class SWC(object):
     def save(self, fname):
         saveswc(fname, self._data)
 
+    def get_array(self):
+        return self._data[:, :7]
+
     def view(self):
         from rivuletpy.utils.rendering3 import Viewer3, Line3
 
         # Compute the center of mass
-        center = self._data[:,2:5].mean(axis=0)
-        translated = self._data[:,2:5] - np.tile(center, (self._data.shape[0], 1))
+        center = self._data[:, 2:5].mean(axis=0)
+        translated = self._data[:, 2:5] - \
+            np.tile(center, (self._data.shape[0], 1))
 
         # Init viewer
-        viewer = Viewer3(800,800,800)
+        viewer = Viewer3(800, 800, 800)
         viewer.set_bounds(self._data[:, 2].min(), self._data[:, 2].max(),
                           self._data[:, 3].min(), self._data[:, 3].max(),
                           self._data[:, 4].min(), self._data[:, 4].max())
-        lid = self._data[:,0]
+        lid = self._data[:, 0]
 
         line_color = [random(), random(), random()]
         for i in range(self._data.shape[0]):
-            # Change color if its a bifurcation 
+            # Change color if its a bifurcation
             if (self._data[i, 0] == self._data[:, -1]).sum() > 1:
                 line_color = [random(), random(), random()]
 
             # Draw a line between this node and its parent
-            if i < self._data.shape[0] - 1 and self._data[i, 0] == self._data[i+1, -1]:
-                l = Line3(translated[i, :], translated[i+1, :])
+            if i < self._data.shape[0] - 1 and self._data[i, 0] == self._data[i + 1, -1]:
+                l = Line3(translated[i, :], translated[i + 1, :])
                 l.set_color(*line_color)
                 viewer.add_geom(l)
             else:
@@ -230,9 +239,8 @@ def get_subtree_nodeids(swc, node):
     return subtreeids
 
 
-
-
 class Node(object):
+
     def __init__(self, id):
         self.__id = id
         self.__links = set()

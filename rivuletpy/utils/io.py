@@ -22,6 +22,7 @@ def loadimg(file, target_resolution):
         img = zoom(img, (sz / target_resolution,
                          sy / target_resolution,
                          sx / target_resolution), order=0)
+        img = np.transpose(img, (2, 1, 0))
     elif file.endswith('.nii') or file.endswith('.nii.gz'):
         import nibabel as nib
         img = nib.load(file)
@@ -85,7 +86,7 @@ def saveswc(filepath, swc):
             print('%d %d %.3f %.3f %.3f %.3f %d' %
                   tuple(swc[i, :].tolist()), file=f)
 
-            
+
 def crop(img, thr):
     """Crop a 3D block with value > thr"""
     ind = np.argwhere(img > thr)
@@ -101,3 +102,48 @@ def crop(img, thr):
 
     return img[xmin:xmax, ymin:ymax, zmin:zmax], np.array(
         [[xmin, xmax], [ymin, ymax], [zmin, zmax]])
+
+
+def swc2world(swc, origin, spacing):
+    swc[:, 2] *= spacing[0]
+    swc[:, 3] *= spacing[1]
+    swc[:, 4] *= spacing[2]
+    swc[:, 2] += origin[0]
+    swc[:, 3] += origin[1]
+    swc[:, 4] += origin[2]
+    return swc
+
+
+def swc2vtk(swc, outvtkpath):
+    vtkstr = '# vtk DataFile Version 2.0\n'
+    vtkstr += 'Generated with Rivuletpy\n'
+    vtkstr += 'ASCII\n'
+    vtkstr += 'DATASET POLYDATA\n'
+    vtkstr += 'POINTS {} float\n'.format(swc.shape[0])
+
+    id2vtkidx = {}
+    for i in range(swc.shape[0]):
+        vtkstr += '{} {} {}\n'.format(swc[i, 2], swc[i, 3], swc[i, 4])
+        id2vtkidx[int(swc[i, 0])] = i
+
+    linectr = 0
+    vtklinestr = ''
+    for i in range(swc.shape[0]):
+        id, pid = swc[i, 0], swc[i, -1]
+        linectr += 1
+        vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
+
+    vtkstr += 'LINES {} {}\n'.format(linectr, linectr * 3)
+    vtkstr += vtklinestr
+
+    vtkstr += "POINT_DATA {}\n".format(swc.shape[0])
+    vtkstr += "SCALARS contourArray double\n"
+    vtkstr += "LOOKUP_TABLE default\n"
+    for i in range(swc.shape[0]):
+        vtkstr += '{}\n'.format(swc[i, -2])
+    vtkstr += "SCALARS indicatorArray char\n"
+    vtkstr += "LOOKUP_TABLE default\n"
+    for i in range(swc.shape[0]):
+        vtkstr += '0\n'
+    with open(outvtkpath, 'w') as f:
+        f.write(vtkstr)
