@@ -64,10 +64,7 @@ If you put on a `question` label. We consider every question as an issue since i
 
 Pull requests are definitely welcomed! Before you make a pull requests, please kindly create an issue first to discuss the optimal solution.
 
-![logo](https://github.com/lsqshr/Rivulet-Neuron-Tracing-Toolbox/blob/master/Rivulet_resources/Rivulet-Logo2.png)
-
 ## Installation
-note: 3B means the option B for the third step
 
 ### 0. Setup the Anaconda environment
 ```
