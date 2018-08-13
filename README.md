@@ -36,7 +36,9 @@ Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron mo
 
 The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 (Preprint hosted on BioArxiv):
 
-Siqi Liu, Donghao Zhang, Yang Song, Hanchuan Peng, Weidong Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking", bioRxiv 109892; doi: https://doi.org/10.1101/109892
+S. Liu, D. Zhang, Y. Song, H. Peng and W. Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking," in IEEE Transactions on Medical Imaging. URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8354803&isnumber=4359023
+
+PDF [https://www.biorxiv.org/content/biorxiv/early/2017/02/20/109892.full.pdf]
 
 The predecessor Rivulet1 was published on Neuroinformatics:
 
