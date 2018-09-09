@@ -68,7 +68,7 @@ Pull requests are definitely welcomed! Before you make a pull requests, please k
 
 ### 0. Setup the Anaconda environment
 ```
-$ conda create -n riv python=python3.5 anaconda
+$ conda create -n riv python=python3.5 anaconda # We tested on 3.5 and 3.6. Other python versions >= 3.4 should also work
 $ source activate riv
 ```
 
@@ -79,10 +79,11 @@ To install rivuletpy with pip, you need to install the following packages manual
 * `Cython>=0.25.1`
 * `tqdm-dev`
 * `libtiff-dev`
+* `SimpleITK`
 
 ```
-(riv)$ pip install --upgrade pip
-(riv)$ pip install numpy scipy matplotlib cython git+https://github.com/tqdm/tqdm.git@a379e330d013cf5f7cec8e9460d1d5e03b543444#egg=tqdm git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff
+(riv)$ conda install numpy scipy matplotlib cython tqdm git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff
+(riv)$ conda install -c simpleitk simpleitk  # Install SimpleITK for the support of load mhd
 ```
 
 ### 2. Install Up-to-date Rivuletpy from source
