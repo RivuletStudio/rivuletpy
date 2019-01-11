@@ -29,20 +29,23 @@
  -->
 
 # Rivuletpy
+## Example Neuron Tracings
+![alt text](meta/rivulet2_showcase.png "neuron showcase")
+## Example Lung Airway Tracing
+![alt text](meta/rivulet2_airway.png "airway showcase")
 
-Large scale 3D Neuron Tracing/Neuron reconstruction in Python for 3D microscopic images powered by the Rivulet2 algorithm. Pain-free Install & Use in 5 mins.
+## Rivuletpy == Rivulet2 
+Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks & other tree structures from 3D medical images.
+It is actively maintained by the RivuletStudio @ University of Sydney, AU. The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
+The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 published in IEEE Trans. TMI:
 
-Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks. It is actively maintained by the RivuletStudio @ University of Sydney, AU. The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
-
-The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 (Preprint hosted on BioArxiv):
-
-S. Liu, D. Zhang, Y. Song, H. Peng and W. Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking," in IEEE Transactions on Medical Imaging. URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8354803&isnumber=4359023
+[1] S. Liu, D. Zhang, Y. Song, H. Peng and W. Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking," in IEEE Transactions on Medical Imaging. URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8354803&isnumber=4359023
 
 PDF [https://www.biorxiv.org/content/biorxiv/early/2017/11/27/109892.full.pdf]
 
 The predecessor Rivulet1 was published on Neuroinformatics:
 
-Siqi Liu, Donghao Zhang, Sidong Liu, Dagan Feng, Hanchuan Peng, Weidong Cai, 
+[2] Siqi Liu, Donghao Zhang, Sidong Liu, Dagan Feng, Hanchuan Peng, Weidong Cai, 
 "Rivulet: 3D Neuron Morphology Tracing with Iterative Back-Tracking", 
 Neuroinformatics, Vol.14, Issue 4, pp387-401, 2016.
 
@@ -68,7 +71,7 @@ Pull requests are definitely welcomed! Before you make a pull requests, please k
 
 ### 0. Setup the Anaconda environment
 ```
-$ conda create -n riv python=python3.5 anaconda # We tested on 3.5 and 3.6. Other python versions >= 3.4 should also work
+$ conda create -n riv python=python3.6 anaconda # We tested on 3.5 and 3.6. Other python versions >= 3.4 should also work
 $ source activate riv
 ```
 
