@@ -1,9 +1,12 @@
-import numpy as np
 import math
-from random import random, randrange
-from collections import Counter
-from scipy.spatial.distance import cdist
+import numpy as np
+
 from .utils.io import saveswc
+from collections import Counter
+from random import gauss
+from random import random
+from random import randrange
+from scipy.spatial.distance import cdist
 
 
 class SWC(object):
@@ -218,6 +221,67 @@ class SWC(object):
                 viewer.render(return_rgb_array=False)
             except KeyboardInterrupt:
                 break
+
+    def push_nodes_with_binary(self, b, step_ratio=0.1, niter=0):
+        '''
+        Push the nodes towards the center with the binary image boundaries
+        '''
+        for i in range(niter):
+            for i, n in enumerate(self._data):
+                pid, (x, y, z) = int(self._data[i, -1]), self._data[i, 2:5]
+                if pid != i and self._data.shape[0] > pid >= 0:
+                    px, py, pz = self._data[pid, 2:5]
+                    vnorm = norm_vec(np.asarray([x - px, y - py, z - pz]))
+                    pt = np.asarray([x, y, z])
+                    p_vectors = get_perpendicular_vectors(
+                        pt, vnorm)
+                    p_distances = [get_distance_to_boundary(
+                        pt, pvec, b) for pvec in p_vectors]
+                    dx, dy, dz = np.sum(
+                        [pv * pd for pv, pd in zip(p_vectors, p_distances)], 0)
+                    self._data[i, 2] = x + dx * step_ratio
+                    self._data[i, 3] = y + dy * step_ratio
+                    self._data[i, 4] = z + dz * step_ratio
+                else:
+                    # print('Node {}, {}, {} skipped'.format(
+                    #     i, pid, self._data.shape[0]))
+                    pass
+
+
+def get_distance_to_boundary(pt, vec, b):
+    temp_pt = pt.copy()
+    while(True):
+        next_pt = temp_pt + vec
+        if b[math.floor(next_pt[0]),
+             math.floor(next_pt[1]),
+             math.floor(next_pt[2])] <= 0:
+
+            return ((temp_pt - pt) ** 2).sum() ** 0.5
+        else:
+            temp_pt = next_pt
+
+
+def norm_vec(vec):
+    norm = (vec ** 2).sum() ** 0.5
+    return vec / norm
+
+
+def get_perpendicular_vectors(pt, vec):
+    v1 = perpendicular_vector(vec)
+    v2 = -v1
+    v3 = perpendicular_vector(vec, v1)
+    v4 = -v3
+    return v1, v2, v3, v4
+
+
+def make_rand_vector3d():
+    vec = [gauss(0, 1) for i in range(3)]
+    mag = sum(x**2 for x in vec) ** .5
+    return [x / mag for x in vec]
+
+
+def perpendicular_vector(v, vr=None):
+    return np.cross(v, make_rand_vector3d() if vr is None else vr)
 
 
 def get_subtree_nodeids(swc, node):
