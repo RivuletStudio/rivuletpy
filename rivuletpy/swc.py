@@ -229,17 +229,23 @@ class SWC(object):
         lid = list(self._data[:, 0])
         lpid = list(self._data[:, -2])
         t_data = self._data.copy()
+
+        children_idx = {pid: [i for i, p in enumerate(
+            lpid) if p == t_data[i, 0]] for pid in lpid}
+
         for _ in range(niter):
             for i in range(t_data.shape[0]):
-                pid, radius, (x, y, z) = int(t_data[i, -2]), t_data[i, -3], t_data[i, 2:5]
-                children_idx = [i for i, p in enumerate(lpid) if p == t_data[i, 0]]
-                if pid != i and pid in lid and len(children_idx) <= 1:
+                pid, radius, (x, y, z) = int(
+                    t_data[i, -2]), t_data[i, -3], t_data[i, 2:5]
+                cidx = children_idx[pid]
+                if pid != i and pid in lid and len(cidx) <= 1:
                     px, py, pz = t_data[t_data[:, 0] == pid, 2:5][0]
                     vnorm = norm_vec(np.asarray([x - px, y - py, z - pz]))
 
-                    if len(children_idx) == 1:
-                        cx, cy, cz = t_data[children_idx[0], 2:5]
-                        vnorm = (vnorm + norm_vec(np.asarray([cx - x, cy - y, cz - z]))) / 2
+                    if len(cidx) == 1:
+                        cx, cy, cz = t_data[cidx[0], 2:5]
+                        vnorm = (
+                            vnorm + norm_vec(np.asarray([cx - x, cy - y, cz - z]))) / 2
                     if all([v == 0 for v in vnorm]):
                         continue
 
@@ -255,8 +261,8 @@ class SWC(object):
                     tx = x + dx * step_ratio
                     ty = y + dy * step_ratio
                     tz = z + dz * step_ratio
-                    dist = ((tx - self._data[i, 2]) ** 2 + \
-                            (ty - self._data[i, 3]) ** 2 + \
+                    dist = ((tx - self._data[i, 2]) ** 2 +
+                            (ty - self._data[i, 3]) ** 2 +
                             (tz - self._data[i, 4]) ** 2) ** 0.5
                     if dist <= radius / 2:
                         t_data[i, 2] = tx
