@@ -226,12 +226,23 @@ class SWC(object):
         '''
         Push the nodes towards the center with the binary image boundaries
         '''
-        for i in range(niter):
-            for i, n in enumerate(self._data):
-                pid, (x, y, z) = int(self._data[i, -1]), self._data[i, 2:5]
-                if pid != i and self._data.shape[0] > pid >= 0:
-                    px, py, pz = self._data[pid, 2:5]
+        lid = list(self._data[:, 0])
+        lpid = list(self._data[:, -2])
+        t_data = self._data.copy()
+        for _ in range(niter):
+            for i in range(t_data.shape[0]):
+                pid, radius, (x, y, z) = int(t_data[i, -2]), t_data[i, -3], t_data[i, 2:5]
+                children_idx = [i for i, p in enumerate(lpid) if p == t_data[i, 0]]
+                if pid != i and pid in lid and len(children_idx) <= 1:
+                    px, py, pz = t_data[t_data[:, 0] == pid, 2:5][0]
                     vnorm = norm_vec(np.asarray([x - px, y - py, z - pz]))
+
+                    if len(children_idx) == 1:
+                        cx, cy, cz = t_data[children_idx[0], 2:5]
+                        vnorm = (vnorm + norm_vec(np.asarray([cx - x, cy - y, cz - z]))) / 2
+                    if all([v == 0 for v in vnorm]):
+                        continue
+
                     pt = np.asarray([x, y, z])
                     p_vectors = get_perpendicular_vectors(
                         pt, vnorm)
@@ -239,13 +250,21 @@ class SWC(object):
                         pt, pvec, b) for pvec in p_vectors]
                     dx, dy, dz = np.sum(
                         [pv * pd for pv, pd in zip(p_vectors, p_distances)], 0)
-                    self._data[i, 2] = x + dx * step_ratio
-                    self._data[i, 3] = y + dy * step_ratio
-                    self._data[i, 4] = z + dz * step_ratio
+
+                    # Constrain the displacement by the nodo radii
+                    tx = x + dx * step_ratio
+                    ty = y + dy * step_ratio
+                    tz = z + dz * step_ratio
+                    dist = ((tx - self._data[i, 2]) ** 2 + \
+                            (ty - self._data[i, 3]) ** 2 + \
+                            (tz - self._data[i, 4]) ** 2) ** 0.5
+                    if dist <= radius / 2:
+                        t_data[i, 2] = tx
+                        t_data[i, 3] = ty
+                        t_data[i, 4] = tz
                 else:
-                    # print('Node {}, {}, {} skipped'.format(
-                    #     i, pid, self._data.shape[0]))
                     pass
+        self._data = t_data
 
 
 def get_distance_to_boundary(pt, vec, b):
