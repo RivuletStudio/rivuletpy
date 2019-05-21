@@ -25,7 +25,7 @@ class Tracer(object):
 
 class R2Tracer(Tracer):
 
-    def __init__(self, quality=False, silent=False, speed=False, clean=False):
+    def __init__(self, quality=False, silent=False, speed=False, clean=False, non_stop=False):
         self._quality = quality
         self._bimg = None
         self._dilated_bimg = None
@@ -46,6 +46,8 @@ class R2Tracer(Tracer):
         self._erase_ratio = 1.5
         # Whether the unconnected branches will be discarded
         self._clean = clean
+        # Whether to ignore the gap and online confidence stopping criteria
+        self._non_stop = non_stop
         self._eps = 1e-5
 
 
@@ -62,7 +64,7 @@ class R2Tracer(Tracer):
 
         # Iterative Back Tracking with Erasing
         if not self._silent:
-            print('(5) --Start Backtracking...')
+            print('(5) --Start Backtracking with {} ...'.format('non stop' if self._non_stop else 'standard stopping criteria'))
         swc = self._iterative_backtrack()
 
         if self._clean:
@@ -240,7 +242,7 @@ class R2Tracer(Tracer):
                     break
 
                 # 2. Check for the large gap criterion
-                if branch.gap > np.asarray(branch.radius).mean() * 8:
+                if branch.gap > np.asarray(branch.radius).mean() * 8 and not self._non_stop:
                     break
                 else:
                     branch.reset_gap()
@@ -255,8 +257,8 @@ class R2Tracer(Tracer):
                 if branch.is_stucked():
                     break
 
-                # 5. Check for low online confidence 
-                if branch.low_conf:
+                # 5. Check for low online confidence
+                if branch.low_conf and not self._non_stop:
                     keep = False
                     break
 

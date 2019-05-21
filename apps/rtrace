@@ -80,6 +80,11 @@ if __name__ == '__main__':
     parser.add_argument('--no-clean', dest='clean', action='store_false',
                         help="Keep the unconnected segments")
     parser.set_defaults(clean=True)
+
+    parser.add_argument('--non-stop', dest='non_stop', action='store_true',
+                        help="Whether to ignore the stopping criteria & just keep going no matter what. This is only used when you are sure all the positive voxels should belong to the structures of interests.")
+    parser.set_defaults(non_stop=False)
+
     parser.add_argument('--npush', dest='npush', type=int,
                         default=0, help="Number of iterations for pushing the centerline nodes to the center with the binary map boundaries. This is a post-processing step not nessensary for all the applications. When the number of steps increases, each node will be closer to the center locally and the curves will be less smoother.")
 
@@ -125,7 +130,8 @@ if __name__ == '__main__':
     tracer = R2Tracer(quality=args.quality,
                       silent=args.silent,
                       speed=args.speed,
-                      clean=args.clean)
+                      clean=args.clean,
+                      non_stop=args.non_stop)
     swc, soma = tracer.trace(img, args.threshold)
     if args.npush > 0:
         swc.push_nodes_with_binary(img > args.threshold, niter=args.npush)
