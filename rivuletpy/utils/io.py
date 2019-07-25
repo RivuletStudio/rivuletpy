@@ -130,8 +130,9 @@ def swc2vtk(swc, outvtkpath):
     vtklinestr = ''
     for i in range(swc.shape[0]):
         id, pid = swc[i, 0], swc[i, -1]
-        linectr += 1
-        vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
+        if pid >= 0:
+            linectr += 1
+            vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
 
     vtkstr += 'LINES {} {}\n'.format(linectr, linectr * 3)
     vtkstr += vtklinestr
