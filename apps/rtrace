@@ -17,8 +17,9 @@ def show_logo():
 8888888P\"  888 888  888 888  888 888 d8P  Y8b 888           .od888P\"  
 888 T88b   888 Y88  88P 888  888 888 88888888 888          d88P\"      
 888  T88b  888  Y8bd8P  Y88b 888 888 Y8b.     Y88b.        888\"       
-888   T88b 888   Y88P    \"Y88888 888  \"Y8888   \"Y888       888888888  \n\n\n\n"""
+888   T88b 888   Y88P    \"Y88888 888  \"Y8888   \"Y888       888888888\n"""
     print(s)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -150,13 +151,15 @@ if __name__ == '__main__':
 
     # Save to vtk is required
     if args.vtk:
+        print('Saving to SWC format...')
+        print(outpath)
+        swc.save(outpath.replace('.vtk', '.swc'))
         if args.file.endswith('.mhd'):
             print('Converting to world space...')
             mhd = sitk.ReadImage(args.file)
             swc = swc2world(swc.get_array(),
                             mhd.GetOrigin(),
                             [args.tracing_resolution] * 3)
-
         print('Saving to VTK format...')
         swc2vtk(swc, outpath.replace('.swc', '.vtk'))
 
