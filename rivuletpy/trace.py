@@ -49,7 +49,7 @@ class R2Tracer(Tracer):
         # Whether to ignore the gap and online confidence stopping criteria
         self._non_stop = non_stop
         self._eps = 1e-5
-
+        self._coverage_list = np.asarray([0])
 
     def trace(self, img, threshold):
         '''
@@ -57,7 +57,7 @@ class R2Tracer(Tracer):
         '''
         self.img = img
         self._bimg = (img > threshold).astype('int')  # Segment image
-        if not self._silent: print('(1) -- Detecting Soma...', end='')
+        if not self._silent: print('(1) --Detecting Soma... ', end='')
         self._soma = Soma()
         self._soma.detect(self._bimg, not self._quality, self._silent)
         self._prep()
@@ -68,6 +68,7 @@ class R2Tracer(Tracer):
         swc = self._iterative_backtrack()
 
         if self._clean:
+
             swc.prune()
 
         return swc, self._soma
@@ -106,7 +107,6 @@ class R2Tracer(Tracer):
         if not self._silent: self._pbar.update(self._cover_ctr_new - self._cover_ctr_old)
         self._cover_ctr_old = self._cover_ctr_new
 
-
     def _make_grad(self):
         # Get the gradient of the Time-crossing map
         dx, dy, dz = self._dist_gradient()
@@ -115,7 +115,6 @@ class R2Tracer(Tracer):
         self._grad = (RegularGridInterpolator(standard_grid, dx),
                       RegularGridInterpolator(standard_grid, dy),
                       RegularGridInterpolator(standard_grid, dz))
-
 
     def _make_dt(self):
         '''
@@ -213,7 +212,6 @@ class R2Tracer(Tracer):
                 0, 1, self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2],
                 self._soma.radius, -1, 1.
             ]), (1, 8)))
-        
 
         if not self._silent:
             self._pbar = tqdm(total=math.floor(self._nforeground * self._target_coverage))
@@ -225,6 +223,10 @@ class R2Tracer(Tracer):
             srcpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
             branch = R2Branch()
             branch.add(srcpt, 1., 1.)
+            self._coverage_list = np.append(self._coverage_list, self._coverage)
+            # TODO: break loop if not updating coverage
+            if len(self._coverage_list) > 4 and self._coverage_list[-1] == self._coverage_list[-4]:
+                break
 
             # Erase the source point just in case
             self._tt[math.floor(srcpt[0]), math.floor(srcpt[1]), math.floor(srcpt[2])] = -2
@@ -283,7 +285,7 @@ class R2Tracer(Tracer):
 
             # Add to SWC if it was decided to be kept
             if keep:
-                pidx = None 
+                pidx = None
                 if branch.reached_soma:
                     pidx = 0;
                 elif branch.touch_idx >= 0:
@@ -291,10 +293,12 @@ class R2Tracer(Tracer):
                 swc.add_branch(branch, pidx)
         return swc
 
+
 class Branch(object):
     def __init__(self):
         self.pts = []
         self.radius = []
+
 
 class R2Branch(Branch):
     def __init__(self):
@@ -316,7 +320,6 @@ class R2Branch(Branch):
         self.ma_short_window = 4
         self.ma_long_window = 10
         self.in_valley = False
-
 
     def add(self, pt, conf, radius):
         self.pts.append(pt)
@@ -414,7 +417,6 @@ def estimate_radius(pt, bimg):
             break
 
     return r
-
 
 
 def exponential_moving_average(p, ema, n):

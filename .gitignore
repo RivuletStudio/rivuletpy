@@ -11,3 +11,4 @@ build/*
 *.tar.gz
 scripts/recon_my_tif.sh*
 src/*
+rivuletpy.egg-info/*

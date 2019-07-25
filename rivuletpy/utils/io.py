@@ -3,6 +3,7 @@ import numpy as np
 from scipy import io as sio
 import SimpleITK as sitk
 
+
 def loadimg(file, target_resolution):
     if file.endswith('.mat'):
         filecont = sio.loadmat(file)
@@ -27,8 +28,11 @@ def loadimg(file, target_resolution):
         import nibabel as nib
         img = nib.load(file)
         img = img.get_data()
+    elif file.endswith('.npz'):
+        data = np.load(file)
+        img = np.array(data['data_output'])
     else:
-        raise IOError("The extension of " + file + 'is not supported. File extension supported are: *.tif, *.mat, *.nii')
+        raise IOError("The extension of " + file + ' is not supported. File extension supported are: *.tif, *.mat, *.nii')
     return img
 
 
@@ -105,8 +109,9 @@ def crop(img, thr):
 
 
 def swc2world(swc, origin, spacing):
-    swc[:, 2] *= spacing[0]
-    swc[:, 3] *= spacing[1]
+    print('!!!!!!!SWC2WORLD is modified which might cause future problem')
+    swc[:, 2] *= spacing[0] * (-1)
+    swc[:, 3] *= spacing[1] * (-1)
     swc[:, 4] *= spacing[2]
     swc[:, 2] += origin[0]
     swc[:, 3] += origin[1]
@@ -130,8 +135,9 @@ def swc2vtk(swc, outvtkpath):
     vtklinestr = ''
     for i in range(swc.shape[0]):
         id, pid = swc[i, 0], swc[i, -1]
-        linectr += 1
-        vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
+        if pid >= 0:
+            linectr += 1
+            vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
 
     vtkstr += 'LINES {} {}\n'.format(linectr, linectr * 3)
     vtkstr += vtklinestr

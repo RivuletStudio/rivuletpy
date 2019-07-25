@@ -2,6 +2,7 @@ from collections import deque
 import numpy as np
 from scipy.spatial.distance import cdist
 
+
 def precision_recall(swc1, swc2, dist1=4, dist2=4):
     '''
     Calculate the precision, recall and F1 score between swc1 and swc2 (ground truth)
@@ -110,7 +111,7 @@ def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
     “NetMets: software for quantifying and visualizing errors in biological network segmentation.,” 
     BMC Bioinformatics, vol. 13 Suppl 8, no. Suppl 8, p. S7, 2012.
     '''
-
+    print('!!!Connectivity function is being modified which might cause future problem.')
     # graph Initialisation
     d = cdist(swc1[:, 2:5], swc2[:, 2:5]) # Pairwise distances between 2 swc files
     mindist1, mindist2 = d.min(axis=1), d.min(axis=0)
@@ -157,8 +158,8 @@ def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
         midx1 = set(midx1) - set(leafidx1)
         leafidx2 = find_leaf_idx(swc2)
         midx2 = set(midx2) - set(leafidx2)
-
-    return len(midx1) / len(mid1), len(midx2) / len(mid2)
+    # return len(midx1) / len(mid1), len(midx2) / len(mid2)
+    return len(midx1), len(midx2), len(mid1), len(mid2)
 
 
 def find_leaf_idx(swc):
