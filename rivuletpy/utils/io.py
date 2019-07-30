@@ -3,6 +3,7 @@ import numpy as np
 from scipy import io as sio
 import SimpleITK as sitk
 
+
 def loadimg(file, target_resolution):
     if file.endswith('.mat'):
         filecont = sio.loadmat(file)
@@ -28,7 +29,8 @@ def loadimg(file, target_resolution):
         img = nib.load(file)
         img = img.get_data()
     else:
-        raise IOError("The extension of " + file + 'is not supported. File extension supported are: *.tif, *.mat, *.nii')
+        raise IOError("The extension of " + file +
+                      'is not supported. File extension supported are: *.tif, *.mat, *.nii')
     return img
 
 
@@ -70,7 +72,7 @@ def loadswc(filepath):
         for l in lines:
             if not l.startswith('#'):
                 cells = l.split(' ')
-                if len(cells) ==7:
+                if len(cells) == 7:
                     cells = [float(c) for c in cells]
                     # cells[2:5] = [c-1 for c in cells[2:5]]
                     swc.append(cells)
@@ -115,36 +117,47 @@ def swc2world(swc, origin, spacing):
 
 
 def swc2vtk(swc, outvtkpath):
+    swc_arr = swc.get_array()
+    nnode = swc_arr.shape[0]
+
     vtkstr = '# vtk DataFile Version 2.0\n'
     vtkstr += 'Generated with Rivuletpy\n'
     vtkstr += 'ASCII\n'
     vtkstr += 'DATASET POLYDATA\n'
-    vtkstr += 'POINTS {} float\n'.format(swc.shape[0])
+    vtkstr += 'POINTS {} float\n'.format(nnode)
 
     id2vtkidx = {}
-    for i in range(swc.shape[0]):
-        vtkstr += '{} {} {}\n'.format(swc[i, 2], swc[i, 3], swc[i, 4])
-        id2vtkidx[int(swc[i, 0])] = i
+    for i in range(nnode):
+        vtkstr += '{} {} {}\n'.format(swc_arr[i, 2],
+                                      swc_arr[i, 3],
+                                      swc_arr[i, 4])
+        id2vtkidx[int(swc_arr[i, 0])] = i
 
     linectr = 0
     vtklinestr = ''
-    for i in range(swc.shape[0]):
-        id, pid = swc[i, 0], swc[i, -1]
-        if pid >= 0:
+    for i in range(nnode):
+        id, pid = swc_arr[i, 0], swc_arr[i, -1]
+        if pid >= 0 and int(pid) in id2vtkidx:
             linectr += 1
-            vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
+            vtklinestr += '{} {} {}\n'.format(2,
+                                              id2vtkidx[int(id)],
+                                              id2vtkidx[int(pid)])
 
     vtkstr += 'LINES {} {}\n'.format(linectr, linectr * 3)
     vtkstr += vtklinestr
 
-    vtkstr += "POINT_DATA {}\n".format(swc.shape[0])
+    vtkstr += "POINT_DATA {}\n".format(nnode)
     vtkstr += "SCALARS contourArray double\n"
     vtkstr += "LOOKUP_TABLE default\n"
-    for i in range(swc.shape[0]):
-        vtkstr += '{}\n'.format(swc[i, -2])
+
+    for i in range(nnode):
+        vtkstr += '{}\n'.format(swc_arr[i, -2])
+
     vtkstr += "SCALARS indicatorArray char\n"
     vtkstr += "LOOKUP_TABLE default\n"
-    for i in range(swc.shape[0]):
+
+    for i in range(nnode):
         vtkstr += '0\n'
+
     with open(outvtkpath, 'w') as f:
         f.write(vtkstr)

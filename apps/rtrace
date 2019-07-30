@@ -102,7 +102,7 @@ if __name__ == '__main__':
     parser.set_defaults(view=False)
 
     parser.add_argument('--tracing_resolution', type=float, required=False,
-                        help='Only valid for mhd input files. Will resample the mhd array into isotropic resolution before tracing. Default 1mm', default=1.)
+                        help='Only valid for input files compatible with ITK. Will resample the image array into isotropic resolution before tracing. Default 1mm', default=1.)
     parser.add_argument('--vtk', action='store_true',
                         help="Store the world coordinate vtk format along with the swc")
 
@@ -152,14 +152,15 @@ if __name__ == '__main__':
     # Save to vtk is required
     if args.vtk:
         print('Saving to SWC format...')
-        print(outpath)
         swc.save(outpath.replace('.vtk', '.swc'))
-        if args.file.endswith('.mhd'):
+
+        if not args.file.endswith('.tif'):
             print('Converting to world space...')
-            mhd = sitk.ReadImage(args.file)
-            swc = swc2world(swc.get_array(),
-                            mhd.GetOrigin(),
-                            [args.tracing_resolution] * 3)
+            img = sitk.ReadImage(args.file)
+            swcarr = swc2world(swc.get_array(),
+                               img.GetOrigin(),
+                               [args.tracing_resolution] * 3)
+            swc._data[:, :7] = swcarr
         print('Saving to VTK format...')
         swc2vtk(swc, outpath.replace('.swc', '.vtk'))
 
