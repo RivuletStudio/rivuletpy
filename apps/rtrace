@@ -147,7 +147,7 @@ if __name__ == '__main__':
         soma.pad(crop_region)
         soma.save((os.path.splitext(outpath)[0] + 'soma.tif'))
 
-    print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+    print('-- Finished: %.2f sec.' % (time.time() - starttime))
 
     # Save to vtk is required
     if args.vtk:

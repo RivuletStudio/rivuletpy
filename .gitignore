@@ -12,3 +12,6 @@ build/*
 scripts/recon_my_tif.sh*
 src/*
 rivuletpy.egg-info/*
+.ipynb_checkpoints/
+apps/.ipynb_checkpoints/
+rivuletpy/.ipynb_checkpoints/
