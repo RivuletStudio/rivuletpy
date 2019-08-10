@@ -136,11 +136,11 @@ def swc2vtk(swc, outvtkpath):
     for i in range(swc.shape[0]):
         id, pid = swc[i, 0], swc[i, -1]
         if pid >= 0:
-            linectr += 1
             if pid not in id2vtkidx.keys():
                 print('another individual tree found')
             else:
                 vtklinestr += '{} {} {}\n'.format(2, id2vtkidx[int(id)], id2vtkidx[int(pid)])
+                linectr += 1
 
     vtkstr += 'LINES {} {}\n'.format(linectr, linectr * 3)
     vtkstr += vtklinestr
