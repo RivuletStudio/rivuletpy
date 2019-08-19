@@ -4,7 +4,7 @@ from scipy.spatial.distance import cdist
 
 
 def precision_recall(swc1, swc2, dist1=4, dist2=4):
-    '''
+    """
     Calculate the precision, recall and F1 score between swc1 and swc2 (ground truth)
     It generates a new swc file with node types indicating the agreement between two input swc files
     In the output swc file: node type - 1. the node is in both swc1 agree with swc2
@@ -14,9 +14,9 @@ def precision_recall(swc1, swc2, dist1=4, dist2=4):
     gt: The swc from the ground truth
     dist1: The distance to consider for precision
     dist2: The distance to consider for recall
-    '''
+    """
 
-    TPCOLOUR, FPCOLOUR, FNCOLOUR  = 3, 2, 180 # COLOUR is the SWC node type defined for visualising in V3D
+    TPCOLOUR, FPCOLOUR, FNCOLOUR = 3, 2, 180  # COLOUR is the SWC node type defined for visualising in V3D
 
     d = cdist(swc1[:, 2:5], swc2[:, 2:5])
     mindist1 = d.min(axis=1)
@@ -82,7 +82,7 @@ def upsample_swc(swc):
 
 
 def gaussian_distance(swc1, swc2, sigma=2.):
-    '''
+    """
     The geometric metrics of NetMets. The gaussian distances between the closest neighbours
     returns : (M1, M2) where M1 is the gaussian distances from the nodes in swc1 to their closest neighbour in swc2;
     vise versa for M2
@@ -90,7 +90,7 @@ def gaussian_distance(swc1, swc2, sigma=2.):
     D. Mayerich, C. Bjornsson, J. Taylor, and B. Roysam, 
     “NetMets: software for quantifying and visualizing errors in biological network segmentation.,” 
     BMC Bioinformatics, vol. 13 Suppl 8, no. Suppl 8, p. S7, 2012.
-    '''
+    """
     swc1 = upsample_swc(swc1)
     swc2 = upsample_swc(swc2)
 
@@ -103,14 +103,14 @@ def gaussian_distance(swc1, swc2, sigma=2.):
 
 
 def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
-    '''
-    The connectivity metrics of NetMets. 
+    """
+    The connectivity metrics of NetMets.
     Returns (midx1, midx2): the indices of nodes in each swc that have connection errors
 
-    D. Mayerich, C. Bjornsson, J. Taylor, and B. Roysam, 
-    “NetMets: software for quantifying and visualizing errors in biological network segmentation.,” 
+    D. Mayerich, C. Bjornsson, J. Taylor, and B. Roysam,
+    “NetMets: software for quantifying and visualizing errors in biological network segmentation.,”
     BMC Bioinformatics, vol. 13 Suppl 8, no. Suppl 8, p. S7, 2012.
-    '''
+    """
     print('!!!Connectivity function is being modified which might cause future problem.')
     # graph Initialisation
     d = cdist(swc1[:, 2:5], swc2[:, 2:5]) # Pairwise distances between 2 swc files
@@ -205,9 +205,9 @@ def build_graph_from_swc(swc):
 
 
 def build_core_graph(g, cnodes):
-    '''
+    """
     Returns the edges not used in building the core graph (topologically matched between two graphs)
-    '''
+    """
 
     cnodes = cnodes.copy() # Coloured node list to mark which have not been discovered 
     dg = g.copy()
@@ -234,9 +234,9 @@ def build_core_graph(g, cnodes):
 
 
 def find_core_neighbours_bfs(g, root, cnodes):
-    '''
+    """
     Find the coloured neighbours of root node with BFS search
-    '''
+    """
 
     visited = {}
     node_queue = deque()
