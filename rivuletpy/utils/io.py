@@ -127,10 +127,11 @@ def swc2vtk(swc, outvtkpath):
     vtkstr += 'POINTS {} float\n'.format(swc.shape[0])
 
     id2vtkidx = {}
+    colortype = {}
     for i in range(swc.shape[0]):
         vtkstr += '{} {} {}\n'.format(swc[i, 2], swc[i, 3], swc[i, 4])
         id2vtkidx[int(swc[i, 0])] = i
-
+        colortype[int(swc[i, 0])] = int(swc[i, 1])
     linectr = 0
     vtklinestr = ''
     for i in range(swc.shape[0]):
@@ -145,14 +146,14 @@ def swc2vtk(swc, outvtkpath):
     vtkstr += 'LINES {} {}\n'.format(linectr, linectr * 3)
     vtkstr += vtklinestr
 
-    vtkstr += "POINT_DATA {}\n".format(swc.shape[0])
-    vtkstr += "SCALARS contourArray double\n"
-    vtkstr += "LOOKUP_TABLE default\n"
-    for i in range(swc.shape[0]):
-        vtkstr += '{}\n'.format(swc[i, -2])
-    vtkstr += "SCALARS indicatorArray char\n"
-    vtkstr += "LOOKUP_TABLE default\n"
-    for i in range(swc.shape[0]):
-        vtkstr += '0\n'
+#     vtkstr += "POINT_DATA {}\n".format(swc.shape[0])
+#     vtkstr += "SCALARS contourArray double\n"
+#     vtkstr += "LOOKUP_TABLE default\n"
+#     for i in range(swc.shape[0]):
+#         vtkstr += '{}\n'.format(swc[i, -2])
+#     vtkstr += "SCALARS indicatorArray char\n"
+#     vtkstr += "LOOKUP_TABLE default\n"
+#     for i in range(swc.shape[0]):
+#         vtkstr += '0\n'
     with open(outvtkpath, 'w') as f:
         f.write(vtkstr)
