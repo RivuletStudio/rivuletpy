@@ -111,14 +111,14 @@ def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
     “NetMets: software for quantifying and visualizing errors in biological network segmentation.,”
     BMC Bioinformatics, vol. 13 Suppl 8, no. Suppl 8, p. S7, 2012.
     """
-    print('!!!Connectivity function is being modified which might cause future problem.')
+    # TODO Connectivity function is being modified which might cause future problem.
     # graph Initialisation
-    d = cdist(swc1[:, 2:5], swc2[:, 2:5]) # Pairwise distances between 2 swc files
+    d = cdist(swc1[:, 2:5], swc2[:, 2:5])  # Pairwise distances between 2 swc files
     mindist1, mindist2 = d.min(axis=1), d.min(axis=0)
     minidx1, minidx2 = d.argmin(axis=1), d.argmin(axis=0)
 
     # Colour nodes - matched nodes have the same colour
-    cnodes1, cnodes2 = {}, {}# Coloured Nodes <id, colour>
+    cnodes1, cnodes2 = {}, {}  # Coloured Nodes <id, colour>
     for i in range(swc1.shape[0]):
         if mindist1[i] < sigma: 
             cnodes1[swc1[i, 0]] = i
@@ -149,8 +149,8 @@ def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
     id_idx_hash2 = {}
     for i in range(swc2.shape[0]): id_idx_hash2[swc2[i, 0]] = i
 
-    midx1 = [ int(id_idx_hash1[id]) for id in mid1 ] # Mistake coloured nodes in edges of dg1
-    midx2 = [ int(id_idx_hash2[id]) for id in mid2 ] # Mistake coloured nodes in edges of dg2
+    midx1 = [ int(id_idx_hash1[id]) for id in mid1 ]  # Mistake coloured nodes in edges of dg1
+    midx2 = [ int(id_idx_hash2[id]) for id in mid2 ]  # Mistake coloured nodes in edges of dg2
 
     # Filter out the midx of nodes on leaf segments
     if ignore_leaf:
@@ -164,8 +164,8 @@ def connectivity_distance(swc1, swc2, sigma=2., ignore_leaf=True):
 
 def find_leaf_idx(swc):
     # The degree of a node is the number of children + 1 except the root
-    degree  = np.zeros(swc.shape[0])
-    for i  in range(swc.shape[0]):
+    degree = np.zeros(swc.shape[0])
+    for i in range(swc.shape[0]):
         degree[i] = np.count_nonzero(swc[:, -1] == swc[i, 0]) + 1
 
     # A node is a leaf node if it is parent to no other node
@@ -209,7 +209,7 @@ def build_core_graph(g, cnodes):
     Returns the edges not used in building the core graph (topologically matched between two graphs)
     """
 
-    cnodes = cnodes.copy() # Coloured node list to mark which have not been discovered 
+    cnodes = cnodes.copy()  # Coloured node list to mark which have not been discovered
     dg = g.copy()
 
     while cnodes:
@@ -217,13 +217,13 @@ def build_core_graph(g, cnodes):
         core_neighbours = find_core_neighbours_bfs(dg, root, cnodes)  # BFS to discover the neighbour
 
         nodes_on_path = set()
-        if  core_neighbours:
+        if core_neighbours:
             for id in core_neighbours:
                 nodes_on_path = nodes_on_path.union(track_path_nodes_dijstra(dg, id, root))
         else:
             nodes_on_path.add(root)
 
-        cnodes.pop(root) # Remove the discovered coloured nodes
+        cnodes.pop(root)  # Remove the discovered coloured nodes
         for n in nodes_on_path:
             dg.pop(n, None) 
 
@@ -248,9 +248,9 @@ def find_core_neighbours_bfs(g, root, cnodes):
         r = node_queue.popleft()
 
         if r in cnodes and r != root: 
-            core_neighbours.append(r) # If this node is coloured, bfs stops on it and add it to the core neighbours
+            core_neighbours.append(r)  # If this node is coloured, bfs stops on it and add it to the core neighbours
         else:
-            for n in g[r]: # visit all the neighbours of r
+            for n in g[r]:  # visit all the neighbours of r
                 if n not in visited:
                     visited[n] = True
                     node_queue.append(n)

@@ -14,11 +14,13 @@ black = (0, 0, 0, 1)
 gray = (0.5, 0.5, 0.5)
 red = (1, 0, 0)
 
+
 def _add_attrs(geom, attrs):
     if "color" in attrs:
         geom.set_color(*attrs["color"])
     if "linewidth" in attrs:
         geom.set_linewidth(attrs["linewidth"])
+
 
 class Cylinder3(Geom):
     def __init__(self, centre=(0.0, 0.0, 0.0), radius=2, face=(1,0,0)):
@@ -53,6 +55,7 @@ class Cylinder3(Geom):
         glMultMatrixf(M)
         gluCylinder(gluNewQuadric(), self._radius, 0, 4*self._radius, 100, 100) 
         glPopMatrix()
+
 
 class Ball3(Geom):
     def __init__(self, centre=(0.0, 0.0, 0.0), radius=2):

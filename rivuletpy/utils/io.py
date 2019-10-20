@@ -109,7 +109,7 @@ def crop(img, thr):
 
 
 def swc2world(swc, origin, spacing):
-    print('!!!!!!!SWC2WORLD is modified which might cause future problem')
+    # TODO SWC2WORLD is modified which might cause future problem
     swc[:, 2] *= spacing[0] * (-1)
     swc[:, 3] *= spacing[1] * (-1)
     swc[:, 4] *= spacing[2]
