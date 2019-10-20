@@ -215,7 +215,14 @@ class SWC(object):
                     l = Line3(translated[i, :], translated[pidx, :].flatten())
                     l.set_color(*line_color)
                     viewer.add_geom(l)
-
+        # viewer.transform.set_rotation(90, 0, 0)
+        # viewer.render(return_rgb_array=False)
+        # import pyglet
+        # pyglet.image.get_buffer_manager().get_color_buffer().save('screenshot.png')
+        # viewer.transform.set_rotation(90, 0, 0)
+        # viewer.render(return_rgb_array=False)
+        # import pyglet
+        # pyglet.image.get_buffer_manager().get_color_buffer().save('screenshot2.png')
         while(True):
             try:
                 viewer.render(return_rgb_array=False)
