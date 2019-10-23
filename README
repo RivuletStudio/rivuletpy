@@ -61,19 +61,10 @@ Pull requests are definitely welcomed! Before you make a pull requests, please k
 ## Installation
 note: 3B means the option B for the third step
 
-### 0A. Setup the Anaconda environment (Easy)
+### 0. Setup the Anaconda environment
 ```
-$ conda create -n riv python=python3.5 anaconda
+$ conda create -n riv python=3.5 anaconda
 $ source activate riv
-```
-### 0B. Setup the virtualenv (Alternative)
-It is recommended that you use [`pip`](https://pip.pypa.io/en/stable/) to install
-`Rivuletpy` into a [`virtualenv`](https://virtualenv.pypa.io/en/stable/). The following
-assumes a `virtualenv` named `riv` has been set up and
-activated. We will see three ways to install `Rivuletpy`
-```
-$ virtualenv -p python3 riv
-$ . riv/bin/activate
 ```
 
 ### 1. Setup the dependencies (Not required with Anaconda environment)
@@ -89,18 +80,7 @@ To install rivuletpy with pip, you need to install the following packages manual
 ```
 
 
-### 2A. Install Rivuletpy from the Pypi (Recommended)
-
-```
-(riv)$ pip3 install rivuletpy
-```
-If you are using Anaconda
-```
-(riv)$ pip install rivuletpy # The pip should be correspnded to python3
-```
-
-### 2B. Install Rivuletpy from source (Optional)
-Optionally you can install Rivuletpy from the source files
+### 2. Install Rivuletpy from source
 
 ```
 (riv)$ git clone https://github.com/RivuletStudio/rivuletpy.git
