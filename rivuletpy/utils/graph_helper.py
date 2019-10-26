@@ -42,8 +42,8 @@ def swc_to_branch_id(swc_array_input):
     parent_id_branch_index = np.argwhere(parent_id_times > 1)
     parent_id_branch = parent_ids[parent_id_branch_index]
     parent_id_branch = parent_id_branch.astype('int')
-    print('the shape of parent_id_branch', parent_id_branch.shape)
-    return parent_id_branch
+    parent_id_branch_times = parent_id_times[parent_id_branch_index]
+    return parent_id_branch, parent_id_branch_times
 
 
 def downsample_swc(child_node_input,
