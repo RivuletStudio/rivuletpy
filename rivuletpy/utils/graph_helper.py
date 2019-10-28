@@ -170,33 +170,34 @@ def downsample_swc(child_node_input,
         return sampled_tree_map_input
 
 
-swcpath = '/home/donghao/Desktop/Liver_vessel/dh_test/runs/vessel_pred_0.1.swc'
-swc = loadswc(swcpath)
-swc_copy = swc.copy()
-swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=swc_copy)
-total_node_number = swc_to_total_node_num(swc_array_input=swc_copy)
-tree_map = create_tree_map(swc_array_input=swc_copy,
-                           total_node_number_input=total_node_number)
-tree_map_copy = tree_map.copy()
-sampled_tree_map = tree_map.copy()
-current_path = []
-node_x_path = []
-node_y_path = []
-node_z_path = []
-ini_length = 0
-last_node_id = swc_copy[0, 0]
-sampling_length = 3
-output_downsample_swc = downsample_swc(child_node_input=last_node_id,
-                                       swc_array_input=swc_copy,
-                                       swcindex_nodeid_map_input=swcindex_nodeid_map,
-                                       sampling_length_input=sampling_length,
-                                       tree_map_copy_input=tree_map_copy,
-                                       current_path_input=current_path,
-                                       node_x_path_input=node_x_path,
-                                       node_y_path_input=node_y_path,
-                                       node_z_path_input=node_z_path,
-                                       current_length_input=ini_length,
-                                       sampled_tree_map_input=sampled_tree_map)
-# print('output_downsample_swc', output_downsample_swc)
-print('the length of tree_map before downsampling', len(tree_map))
-print('the length of tree_map after downsampling', len(output_downsample_swc))
+def unit_helper1():
+    swcpath = '/home/donghao/Desktop/Liver_vessel/dh_test/runs/vessel_pred_0.1.swc'
+    swc = loadswc(swcpath)
+    swc_copy = swc.copy()
+    swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=swc_copy)
+    total_node_number = swc_to_total_node_num(swc_array_input=swc_copy)
+    tree_map = create_tree_map(swc_array_input=swc_copy,
+                               total_node_number_input=total_node_number)
+    tree_map_copy = tree_map.copy()
+    sampled_tree_map = tree_map.copy()
+    current_path = []
+    node_x_path = []
+    node_y_path = []
+    node_z_path = []
+    ini_length = 0
+    last_node_id = swc_copy[0, 0]
+    sampling_length = 3
+    output_downsample_swc = downsample_swc(child_node_input=last_node_id,
+                                           swc_array_input=swc_copy,
+                                           swcindex_nodeid_map_input=swcindex_nodeid_map,
+                                           sampling_length_input=sampling_length,
+                                           tree_map_copy_input=tree_map_copy,
+                                           current_path_input=current_path,
+                                           node_x_path_input=node_x_path,
+                                           node_y_path_input=node_y_path,
+                                           node_z_path_input=node_z_path,
+                                           current_length_input=ini_length,
+                                           sampled_tree_map_input=sampled_tree_map)
+    # print('output_downsample_swc', output_downsample_swc)
+    print('the length of tree_map before downsampling', len(tree_map))
+    print('the length of tree_map after downsampling', len(output_downsample_swc))
