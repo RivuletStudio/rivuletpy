@@ -18,3 +18,4 @@ rivuletpy/.ipynb_checkpoints/
 ../../tests/data/test.tif
 *.swc
 *.tif
+*.o

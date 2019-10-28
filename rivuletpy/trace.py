@@ -2,7 +2,7 @@ import math
 from tqdm import tqdm
 import numpy as np
 import skfmm
-import msfm
+from . import msfm
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import binary_dilation
 # from filtering.morphology import ssm
