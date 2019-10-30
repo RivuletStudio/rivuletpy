@@ -157,71 +157,72 @@ def edge_vec_to_edge_nodes(edge_vec_input, newnode_all_input):
     return edge_list
 
 
-swcpath = '/home/donghao/Desktop/Liver_vessel/dh_test/runs/vessel_pred_0.1.swc'
-swc = loadswc(swcpath)
-swc_copy = swc.copy()
-total_node_number = swc_to_total_node_num(swc_array_input=swc_copy)
-tree_map = create_tree_map(swc_array_input=swc_copy,
-                           total_node_number_input=total_node_number)
-swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=swc_copy)
-reversed_tree_map = reverse_tree_map(tree_map_input=tree_map)
-newnode_all = create_all_newnode(swc_array_input=swc_copy,
-                                 tree_map_input=tree_map,
-                                 swcindex_nodeid_map_input=swcindex_nodeid_map,
-                                 total_node_number_input=total_node_number)
-cur_node_counter = 0
-for cur_node in tree_map.keys():
+def unit_helper3():
+    swcpath = '/home/donghao/Desktop/Liver_vessel/dh_test/runs/vessel_pred_0.1.swc'
+    swc = loadswc(swcpath)
+    swc_copy = swc.copy()
+    total_node_number = swc_to_total_node_num(swc_array_input=swc_copy)
+    tree_map = create_tree_map(swc_array_input=swc_copy,
+                               total_node_number_input=total_node_number)
+    swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=swc_copy)
+    reversed_tree_map = reverse_tree_map(tree_map_input=tree_map)
+    newnode_all = create_all_newnode(swc_array_input=swc_copy,
+                                     tree_map_input=tree_map,
+                                     swcindex_nodeid_map_input=swcindex_nodeid_map,
+                                     total_node_number_input=total_node_number)
+    cur_node_counter = 0
+    for cur_node in tree_map.keys():
+        edge_vec = node_to_edge(swc_array_input=swc_copy,
+                                node_id_input=cur_node,
+                                swcindex_nodeid_map_input=swcindex_nodeid_map,
+                                reversed_tree_map_input=reversed_tree_map,
+                                newnode_all_input=newnode_all)
+        if cur_node_counter == 0:
+            edge_vec_list = edge_vec
+        else:
+            edge_vec_list = np.vstack((edge_vec_list, edge_vec))
+        cur_node_counter = cur_node_counter + 1
+    edge_list = edge_vec_to_edge_nodes(edge_vec_input=edge_vec_list, newnode_all_input=newnode_all)
+    print(edge_list)
+
+    print('-----UNIT TEST BEGINS-----')
+    swcpath = '/home/donghao/Desktop/Liver_vessel/dh_test/runs/vessel_pred_0.1.swc'
+    swc = loadswc(swcpath)
+    swc_copy = swc.copy()
+    total_node_number = swc_to_total_node_num(swc_array_input=swc_copy)
+    tree_map = create_tree_map(swc_array_input=swc_copy,
+                               total_node_number_input=total_node_number)
+    swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=swc_copy)
+    reversed_tree_map = reverse_tree_map(tree_map_input=tree_map)
+    node_id = 98
+    node_pid = find_node_pid(swc_array_input=swc_copy,
+                             node_id_input=node_id,
+                             swcindex_nodeid_map_input=swcindex_nodeid_map)
+    node_children = find_node_children(node_id_input=node_id,
+                                       reversed_tree_map_input=reversed_tree_map)
+    print('node_id', node_id, 'node_children', node_children)
+    newnode_all = create_all_newnode(swc_array_input=swc_copy,
+                                     tree_map_input=tree_map,
+                                     swcindex_nodeid_map_input=swcindex_nodeid_map,
+                                     total_node_number_input=total_node_number)
     edge_vec = node_to_edge(swc_array_input=swc_copy,
-                            node_id_input=cur_node,
+                            node_id_input=node_id,
                             swcindex_nodeid_map_input=swcindex_nodeid_map,
                             reversed_tree_map_input=reversed_tree_map,
                             newnode_all_input=newnode_all)
-    if cur_node_counter == 0:
-        edge_vec_list = edge_vec
-    else:
-        edge_vec_list = np.vstack((edge_vec_list, edge_vec))
-    cur_node_counter = cur_node_counter + 1
-edge_list = edge_vec_to_edge_nodes(edge_vec_input=edge_vec_list, newnode_all_input=newnode_all)
-print(edge_list)
-
-print('-----UNIT TEST BEGINS-----')
-swcpath = '/home/donghao/Desktop/Liver_vessel/dh_test/runs/vessel_pred_0.1.swc'
-swc = loadswc(swcpath)
-swc_copy = swc.copy()
-total_node_number = swc_to_total_node_num(swc_array_input=swc_copy)
-tree_map = create_tree_map(swc_array_input=swc_copy,
-                           total_node_number_input=total_node_number)
-swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=swc_copy)
-reversed_tree_map = reverse_tree_map(tree_map_input=tree_map)
-node_id = 98
-node_pid = find_node_pid(swc_array_input=swc_copy,
-                         node_id_input=node_id,
-                         swcindex_nodeid_map_input=swcindex_nodeid_map)
-node_children = find_node_children(node_id_input=node_id,
-                                   reversed_tree_map_input=reversed_tree_map)
-print('node_id', node_id, 'node_children', node_children)
-newnode_all = create_all_newnode(swc_array_input=swc_copy,
-                                 tree_map_input=tree_map,
-                                 swcindex_nodeid_map_input=swcindex_nodeid_map,
-                                 total_node_number_input=total_node_number)
-edge_vec = node_to_edge(swc_array_input=swc_copy,
-                        node_id_input=node_id,
-                        swcindex_nodeid_map_input=swcindex_nodeid_map,
-                        reversed_tree_map_input=reversed_tree_map,
-                        newnode_all_input=newnode_all)
-print('edge_vec', edge_vec)
-# newnode_id_input(0), new_node_structure(1),
-# new_node_x(2), new_node_y(3), new_node_z(4),
-# new_node_radius(5), node_id_input(6), node_pid_input(7)
-test_node_i = find_pairs_from_pairset(id1=170, id2=171, newnode_all_input=newnode_all)
-edgelist = edge_vec_to_edge_nodes(edge_vec_input=edge_vec, newnode_all_input=newnode_all)
-print('edgelist', edgelist)
-parent_id_branch, parent_id_branch_times = swc_to_branch_id(swc_array_input=swc_copy)
-print('the shape of parent_id_branch', parent_id_branch.shape)
-parent_id_branch = np.squeeze(parent_id_branch)
-parent_id_branch_times = np.squeeze(parent_id_branch_times)
-print('parent_id_branch',
-      parent_id_branch,
-      'parent_id_branch_times',
-      parent_id_branch_times)
-print('-----UNIT TEST ENDS-----')
+    print('edge_vec', edge_vec)
+    # newnode_id_input(0), new_node_structure(1),
+    # new_node_x(2), new_node_y(3), new_node_z(4),
+    # new_node_radius(5), node_id_input(6), node_pid_input(7)
+    test_node_i = find_pairs_from_pairset(id1=170, id2=171, newnode_all_input=newnode_all)
+    edgelist = edge_vec_to_edge_nodes(edge_vec_input=edge_vec, newnode_all_input=newnode_all)
+    print('edgelist', edgelist)
+    parent_id_branch, parent_id_branch_times = swc_to_branch_id(swc_array_input=swc_copy)
+    print('the shape of parent_id_branch', parent_id_branch.shape)
+    parent_id_branch = np.squeeze(parent_id_branch)
+    parent_id_branch_times = np.squeeze(parent_id_branch_times)
+    print('parent_id_branch',
+          parent_id_branch,
+          'parent_id_branch_times',
+          parent_id_branch_times)
+    print('-----UNIT TEST ENDS-----')
