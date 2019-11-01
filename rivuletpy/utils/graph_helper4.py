@@ -61,9 +61,9 @@ def newnode_all_help():
           'node_pid_input(7)')
 
 
-def get_heatmap_from_casename(sub_input):
+def get_heatmap_from_casename(sub_input, config_input):
     thre = 0.1
-    liver_vessel_pred_file = os.path.join(config.test_data_path,
+    liver_vessel_pred_file = os.path.join(config_input.test_data_path,
                                           'derived',
                                           'heatmap_pred',
                                           sub_input,
@@ -105,7 +105,6 @@ def get_gtswc_from_sub(sub_input):
         if tree.endswith(".vtk"):
             if tree_counter == 0:
                 tree1_path = gt_vtk_tree_path + '/' + tree
-                print(tree1_path)
                 gt_swc = vtk2swc(tree1_path)
             if tree_counter > 0:
                 tree_path = gt_vtk_tree_path + '/' + tree
