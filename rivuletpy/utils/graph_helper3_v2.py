@@ -76,7 +76,7 @@ def node_to_edge(swc_array_input,
     else:
         return np.asarray([-6, -6, -6, -6])
     connection_set = node_children.copy()
-    connection_set = np.append(connection_set,node_pid)
+    connection_set = np.append(connection_set, node_pid)
     connection_set = connection_set.astype('int')
     collection_set = connection_set[connection_set!=-1]
     connection_num = collection_set.size
@@ -88,9 +88,9 @@ def node_to_edge(swc_array_input,
         for connection_i in range(len(connection_set)):
             for connection_node2 in connection_set[connection_i+1:]:
                 if connection_i == 0:
-                    edge_vec = np.asarray([node_id_input,connection_set[connection_i],connection_node2, node_id_input])
+                    edge_vec = np.asarray([node_id_input, connection_set[connection_i], connection_node2, node_id_input])
                 else:
-                    edge_vec = np.vstack((edge_vec, [node_id_input,connection_set[connection_i],connection_node2, node_id_input]))
+                    edge_vec = np.vstack((edge_vec, [node_id_input, connection_set[connection_i], connection_node2, node_id_input]))
     return edge_vec
 
 

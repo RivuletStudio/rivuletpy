@@ -69,7 +69,7 @@ def get_newnodes_label(sub_input):
     pred_tree_map = create_tree_map(swc_array_input=pred_swc_copy, total_node_number_input=pred_total_node_number)
     prediction_newnodes = get_newnodes_from_swc(swc_array_input=pred_swc_copy)
     pred_swcindex_nodeid_map = create_swcindex_nodeid_map(swc_array_input=pred_swc_copy)
-    match_flag_vec = np.zeros(pred_total_node_number)
+    match_flag_vec = np.zeros(prediction_newnodes.shape[0])
     pred_node_counter = 0
     for cur_pred_newnode in prediction_newnodes:
         match_flag = edge_match_v1(pred_swc_input=pred_swc_copy,

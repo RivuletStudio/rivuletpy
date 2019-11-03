@@ -20,16 +20,18 @@ import os
 
 
 def create_edge_list(swc_array_input,
-                     swcindex_nodeid_map_input,
-                     tree_map_input,
-                     reversed_tree_map_input,
                      newnode_all_input):
+    total_node_number_f = swc_to_total_node_num(swc_array_input=swc_array_input)
+    tree_map_f = create_tree_map(swc_array_input=swc_array_input,
+                                 total_node_number_input=total_node_number_f)
+    swcindex_nodeid_map_f = create_swcindex_nodeid_map(swc_array_input=swc_array_input)
+    reversed_tree_map_f = reverse_tree_map(tree_map_input=tree_map_f)
     cur_node_counter = 0
-    for cur_node in tree_map_input.keys():
+    for cur_node in tree_map_f.keys():
         edge_vec = node_to_edge(swc_array_input=swc_array_input,
                                 node_id_input=cur_node,
-                                swcindex_nodeid_map_input=swcindex_nodeid_map_input,
-                                reversed_tree_map_input=reversed_tree_map_input,
+                                swcindex_nodeid_map_input=swcindex_nodeid_map_f,
+                                reversed_tree_map_input=reversed_tree_map_f,
                                 newnode_all_input=newnode_all_input)
         if cur_node_counter == 0:
             edge_vec_list = edge_vec
@@ -101,7 +103,7 @@ def get_gtswc_from_sub(sub_input):
                                     sub_input)
     tree_names = os.listdir(gt_vtk_tree_path)
     tree_counter = 0
-    for tree in (tree_names):
+    for tree in tree_names:
         if tree.endswith(".vtk"):
             if tree_counter == 0:
                 tree1_path = gt_vtk_tree_path + '/' + tree
@@ -165,8 +167,6 @@ def unit_helper4_part2():
                                      total_node_number_input=total_node_number)
     print('prediction newnode', newnode_all.shape)
     edge_list = create_edge_list(swc_array_input=swc_copy,
-                                 swcindex_nodeid_map_input=swcindex_nodeid_map,
-                                 reversed_tree_map_input=reversed_tree_map,
                                  newnode_all_input=newnode_all)
     edge_list = post_processing_edge_list(edge_list_input=edge_list)
     newnode_all_help()
