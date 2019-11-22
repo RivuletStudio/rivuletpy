@@ -1,4 +1,5 @@
 import os
+import math
 import numpy as np
 from scipy.spatial.distance import cdist
 import vtk
@@ -445,3 +446,296 @@ def get_node_feature_from_heatmap(newnode_id_input, newnode_all_input, heatmap_i
     feature_vec = heatmap_input[node_x-1:node_x+2, node_y-1:node_y+2, node_z-1:node_z+2]
     feature_vec = feature_vec.flatten()
     return feature_vec
+
+
+def init_tree(swc_array_input):
+    swcindex_nodeid_map_f = create_swcindex_nodeid_map(swc_array_input=swc_array_input)
+    total_node_number_f = swc_to_total_node_num(swc_array_input=swc_array_input)
+    tree_map_f = create_tree_map(swc_array_input=swc_array_input,
+                                 total_node_number_input=total_node_number_f)
+    tree_structure = {
+        'swc_array': swc_array_input,
+        'total_node_number': total_node_number_f,
+        'tree_map': tree_map_f,
+        'swcindex_nodeid_map': swcindex_nodeid_map_f
+    }
+    return tree_structure
+
+
+def get_sampled_edge_path(sampling_length_input,
+                          swc_array_input,
+                          swcindex_nodeid_map_input,
+                          child_node_input,
+                          current_path_input,
+                          node_x_path_input,
+                          node_y_path_input,
+                          node_z_path_input,
+                          current_length_input,
+                          edge_path_list_input,
+                          tree_map_copy_input,
+                          sampled_tree_map_input):
+    debug_downsample_swc = False
+    if child_node_input in tree_map_copy_input.keys():
+        swc_array_row_number = swcindex_nodeid_map_input[child_node_input]
+    else:
+        if debug_downsample_swc:
+            print('else is being called')
+        print('child_node_input', child_node_input)
+        child_node_input = list(tree_map_copy_input.keys())[0]
+        swc_array_row_number = swcindex_nodeid_map_input[child_node_input]
+    if debug_downsample_swc:
+        print('swc_array_row_number', swc_array_row_number)
+    node_id = int(swc_array_input[swc_array_row_number, 0])
+    # node_structure = swc_array_input[swc_array_row_number, 1]
+    node_x = swc_array_input[swc_array_row_number, 2]
+    node_y = swc_array_input[swc_array_row_number, 3]
+    node_z = swc_array_input[swc_array_row_number, 4]
+    # node_radius = swc_array_input[swc_array_row_number, 5]
+    node_pid = int(swc_array_input[swc_array_row_number, 6])
+
+    current_path_input.append(node_id)
+    node_x_path_input.append(node_x)
+    node_y_path_input.append(node_y)
+    node_z_path_input.append(node_z)
+
+    current_length = 0
+    node_path_length = len(current_path_input)
+
+    if debug_downsample_swc:
+        print('node_path_length',
+              node_path_length,
+              'current_length_input',
+              current_length_input)
+
+    if len(current_path_input) > 1.5:
+        for i in range(1, len(current_path_input)):
+            current_length = (node_x_path_input[i] - node_x_path_input[i - 1]) * (
+                        node_x_path_input[i] - node_x_path_input[i - 1]) + current_length
+            current_length = (node_y_path_input[i] - node_y_path_input[i - 1]) * (
+                        node_y_path_input[i] - node_y_path_input[i - 1]) + current_length
+            current_length = (node_z_path_input[i] - node_z_path_input[i - 1]) * (
+                        node_z_path_input[i] - node_z_path_input[i - 1]) + current_length
+    current_length_input = current_length_input + math.sqrt(current_length)
+    if current_length_input > 200:
+        current_path_input = []
+        node_x_path_input = []
+        node_y_path_input = []
+        node_z_path_input = []
+        current_length_input = 0
+
+    if node_path_length > 2 and current_length_input > sampling_length_input:
+        if node_pid in swcindex_nodeid_map_input.keys():
+            current_path_input.append(node_pid)
+        edge_path_list_input.append(current_path_input)
+        for remove_i in range(0, node_path_length, 1):
+            cur_node_id = current_path_input[remove_i]
+            if remove_i == 0:
+                if debug_downsample_swc:
+                    print('if condition remove_i', remove_i)
+                start_node_id = cur_node_id
+                end_node_id = sampled_tree_map_input[start_node_id]
+            elif remove_i == node_path_length - 1:
+                if debug_downsample_swc:
+                    print('elif condition remove_i', remove_i)
+                    print('end_node_id', end_node_id)
+                if end_node_id != -1:
+                    end_node_id_parent = sampled_tree_map_input[cur_node_id]
+                    sampled_tree_map_input.pop(cur_node_id)
+                    sampled_tree_map_input[end_node_id] = end_node_id_parent
+            else:
+                if debug_downsample_swc:
+                    print('else condition remove_i', remove_i)
+                if cur_node_id in sampled_tree_map_input.keys():
+                    sampled_tree_map_input.pop(cur_node_id)
+                    if debug_downsample_swc:
+                        print('the length of sampled_tree_map_input', len(sampled_tree_map_input))
+
+    if current_length_input > sampling_length_input:
+        current_path_input = []
+        node_x_path_input = []
+        node_y_path_input = []
+        node_z_path_input = []
+        current_length_input = 0
+
+    if node_id in tree_map_copy_input.keys():
+        tree_map_copy_input.pop(node_id)
+    else:
+        print('node_id is not found.')
+
+    if len(tree_map_copy_input) > 1:
+        return get_sampled_edge_path(sampling_length_input=sampling_length_input,
+                                     swc_array_input=swc_array_input,
+                                     swcindex_nodeid_map_input=swcindex_nodeid_map_input,
+                                     child_node_input=node_pid,
+                                     current_path_input=current_path_input,
+                                     node_x_path_input=node_x_path_input,
+                                     node_y_path_input=node_y_path_input,
+                                     node_z_path_input=node_z_path_input,
+                                     current_length_input=current_length_input,
+                                     edge_path_list_input=edge_path_list_input,
+                                     tree_map_copy_input=tree_map_copy_input,
+                                     sampled_tree_map_input=sampled_tree_map_input)
+    else:
+        return edge_path_list_input
+
+
+def get_sampled_edge_path_v2(sampling_length_input,
+                             swc_array_input,
+                             swcindex_nodeid_map_input,
+                             child_node_input,
+                             current_path_input,
+                             node_x_path_input,
+                             node_y_path_input,
+                             node_z_path_input,
+                             current_length_input,
+                             edge_path_list_input,
+                             tree_map_copy_input,
+                             sampled_tree_map_input):
+    if child_node_input in tree_map_copy_input.keys():
+        swc_array_row_number = swcindex_nodeid_map_input[child_node_input]
+    else:
+        if len(current_path_input) > 0:
+            edge_path_list_input.append(current_path_input)
+        current_path_input = []
+        node_x_path_input = []
+        node_y_path_input = []
+        node_z_path_input = []
+        current_length_input = 0
+        child_node_input = list(tree_map_copy_input.keys())[0]
+        if len(tree_map_copy_input) > 1:
+            return get_sampled_edge_path_v2(sampling_length_input=sampling_length_input,
+                                            swc_array_input=swc_array_input,
+                                            swcindex_nodeid_map_input=swcindex_nodeid_map_input,
+                                            child_node_input=child_node_input,
+                                            current_path_input=current_path_input,
+                                            node_x_path_input=node_x_path_input,
+                                            node_y_path_input=node_y_path_input,
+                                            node_z_path_input=node_z_path_input,
+                                            current_length_input=current_length_input,
+                                            edge_path_list_input=edge_path_list_input,
+                                            tree_map_copy_input=tree_map_copy_input,
+                                            sampled_tree_map_input=sampled_tree_map_input)
+        else:
+            return edge_path_list_input
+        # swc_array_row_number = swcindex_nodeid_map_input[child_node_input]
+    node_id = int(swc_array_input[swc_array_row_number, 0])
+    node_x = swc_array_input[swc_array_row_number, 2]
+    node_y = swc_array_input[swc_array_row_number, 3]
+    node_z = swc_array_input[swc_array_row_number, 4]
+    node_pid = int(swc_array_input[swc_array_row_number, 6])
+
+    current_path_input.append(node_id)
+    node_x_path_input.append(node_x)
+    node_y_path_input.append(node_y)
+    node_z_path_input.append(node_z)
+    current_length = 0
+    node_path_length = len(current_path_input)
+
+    if len(current_path_input) > 1.5:
+        for i in range(1, len(current_path_input)):
+            current_length = (node_x_path_input[i] - node_x_path_input[i - 1]) * (
+                    node_x_path_input[i] - node_x_path_input[i - 1]) + current_length
+            current_length = (node_y_path_input[i] - node_y_path_input[i - 1]) * (
+                    node_y_path_input[i] - node_y_path_input[i - 1]) + current_length
+            current_length = (node_z_path_input[i] - node_z_path_input[i - 1]) * (
+                    node_z_path_input[i] - node_z_path_input[i - 1]) + current_length
+    current_length_input = current_length_input + math.sqrt(current_length)
+    if current_length_input > 200:
+        current_path_input = []
+        node_x_path_input = []
+        node_y_path_input = []
+        node_z_path_input = []
+        current_length_input = 0
+
+    if node_path_length > 2 and current_length_input > sampling_length_input:
+        if node_pid in swcindex_nodeid_map_input.keys():
+            current_path_input.append(node_pid)
+        edge_path_list_input.append(current_path_input)
+        for remove_i in range(0, node_path_length, 1):
+            cur_node_id = current_path_input[remove_i]
+            if remove_i == 0:
+                start_node_id = cur_node_id
+                end_node_id = sampled_tree_map_input[start_node_id]
+            elif remove_i == node_path_length - 1:
+                if end_node_id != -1:
+                    end_node_id_parent = sampled_tree_map_input[cur_node_id]
+                    sampled_tree_map_input.pop(cur_node_id)
+                    sampled_tree_map_input[end_node_id] = end_node_id_parent
+            else:
+                if cur_node_id in sampled_tree_map_input.keys():
+                    sampled_tree_map_input.pop(cur_node_id)
+
+    if current_length_input > sampling_length_input:
+        current_path_input = []
+        node_x_path_input = []
+        node_y_path_input = []
+        node_z_path_input = []
+        current_length_input = 0
+
+    if node_id in tree_map_copy_input.keys():
+        tree_map_copy_input.pop(node_id)
+    else:
+        print('node_id is not found.')
+
+    if len(tree_map_copy_input) > 1:
+        return get_sampled_edge_path_v2(sampling_length_input=sampling_length_input,
+                                        swc_array_input=swc_array_input,
+                                        swcindex_nodeid_map_input=swcindex_nodeid_map_input,
+                                        child_node_input=node_pid,
+                                        current_path_input=current_path_input,
+                                        node_x_path_input=node_x_path_input,
+                                        node_y_path_input=node_y_path_input,
+                                        node_z_path_input=node_z_path_input,
+                                        current_length_input=current_length_input,
+                                        edge_path_list_input=edge_path_list_input,
+                                        tree_map_copy_input=tree_map_copy_input,
+                                        sampled_tree_map_input=sampled_tree_map_input)
+    else:
+        return edge_path_list_input
+
+
+def get_newnode_path_from_newnode_id(newnode_id_input, newnode_paths_input):
+    newnode_path_f = newnode_paths_input[newnode_id_input]
+    return newnode_path_f
+
+
+def edge_exist_newnode_path_pair(newnode_id1_input, newnode_id2_input, newnode_paths_input):
+    newnode_path1_f = get_newnode_path_from_newnode_id(newnode_id1_input, newnode_paths_input)
+    newnode_path2_f = get_newnode_path_from_newnode_id(newnode_id2_input, newnode_paths_input)
+    if newnode_path1_f[-1] == newnode_path2_f[0]:
+        return True
+    elif newnode_path1_f[0] == newnode_path2_f[-1]:
+        return True
+    elif newnode_path1_f[0] == newnode_path2_f[0]:
+        return True
+    elif newnode_path1_f[-1] == newnode_path2_f[-1]:
+        return True
+    else:
+        return False
+
+
+def get_edge_index_from_newnodes(newnode_paths_input):
+    total_node_number_f = len(newnode_paths_input)
+    edge_counter = 0
+    for node_i in range(0, total_node_number_f-1, 1):
+        for node_j in range(node_i+1, total_node_number_f, 1):
+            edge_exist = edge_exist_newnode_path_pair(newnode_id1_input=node_i,
+                                                      newnode_id2_input=node_j,
+                                                      newnode_paths_input=newnode_paths_input)
+            if edge_exist:
+                edge_counter = edge_counter + 1
+                if edge_counter == 1:
+                    edge_index_f = np.asarray([node_i, node_j])
+                elif edge_counter > 1:
+                    edge_index_f = np.vstack((edge_index_f, np.asarray([node_i, node_j])))
+    return edge_index_f
+
+
+def swc_to_branch_id(swc_array_input):
+    parent_ids, parent_id_times = np.unique(swc_array_input[:, 6],
+                                            return_counts=True)
+    parent_id_branch_index = np.argwhere(parent_id_times > 1)
+    parent_id_branch = parent_ids[parent_id_branch_index]
+    parent_id_branch = parent_id_branch.astype('int')
+    parent_id_branch_times = parent_id_times[parent_id_branch_index]
+    return parent_id_branch, parent_id_branch_times
