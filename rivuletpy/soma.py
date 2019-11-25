@@ -27,13 +27,15 @@ from scipy.ndimage import binary_dilation, binary_erosion
 from scipy.ndimage import gaussian_filter, gaussian_gradient_magnitude
 from scipy.ndimage.measurements import center_of_mass
 from scipy.ndimage.morphology import generate_binary_structure
+from rivuletpy.utils.io import writetiff3d
 import skfmm
 
 
 class Soma(object):
+
     def __init__(self):
         self.centroid = None
-        self.radius = 0 
+        self.radius = 0
         self.mask = None
 
     def simple_mask(self, bimg):
@@ -50,7 +52,7 @@ class Soma(object):
             ballvolume = binary_dilation(ballvolume, structure=stt)
 
         # Make the soma mask with the intersection
-        #between the ball area and the original binary
+        # between the ball area and the original binary
         self.mask = np.logical_and(ballvolume, bimg)
 
     # Shift the centroid according to the cropped region
@@ -90,7 +92,8 @@ class Soma(object):
 
         # Soma detection is required
         if not simple:
-            if not silent: print('Reconstructing Soma with SRET')
+            if not silent:
+                print('Reconstructing Soma with SRET')
             ratioxz = bimg.shape[0] / bimg.shape[2]
             ratioyz = bimg.shape[1] / bimg.shape[2]
             sqrval = (somaradius**0.5 * max(ratioxz, ratioyz))
@@ -121,7 +124,8 @@ class Soma(object):
             centerpt = np.floor(centerpt)
 
             # Morphological ACWE. Initialization of the level-set.
-            macwe = MorphACWE(somaimg, startpt, endpt, smoothing, lambda1, lambda2)
+            macwe = MorphACWE(somaimg, startpt, endpt,
+                              smoothing, lambda1, lambda2)
             macwe.levelset = circle_levelset(somaimg.shape,
                                              np.floor(centerpt), sqrval)
 
@@ -154,22 +158,24 @@ class Soma(object):
                 endpt[1] = min(max(0, endpt[1]), bimg.shape[1])
                 endpt[2] = min(max(0, endpt[2]), bimg.shape[2])
                 somaimg = bimg[startpt[0]:endpt[0], startpt[1]:endpt[1], startpt[2]:
-                              endpt[2]]
-                full_soma_mask = np.zeros((bimg.shape[0], bimg.shape[1], bimg.shape[2]))
+                               endpt[2]]
+                full_soma_mask = np.zeros(
+                    (bimg.shape[0], bimg.shape[1], bimg.shape[2]))
 
                 # Put the detected somas into the whole image
                 # It is either true or false
                 full_soma_mask[macwe.startpoint[0]:macwe.endpoint[
                     0], macwe.startpoint[1]:macwe.endpoint[1], macwe.startpoint[2]:
-                            macwe.endpoint[2]] = macwe._u
+                    macwe.endpoint[2]] = macwe._u
 
                 # The newlevelset is the initial soma volume from previous iteration
                 #(the automatic converge operation)
                 newlevelset = full_soma_mask[startpt[0]:endpt[0], startpt[1]:endpt[1],
-                                          startpt[2]:endpt[2]]
+                                             startpt[2]:endpt[2]]
 
                 # The previous macwe class is released
-                # To avoid the conflicts with the new initialisation of the macwe class
+                # To avoid the conflicts with the new initialisation of the
+                # macwe class
                 del macwe
 
                 # Initialisation for the new class
@@ -184,18 +190,22 @@ class Soma(object):
                 del newlevelset
                 macwe.autoconvg()
 
-            # The automatic smoothing operation to remove the interferes with dendrites
+            # The automatic smoothing operation to remove the interferes with
+            # dendrites
             macwe.autosmooth()
 
             # Initialise soma mask image
-            full_soma_mask = np.zeros((bimg.shape[0], bimg.shape[1], bimg.shape[2]))
+            full_soma_mask = np.zeros(
+                (bimg.shape[0], bimg.shape[1], bimg.shape[2]))
 
             # There are two possible scenarios
-            # The first scenrio is that the automatic box extension is not necessary
+            # The first scenrio is that the automatic box extension is not
+            # necessary
             if macwe.enlrspt is None:
                 startpt = macwe.startpoint.copy()
                 endpt = macwe.endpoint.copy()
-            # The second scenrio is that the automatic box extension operations has been performed
+            # The second scenrio is that the automatic box extension operations
+            # has been performed
             else:
                 startpt = macwe.enlrspt.copy()
                 endpt = macwe.enlrept.copy()
@@ -222,13 +232,31 @@ class Soma(object):
             self.radius = somaradius
             self.mask = full_soma_mask
         else:
-            if not silent: print('Reconstructing Soma with Simple Mask')
+            if not silent:
+                print('Reconstructing Soma with Simple Mask')
             self.centroid = somapos
             self.radius = somaradius
             self.simple_mask(bimg)
 
+    def pad(self, crop_region, original_shape):
+        xmin = crop_region[0, 0]
+        ymin = crop_region[1, 0]
+        zmin = crop_region[2, 0]
+        xmax = crop_region[0, 1]
+        ymax = crop_region[1, 1]
+        zmax = crop_region[2, 1]
+        self.mask = np.pad(self.mask, ((xmin, original_shape[0] - xmax),
+                                       (ymin, original_shape[1] - ymax),
+                                       (zmin, original_shape[2] - zmax)),
+                           mode='constant',
+                           constant_values=0)
+
+    def save(self, fname):
+        writetiff3d(fname, self.mask * 255)
+
 
 class Fcycle(object):
+
     def __init__(self, iterable):
         """Call functions from the iterable each time it is called."""
         self.funcs = cycle(iterable)
@@ -557,7 +585,6 @@ class MorphACWE(object):
             volu = sum(u[u > 0])
             vol_pct = volu / ini_vol
 
-
             # The criteria of the termination of soma growth
             # The somatic volume underwent dramatic change
             judge_one = vol_pct < 0.75
@@ -613,7 +640,7 @@ def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
         ax1.contour(msnake.levelset, [0.5], colors='r')
         ax_u.set_data(msnake.levelset)
         fig.canvas.draw()
-        #ppl.pause(0.001)
+        # ppl.pause(0.001)
 
     # Return the last levelset.
     return msnake.levelset

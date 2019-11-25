@@ -59,12 +59,6 @@ if __name__ == '__main__':
                         help="Don't save the automatically reconstructed soma volume along with the SWC (default)")
     parser.set_defaults(save_soma=False)
 
-    parser.add_argument('--soma', dest='soma_detection', action='store_true',
-                        help="Use the morphological operator based soma detection")
-    parser.add_argument('--no-soma', dest='soma_detection', action='store_false',
-                        help="Don't use the morphological operator based soma detection (default)")
-    parser.set_defaults(soma_detection=False)
-
     # Args for tracing
     parser.add_argument('--speed', dest='speed', action='store_true',
                         help="Use the input directly as speed image")
@@ -134,6 +128,8 @@ if __name__ == '__main__':
                       clean=args.clean,
                       non_stop=args.non_stop)
     swc, soma = tracer.trace(img, args.threshold)
+    print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+
     if args.npush > 0:
         swc.push_nodes_with_binary(img > args.threshold, niter=args.npush)
     swc.reset(crop_region, args.zoom_factor)
@@ -144,10 +140,8 @@ if __name__ == '__main__':
 
     # Save the soma mask if required
     if args.save_soma:
-        soma.pad(crop_region)
-        soma.save((os.path.splitext(outpath)[0] + 'soma.tif'))
-
-    print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+        soma.pad(crop_region, imgshape)
+        soma.save((os.path.splitext(outpath)[0] + '.soma.tif'))
 
     # Save to vtk is required
     if args.vtk:
