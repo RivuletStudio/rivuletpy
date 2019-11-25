@@ -311,18 +311,18 @@ def vtk2swc(vtk_file_name):
         # TODO Mismatch of points and lines. Please fix it later.
         # Create swc as N x 7 numpy array
         swc = np.zeros([tree1_lines_array.shape[0], 7])
-        for cur_id, cur_line in enumerate(tree1_lines_array):
+        for line_counter, cur_line in enumerate(tree1_lines_array):
             # sample from vtk
-            print('cur_line', cur_line)
-            swc[cur_id, 0] = tree1_lines_array[cur_id, 1]
+            # cur_line[1]: node id cur_line[2]: node parent id
+            swc[line_counter, 0] = cur_line[1]
             # parent id from vtk
-            swc[cur_id, 6] = tree1_lines_array[cur_id, 2]
+            swc[line_counter, 6] = cur_line[2]
             # x, y, z
-            swc[cur_id, 2] = (-1) * tree1_points[tree1_lines_array[cur_id, 1], 0]
-            swc[cur_id, 3] = (-1) * tree1_points[tree1_lines_array[cur_id, 1], 1]
-            swc[cur_id, 4] = tree1_points[tree1_lines_array[cur_id, 1], 2]
+            swc[line_counter, 2] = (-1) * tree1_points[cur_line[1], 0]
+            swc[line_counter, 3] = (-1) * tree1_points[cur_line[1], 1]
+            swc[line_counter, 4] = tree1_points[cur_line[1], 2]
             # Set all type to axon
-            swc[cur_id, 1] = 2
+            swc[line_counter, 1] = 2
     else:
         # Create swc as N x 7 numpy array
         swc = np.zeros([tree1_points.shape[0], 7])
