@@ -116,7 +116,7 @@ The script rtrace command will be installed
 ```bash
 $ rtrace --help
 usage: rtrace [-h] -f FILE [-o OUT] [-t THRESHOLD] [-z ZOOM_FACTOR]
-              [--save-soma] [--no-save-soma] [--soma] [--no-soma] [--speed]
+              [--save-soma] [--no-save-soma] [--speed]
               [--quality] [--no-quality] [--clean] [--no-clean] [--silent]
               [--no-silent] [-v] [--no-view]
               [--tracing_resolution TRACING_RESOLUTION] [--vtk]
@@ -137,10 +137,7 @@ optional arguments:
   --save-soma           Save the automatically reconstructed soma volume along
                         with the SWC.
   --no-save-soma        Don't save the automatically reconstructed soma volume
-                        along with the SWC (default)
-  --soma                Use the morphological operator based soma detection
-  --no-soma             Don't use the morphological operator based soma
-                        detection (default)
+                        along with the SWC (default)  
   --speed               Use the input directly as speed image
   --quality             Reconstruct the neuron with higher quality and
                         slightly more computing time
