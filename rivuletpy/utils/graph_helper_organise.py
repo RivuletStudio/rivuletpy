@@ -1,6 +1,9 @@
 import os
 import math
 import numpy as np
+import random
+import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
 from scipy.spatial.distance import cdist
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
@@ -310,13 +313,14 @@ def vtk2swc(vtk_file_name):
         swc = np.zeros([tree1_lines_array.shape[0], 7])
         for cur_id, cur_line in enumerate(tree1_lines_array):
             # sample from vtk
+            print('cur_line', cur_line)
             swc[cur_id, 0] = tree1_lines_array[cur_id, 1]
             # parent id from vtk
             swc[cur_id, 6] = tree1_lines_array[cur_id, 2]
             # x, y, z
-            swc[cur_id, 2] = (-1) * tree1_points[cur_id, 0]
-            swc[cur_id, 3] = (-1) * tree1_points[cur_id, 1]
-            swc[cur_id, 4] = tree1_points[cur_id, 2]
+            swc[cur_id, 2] = (-1) * tree1_points[tree1_lines_array[cur_id, 1], 0]
+            swc[cur_id, 3] = (-1) * tree1_points[tree1_lines_array[cur_id, 1], 1]
+            swc[cur_id, 4] = tree1_points[tree1_lines_array[cur_id, 1], 2]
             # Set all type to axon
             swc[cur_id, 1] = 2
     else:
@@ -345,14 +349,14 @@ def get_gtswc_from_sub(sub_input):
     tree_counter = 0
     for tree in tree_names:
         if tree.endswith(".vtk"):
+            print('tree', tree)
             if tree_counter == 0:
                 tree1_path = gt_vtk_tree_path + '/' + tree
                 gt_swc = vtk2swc(tree1_path)
             if tree_counter > 0:
                 tree_path = gt_vtk_tree_path + '/' + tree
                 gt2_swc = vtk2swc(tree_path)
-                rand_i = a = np.random.randint(low=2,
-                                               high=30)
+                rand_i = np.random.randint(low=2, high=30)
                 gt2_swc[:, 0] = gt2_swc[:, 0] + 80000 * rand_i
                 gt2_swc[:, 6] = gt2_swc[:, 6] + 80000 * rand_i
                 gt_swc = np.concatenate((gt_swc, gt2_swc), axis=0)
@@ -739,3 +743,72 @@ def swc_to_branch_id(swc_array_input):
     parent_id_branch = parent_id_branch.astype('int')
     parent_id_branch_times = parent_id_times[parent_id_branch_index]
     return parent_id_branch, parent_id_branch_times
+
+
+def show_swc_vis(tree_dict_input, title_input):
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    for cur_node, cur_node_pid in tree_dict_input['tree_map'].items():
+        if cur_node_pid in tree_dict_input['swcindex_nodeid_map'].keys():
+            node_x_start, node_y_start, node_z_start = node_id_to_location(
+                swc_array_input=tree_dict_input['swc_array'],
+                node_id_input=cur_node,
+                swcindex_nodeid_map_input=tree_dict_input[
+                    'swcindex_nodeid_map'])
+            node_x_end, node_y_end, node_z_end = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
+                                                                     node_id_input=cur_node_pid,
+                                                                     swcindex_nodeid_map_input=tree_dict_input[
+                                                                         'swcindex_nodeid_map'])
+            # print('node_x, node_y, node_z', node_x_end, node_y_end, node_z_end)
+            ax.plot3D([node_x_start, node_x_end],
+                      [node_y_start, node_y_end],
+                      [node_z_start, node_z_end],
+                      linewidth=1.4,
+                      color=[0, 1, 0, 1])
+    plt.title(title_input)
+
+
+def show_edge_path_list(output_edge_path_list_input, tree_dict_input, title_input):
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    for cur_node_path_i, cur_node_path in enumerate(output_edge_path_list_input):
+        node_x_list = []
+        node_y_list = []
+        node_z_list = []
+        for node_i, cur_node in enumerate(cur_node_path):
+            node_x, node_y, node_z = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
+                                                         node_id_input=cur_node,
+                                                         swcindex_nodeid_map_input=tree_dict_input[
+                                                             'swcindex_nodeid_map'])
+            node_x_list.append(node_x)
+            node_y_list.append(node_y)
+            node_z_list.append(node_z)
+        ax.plot3D(node_x_list,
+                  node_y_list,
+                  node_z_list,
+                  color=[random.random(), random.random(), random.random(), 1])
+    plt.title(title_input)
+
+
+def show_edge_path_list_with_prob(output_edge_path_list_input, tree_dict_input, node_labels_input, title_input):
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    for cur_node_path_i, cur_node_path in enumerate(output_edge_path_list_input):
+        node_x_list = []
+        node_y_list = []
+        node_z_list = []
+        node_prob = node_labels_input[cur_node_path_i]
+        for node_i, cur_node in enumerate(cur_node_path):
+            node_x, node_y, node_z = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
+                                                         node_id_input=cur_node,
+                                                         swcindex_nodeid_map_input=tree_dict_input[
+                                                             'swcindex_nodeid_map'])
+            node_x_list.append(node_x)
+            node_y_list.append(node_y)
+            node_z_list.append(node_z)
+        ax.plot3D(node_x_list,
+                  node_y_list,
+                  node_z_list,
+                  linewidth=1/(node_prob+0.1),
+                  color=[random.random(), random.random(), random.random(), 1])
+    plt.title(title_input)
