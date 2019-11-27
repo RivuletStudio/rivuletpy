@@ -36,8 +36,12 @@
 
 ## Rivuletpy == Rivulet2 
 Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks & other tree structures from 3D medical images.
-It is actively maintained by the RivuletStudio @ University of Sydney, AU. The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
-The `rtrace` command is powered by the latest neuron tracing algorithm Rivulet2 published in IEEE Trans. TMI:
+
+It is actively maintained and being used in industry scale image analysis applications. 
+
+The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
+
+The `rtrace` command is powered by the Rivulet2 algorithm published in IEEE Trans. TMI:
 
 [1] S. Liu, D. Zhang, Y. Song, H. Peng and W. Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking," in IEEE Transactions on Medical Imaging. URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8354803&isnumber=4359023
 
