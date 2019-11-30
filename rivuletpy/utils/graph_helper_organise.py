@@ -19,6 +19,14 @@ def get_subs_from_test_list(config_input):
     return subs
 
 
+def get_subs_from_train_list(config_input):
+    list_txt = config_input.train_list_txt
+    if not os.path.isfile(list_txt):
+        raise ValueError('the list file does not exist!')
+    subs = [sub.rstrip('\n').rstrip('\r') for sub in open(list_txt, 'r').readlines()]
+    return subs
+
+
 def swc_to_total_node_num(swc_array_input):
     total_node_number = swc_array_input.shape[0]
     debug = False
@@ -349,7 +357,6 @@ def get_gtswc_from_sub(sub_input):
     tree_counter = 0
     for tree in tree_names:
         if tree.endswith(".vtk"):
-            print('tree', tree)
             if tree_counter == 0:
                 tree1_path = gt_vtk_tree_path + '/' + tree
                 gt_swc = vtk2swc(tree1_path)
@@ -809,6 +816,6 @@ def show_edge_path_list_with_prob(output_edge_path_list_input, tree_dict_input, 
         ax.plot3D(node_x_list,
                   node_y_list,
                   node_z_list,
-                  linewidth=1/(node_prob+0.1),
+                  linewidth=2/(node_prob+0.5),
                   color=[random.random(), random.random(), random.random(), 1])
     plt.title(title_input)
