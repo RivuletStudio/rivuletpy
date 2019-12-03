@@ -783,13 +783,14 @@ def show_edge_path_list(output_edge_path_list_input, tree_dict_input, title_inpu
         node_y_list = []
         node_z_list = []
         for node_i, cur_node in enumerate(cur_node_path):
-            node_x, node_y, node_z = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
-                                                         node_id_input=cur_node,
-                                                         swcindex_nodeid_map_input=tree_dict_input[
-                                                             'swcindex_nodeid_map'])
-            node_x_list.append(node_x)
-            node_y_list.append(node_y)
-            node_z_list.append(node_z)
+            if cur_node in tree_dict_input['swcindex_nodeid_map'].keys():
+                node_x, node_y, node_z = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
+                                                             node_id_input=cur_node,
+                                                             swcindex_nodeid_map_input=tree_dict_input[
+                                                                 'swcindex_nodeid_map'])
+                node_x_list.append(node_x)
+                node_y_list.append(node_y)
+                node_z_list.append(node_z)
         ax.plot3D(node_x_list,
                   node_y_list,
                   node_z_list,
@@ -806,13 +807,14 @@ def show_edge_path_list_with_prob(output_edge_path_list_input, tree_dict_input, 
         node_z_list = []
         node_prob = node_labels_input[cur_node_path_i]
         for node_i, cur_node in enumerate(cur_node_path):
-            node_x, node_y, node_z = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
-                                                         node_id_input=cur_node,
-                                                         swcindex_nodeid_map_input=tree_dict_input[
-                                                             'swcindex_nodeid_map'])
-            node_x_list.append(node_x)
-            node_y_list.append(node_y)
-            node_z_list.append(node_z)
+            if cur_node in tree_dict_input['swcindex_nodeid_map'].keys():
+                node_x, node_y, node_z = node_id_to_location(swc_array_input=tree_dict_input['swc_array'],
+                                                             node_id_input=cur_node,
+                                                             swcindex_nodeid_map_input=tree_dict_input[
+                                                                 'swcindex_nodeid_map'])
+                node_x_list.append(node_x)
+                node_y_list.append(node_y)
+                node_z_list.append(node_z)
         ax.plot3D(node_x_list,
                   node_y_list,
                   node_z_list,
