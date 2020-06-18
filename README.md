@@ -89,7 +89,8 @@ To install rivuletpy with pip, you need to install the following packages manual
 * `SimpleITK`
 
 ```
-(riv)$ conda install numpy scipy matplotlib cython tqdm git+https://github.com/pearu/pylibtiff.git@e56519a5c2d594102f3ca82c3c14f222d71e0f92#egg=libtiff
+(riv)$ conda install numpy scipy matplotlib cython tqdm 
+(riv)$ conda install -c conda-forge pylibtiff # Install pylibtiff for loading 3D tiff images
 (riv)$ conda install -c simpleitk simpleitk  # Install SimpleITK for the support of load mhd
 ```
 
