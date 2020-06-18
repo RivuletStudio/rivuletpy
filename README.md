@@ -100,7 +100,7 @@ Optionally you can install Rivuletpy from the source files
 ```
 (riv)$ git clone https://github.com/RivuletStudio/rivuletpy.git
 (riv)$ cd rivuletpy
-(riv)$ python setup.py develop # Needed since we use the fast-forward 'tqdm' and 'pylibtiff'
+(riv)$ python setup.py build
 (riv)$ pip3 install -e .
 ```
 
