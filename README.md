@@ -101,7 +101,7 @@ Optionally you can install Rivuletpy from the source files
 (riv)$ git clone https://github.com/RivuletStudio/rivuletpy.git
 (riv)$ cd rivuletpy
 (riv)$ python setup.py build
-(riv)$ pip3 install -e .
+(riv)$ pip3 install .
 ```
 
 This installs `Rivuletpy` into your `virtualenv` in "editable" mode. That means changes
