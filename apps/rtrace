@@ -6,6 +6,7 @@ from rivuletpy.trace import R2Tracer
 from rivuletpy.utils.io import loadimg, crop, swc2world, swc2vtk
 from scipy.ndimage.interpolation import zoom
 import SimpleITK as sitk
+from rivuletpy.trace import estimate_radius
 
 
 def show_logo():
@@ -89,6 +90,8 @@ if __name__ == '__main__':
     parser.add_argument('--no-silent', dest='silent', action='store_false',
                         help="Show the terminal outputs & the nice logo (default)")
     parser.set_defaults(silent=False)
+    parser.add_argument('--skeletonize', dest='skeletonize',
+                        action='store_true', help="Preprocessing with skelontonization on the segmentation first before tracing. Recommended for structures with large diameter variance.", default=False)
 
     parser.add_argument('-v', '--view', dest='view', action='store_true',
                         help="View the reconstructed neuron when rtrace finishes")
@@ -98,7 +101,9 @@ if __name__ == '__main__':
     parser.add_argument('--tracing_resolution', type=float, required=False,
                         help='Only valid for input files compatible with ITK. Will resample the image array into isotropic resolution before tracing. Default 1mm', default=1.)
     parser.add_argument('--vtk', action='store_true',
-                        help="Store the world coordinate vtk format along with the swc")
+                        help="Store the world coordinate vtk format along with the swc", default=False)
+    parser.add_argument('--slicer', action='store_true',
+                        help="Whether to save vtk coordinates in RAS space that can be rendered in 3D Slicer", default=False)
 
     args = parser.parse_args()
 
@@ -126,9 +131,18 @@ if __name__ == '__main__':
                       silent=args.silent,
                       speed=args.speed,
                       clean=args.clean,
-                      non_stop=args.non_stop)
+                      non_stop=args.non_stop,
+                      skeletonize=args.skeletonize)
     swc, soma = tracer.trace(img, args.threshold)
     print('-- Finshed: %.2f sec.' % (time.time() - starttime))
+    
+    # if skeletonized, re-estimate the radius for each node
+    if args.skeletonize:
+        print('Reestimating radius...')
+        swc_arr = swc.get_array()
+        for i in range(swc_arr.shape[0]):
+            swc_arr[i, 5] = estimate_radius(swc_arr[i, 2:5], img > args.threshold)
+        swc._data = swc_arr
 
     if args.npush > 0:
         swc.push_nodes_with_binary(img > args.threshold, niter=args.npush)
@@ -152,8 +166,9 @@ if __name__ == '__main__':
             print('Converting to world space...')
             img = sitk.ReadImage(args.file)
             swcarr = swc2world(swc.get_array(),
-                               img.GetOrigin(),
-                               [args.tracing_resolution] * 3)
+                               img,
+                               [args.tracing_resolution] * 3,
+                               slicer=args.slicer)
             swc._data[:, :7] = swcarr
         print('Saving to VTK format...')
         swc2vtk(swc, outpath.replace('.swc', '.vtk'))

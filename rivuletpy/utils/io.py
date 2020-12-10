@@ -106,13 +106,35 @@ def crop(img, thr):
         [[xmin, xmax], [ymin, ymax], [zmin, zmax]])
 
 
-def swc2world(swc, origin, spacing):
-    swc[:, 2] *= spacing[0]
-    swc[:, 3] *= spacing[1]
-    swc[:, 4] *= spacing[2]
-    swc[:, 2] += origin[0]
-    swc[:, 3] += origin[1]
-    swc[:, 4] += origin[2]
+def world2ras(voxpos):
+    '''Get the vox2ras-tkr transform. Inspired
+    by get_vox2ras_tkr in
+    https://discourse.slicer.org/t/building-the-ijk-to-ras-transform-from-a-nrrd-file/1513
+    '''
+    x, y, z = voxpos
+    lps_to_ras = np.diag([-1, -1, 1, 1])
+    p = lps_to_ras.dot(np.asarray([x, y, z, 1]).T)
+    return np.squeeze(p)[:3]
+
+
+def swc2world(swc, mhd, spacing, slicer=False):
+    # First transfer the image coordinates to the original image size
+    sp = mhd.GetSpacing()
+    swc[:, 2] *= spacing[0] / sp[0]
+    swc[:, 3] *= spacing[1] / sp[1]
+    swc[:, 4] *= spacing[2] / sp[2]
+
+    # USe SimpleITK to transform back to physical coordinates
+    for i in range(swc.shape[0]):
+        swc[i, 2:5] = mhd.TransformContinuousIndexToPhysicalPoint(swc[i, 2:5])
+        swc[i, 5] *= spacing[0]
+
+    # Transform to RAS spacing coordinates that can be rendered in 3D Slicer if requested
+    if slicer:
+        print('Converting the vtk coordinates to RAS space')
+        for i in range(swc.shape[0]):
+            swc[i, 2:5] = world2ras(swc[i, 2:5])
+
     return swc
 
 
