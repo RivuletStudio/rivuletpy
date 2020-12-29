@@ -5,8 +5,7 @@ import skfmm
 import msfm
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage.morphology import binary_dilation
-# from filtering.morphology import ssm
-from skimage.filters import threshold_otsu
+from skimage.morphology import skeletonize_3d
 from .soma import Soma
 from .swc import SWC
 
@@ -25,7 +24,8 @@ class Tracer(object):
 
 class R2Tracer(Tracer):
 
-    def __init__(self, quality=False, silent=False, speed=False, clean=False, non_stop=False):
+    def __init__(self, quality=False, silent=False, speed=False,
+                 clean=False, non_stop=False, skeletonize=False):
         self._quality = quality
         self._bimg = None
         self._dilated_bimg = None
@@ -48,8 +48,8 @@ class R2Tracer(Tracer):
         self._clean = clean
         # Whether to ignore the gap and online confidence stopping criteria
         self._non_stop = non_stop
+        self.skeletonize = skeletonize
         self._eps = 1e-5
-
 
     def trace(self, img, threshold):
         '''
@@ -57,14 +57,17 @@ class R2Tracer(Tracer):
         '''
         self.img = img
         self._bimg = (img > threshold).astype('int')  # Segment image
-        if not self._silent: print('(1) -- Detecting Soma...', end='')
+
+        if not self._silent:
+            print('(1) -- Detecting Soma...', end='')
         self._soma = Soma()
         self._soma.detect(self._bimg, not self._quality, self._silent)
         self._prep()
 
         # Iterative Back Tracking with Erasing
         if not self._silent:
-            print('(5) --Start Backtracking with {} ...'.format('non stop' if self._non_stop else 'standard stopping criteria'))
+            print('(5) --Start Backtracking with {} ...'.format(
+                'non stop' if self._non_stop else 'standard stopping criteria'))
         swc = self._iterative_backtrack()
 
         if self._clean:
@@ -73,7 +76,12 @@ class R2Tracer(Tracer):
         return swc, self._soma
 
     def _prep(self):
-        self._nforeground = self._bimg.sum()        
+        if self.skeletonize:
+            print('Skeletonize the binary image...')
+            self._bimg = skeletonize_3d(self._bimg)
+            self._bimg = binary_dilation(self._bimg, iterations=1)
+
+        self._nforeground = self._bimg.sum()
         # Dilate bimg to make it less strict for the big gap criteria
         # It is needed since sometimes the tracing goes along the
         # boundary of the thin fibre in the binary img
@@ -83,7 +91,8 @@ class R2Tracer(Tracer):
             print('(2) --Boundary DT...')
         self._make_dt()
         if not self._silent:
-            print('(3) --Fast Marching with %s quality...' % ('high' if self._quality else 'low'))
+            print('(3) --Fast Marching with %s quality...' %
+                  ('high' if self._quality else 'low'))
         self._fast_marching()
         if not self._silent:
             print('(4) --Compute Gradients...')
@@ -100,12 +109,13 @@ class R2Tracer(Tracer):
         self._bb = np.zeros(shape=self._tt.shape)
 
     def _update_coverage(self):
-        self._cover_ctr_new = np.logical_and(self._tt < 0, self._bimg > 0).sum()
+        self._cover_ctr_new = np.logical_and(
+            self._tt < 0, self._bimg > 0).sum()
 
         self._coverage = self._cover_ctr_new / self._nforeground
-        if not self._silent: self._pbar.update(self._cover_ctr_new - self._cover_ctr_old)
+        if not self._silent:
+            self._pbar.update(self._cover_ctr_new - self._cover_ctr_old)
         self._cover_ctr_old = self._cover_ctr_new
-
 
     def _make_grad(self):
         # Get the gradient of the Time-crossing map
@@ -115,7 +125,6 @@ class R2Tracer(Tracer):
         self._grad = (RegularGridInterpolator(standard_grid, dx),
                       RegularGridInterpolator(standard_grid, dy),
                       RegularGridInterpolator(standard_grid, dz))
-
 
     def _make_dt(self):
         '''
@@ -133,11 +142,13 @@ class R2Tracer(Tracer):
         # # Fast Marching
         if self._quality:
             # if not self._silent: print('--MSFM...')
-            self._t = msfm.run(speed, self._bimg.copy().astype('int64'), self._soma.centroid, True, True)
+            self._t = msfm.run(speed, self._bimg.copy().astype(
+                'int64'), self._soma.centroid, True, True)
         else:
             # if not self._silent: print('--FM...')
             marchmap = np.ones(self._bimg.shape)
-            marchmap[self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2]] = -1
+            marchmap[self._soma.centroid[0],
+                     self._soma.centroid[1], self._soma.centroid[2]] = -1
             self._t = skfmm.travel_time(marchmap, speed, dx=5e-3)
 
     def _make_speed(self):
@@ -160,7 +171,8 @@ class R2Tracer(Tracer):
               [1, 0, -1], [1, 0, 0], [1, 0, 1], [1, 1, -1], [1, 1, 0], [1, 1, 1]]
 
         for n in Ne:
-            In = J[1 + n[0]:J.shape[0] - 1 + n[0], 1 + n[1]:J.shape[1] - 1 + n[1],
+            In = J[1 + n[0]:J.shape[0] - 1 + n[0],
+                   1 + n[1]:J.shape[1] - 1 + n[1],
                    1 + n[2]:J.shape[2] - 1 + n[2]]
             check = In < self._t
             self._t[check] = In[check]
@@ -184,12 +196,13 @@ class R2Tracer(Tracer):
             # To make sure all the foreground voxels are included in bb
             r = math.ceil(r * self._erase_ratio)
             X, Y, Z = np.meshgrid(
-                        constrain_range(n[0] - r, n[0] + r + 1, 0, self._tt.shape[0]),
-                        constrain_range(n[1] - r, n[1] + r + 1, 0, self._tt.shape[1]),
-                        constrain_range(n[2] - r, n[2] + r + 1, 0, self._tt.shape[2]))
+                constrain_range(n[0] - r, n[0] + r + 1, 0, self._tt.shape[0]),
+                constrain_range(n[1] - r, n[1] + r + 1, 0, self._tt.shape[1]),
+                constrain_range(n[2] - r, n[2] + r + 1, 0, self._tt.shape[2]))
             self._bb[X, Y, Z] = 1
 
-        startidx, endidx = [math.floor(p) for p in branch.pts[0]], [math.floor(p) for p in branch.pts[-1]]
+        startidx, endidx = [math.floor(p) for p in branch.pts[0]], [
+            math.floor(p) for p in branch.pts[-1]]
 
         if len(branch.pts) > 5 and self._t[endidx[0], endidx[1], endidx[2]] < self._t[
                 startidx[0], startidx[1], startidx[2]]:
@@ -208,12 +221,11 @@ class R2Tracer(Tracer):
 
         # Initialise swc with the soma centroid
         swc = SWC(self._soma)
-        swc.add(np.reshape(
-            np.asarray([
-                0, 1, self._soma.centroid[0], self._soma.centroid[1], self._soma.centroid[2],
-                self._soma.radius, -1, 1.
-            ]), (1, 8)))
-        
+        soma_node = np.asarray([0, 1, self._soma.centroid[0],
+                                self._soma.centroid[1],
+                                self._soma.centroid[2],
+                                self._soma.radius, -1, 1.])
+        swc.add(np.reshape(soma_node, (1, 8)))
 
         if not self._silent:
             self._pbar = tqdm(total=math.floor(self._nforeground * self._target_coverage))
@@ -222,19 +234,22 @@ class R2Tracer(Tracer):
         while self._coverage < self._target_coverage:
             self._update_coverage()
             # Find the geodesic furthest point on foreground time-crossing-map
-            srcpt = np.asarray(np.unravel_index(self._tt.argmax(), self._tt.shape)).astype('float64')
+            srcpt = np.asarray(np.unravel_index(
+                self._tt.argmax(), self._tt.shape)).astype('float64')
             branch = R2Branch()
             branch.add(srcpt, 1., 1.)
 
             # Erase the source point just in case
-            self._tt[math.floor(srcpt[0]), math.floor(srcpt[1]), math.floor(srcpt[2])] = -2
+            self._tt[math.floor(srcpt[0]), math.floor(
+                srcpt[1]), math.floor(srcpt[2])] = -2
             keep = True
 
             # Loop for 1 back-tracking iteration
             while True:
                 self._step(branch)
                 head = branch.pts[-1]
-                tt_head = self._tt[math.floor(head[0]), math.floor(head[1]), math.floor(head[2])]
+                tt_head = self._tt[math.floor(head[0]), math.floor(
+                    head[1]), math.floor(head[2])]
 
                 # 1. Check out of bound
                 if not inbound(head, self._bimg.shape):
@@ -248,7 +263,7 @@ class R2Tracer(Tracer):
                     branch.reset_gap()
 
                 # 3. Check if Soma has been reached
-                if tt_head  == -3:
+                if tt_head == -3:
                     keep = True if branch.branchlen > self._soma.radius * 3 else False
                     branch.reached_soma = True
                     break
@@ -278,23 +293,25 @@ class R2Tracer(Tracer):
 
                     if branch.steps_after_reach > 200:
                         break
-            
+
             self._erase(branch)
 
             # Add to SWC if it was decided to be kept
             if keep:
-                pidx = None 
+                pidx = None
                 if branch.reached_soma:
-                    pidx = 0;
+                    pidx = 0
                 elif branch.touch_idx >= 0:
                     pidx = branch.touch_idx
                 swc.add_branch(branch, pidx)
         return swc
 
+
 class Branch(object):
     def __init__(self):
         self.pts = []
         self.radius = []
+
 
 class R2Branch(Branch):
     def __init__(self):
@@ -316,7 +333,6 @@ class R2Branch(Branch):
         self.ma_short_window = 4
         self.ma_long_window = 10
         self.in_valley = False
-
 
     def add(self, pt, conf, radius):
         self.pts.append(pt)
@@ -344,19 +360,20 @@ class R2Branch(Branch):
         velocity = np.asarray(pt) - np.asarray(head)
         self.stepsz = np.linalg.norm(velocity)
         self.branchlen += self.stepsz
-        b = dilated_bimg[math.floor(pt[0]), math.floor(pt[1]), math.floor(pt[2])]
+        b = dilated_bimg[math.floor(pt[0]), math.floor(
+            pt[1]), math.floor(pt[2])]
         if b > 0:
             self.gap += self.stepsz
-        
+
         self.online_voxsum += b
         oc = self.online_voxsum / (len(self.pts) + 1)
         self.update_ma(oc)
 
-         # We are stepping in a valley
+        # We are stepping in a valley
         if (self.ma_short < self.ma_long - eps and
                 oc < 0.5 and not self.in_valley):
             self.in_valley = True
-        
+
         # Cut at the valley
         if self.in_valley and self.ma_short > self.ma_long:
             valleyidx = np.asarray(self.conf).argmin()
@@ -382,8 +399,8 @@ class R2Branch(Branch):
                 self.ma_short = oc
             else:
                 self.ma_short = exponential_moving_average(
-                        oc, self.ma_short, self.ma_short_window
-                        if len(self.pts) >= self.ma_short_window else len(self.pts))
+                    oc, self.ma_short, self.ma_short_window
+                    if len(self.pts) >= self.ma_short_window else len(self.pts))
             if self.ma_long == -1:
                 self.ma_long = oc
             else:
@@ -406,15 +423,14 @@ def estimate_radius(pt, bimg):
     while True:
         r += 1
         try:
-            if bimg[max(x - r, 0):min(x + r + 1, bimg.shape[0]), max(y - r, 0):
-                    min(y + r + 1, bimg.shape[1]), max(z - r, 0):min(
-                        z + r + 1, bimg.shape[2])].sum() / (2 * r + 1)**3 < .6:
+            if bimg[max(x - r, 0): min(x + r + 1, bimg.shape[0]),
+                    max(y - r, 0): min(y + r + 1, bimg.shape[1]),
+                    max(z - r, 0): min(z + r + 1, bimg.shape[2])].sum() / (2 * r + 1) ** 3 < .6:
                 break
         except IndexError:
             break
 
     return r
-
 
 
 def exponential_moving_average(p, ema, n):
