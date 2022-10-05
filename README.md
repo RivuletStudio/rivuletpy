@@ -90,9 +90,9 @@ conda activate riv
 conda install pip git
 ```
 
-### Install from PyPi
+### Install from PyPI
 
-To install rivuletpy from PyPi simply activate your virtual environment and run:
+To install `rivuletpy` from **PyPI** simply activate your virtual environment and run:
 
 ```bash
 pip install rivuletpy
@@ -212,7 +212,7 @@ precision, recall, f1-score, No. connection error type A, No. connection error t
 
 Try
 
-```
+```bash
 brew install libtiff
 ```
 
@@ -220,7 +220,7 @@ brew install libtiff
 
 Try
 
-```
+```bash
 (riv)$ conda install libgcc # Upgrades the gcc in your conda environment to the newest
 ```
 
