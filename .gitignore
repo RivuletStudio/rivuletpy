@@ -1,13 +1,26 @@
-*.ipynb
-*.pyc
-*.swp
-*.mat
-*.npy
-*.nii
-*.nii.gz
-*.eggs/*
-build/*
-*.so
-*.tar.gz
-scripts/recon_my_tif.sh*
-src/*
+# datasets
+data
+*.csv
+
+# IDE temp files #
+.vscode/
+.ipynb_checkpoints
+*.egg-info
+
+
+# Python files #
+dist
+build
+.venv
+*.whl
+*.pytest_cache
+__pycache__
+
+
+# OS generated files #
+######################
+.directory
+.DS_Store
+Icon?
+Thumbs.db
+
