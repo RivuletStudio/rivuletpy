@@ -29,28 +29,33 @@
  -->
 
 # Rivuletpy
+
 ## Example Neuron Tracings
+
 ![alt text](meta/rivulet2_showcase.png "neuron showcase")
+
 ## Example Lung Airway Tracing
+
 ![alt text](meta/rivulet2_airway.png "airway showcase")
 
-## Rivuletpy == Rivulet2 
+## Rivuletpy == Rivulet2
+
 Rivuletpy is a Python3 toolkit for automatically reconstructing single neuron models from 3D microscopic image stacks & other tree structures from 3D medical images.
 
-It is actively maintained and being used in industry scale image analysis applications. 
+It is actively maintained and being used in industry scale image analysis applications.
 
 The project was initiated in the [BigNeuron project](https://alleninstitute.org/bigneuron/about/)
 
 The `rtrace` command is powered by the Rivulet2 algorithm published in IEEE Trans. TMI:
 
-[1] S. Liu, D. Zhang, Y. Song, H. Peng and W. Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking," in IEEE Transactions on Medical Imaging. URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8354803&isnumber=4359023
+[1] S. Liu, D. Zhang, Y. Song, H. Peng and W. Cai, "Automated 3D Neuron Tracing with Precise Branch Erasing and Confidence Controlled Back-Tracking," in IEEE Transactions on Medical Imaging. URL: <http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8354803&isnumber=4359023>
 
 PDF [https://www.biorxiv.org/content/biorxiv/early/2017/11/27/109892.full.pdf]
 
 The predecessor Rivulet1 was published on Neuroinformatics:
 
-[2] Siqi Liu, Donghao Zhang, Sidong Liu, Dagan Feng, Hanchuan Peng, Weidong Cai, 
-"Rivulet: 3D Neuron Morphology Tracing with Iterative Back-Tracking", 
+[2] Siqi Liu, Donghao Zhang, Sidong Liu, Dagan Feng, Hanchuan Peng, Weidong Cai,
+"Rivulet: 3D Neuron Morphology Tracing with Iterative Back-Tracking",
 Neuroinformatics, Vol.14, Issue 4, pp387-401, 2016.
 
 A C++ implementation of the Rivulet2 algorithm is also available in the lastest [Vaa3D](https://github.com/Vaa3D) sources under the [Rivulet Plugin](https://github.com/Vaa3D/vaa3d_tools/tree/master/released_plugins/v3d_plugins/bigneuron_siqi_rivuletv3d) (Not yet available in the released build). However you can build Vaa3D easily on Mac/Linux following the [Vaa3D wiki](https://github.com/Vaa3D/Vaa3D_Wiki/wiki/Build-Vaa3D-on-Linux) carefully.
@@ -73,47 +78,47 @@ Pull requests are definitely welcomed! Before you make a pull requests, please k
 
 ## Installation
 
-### 0. Setup the Anaconda environment
-```
-$ conda create -n riv python=python3.6 anaconda # We tested on 3.5 and 3.6. Other python versions >= 3.4 should also work
-$ source activate riv
+### Setting up virtual environment
+
+It is recommended to install rivulet in a virtual enviornment.
+
+```bash
+# create env and activate it
+conda create -n riv
+conda activate riv
+# install pip and git
+conda install pip git
 ```
 
-### 1. Setup the dependencies
-To install rivuletpy with pip, you need to install the following packages manually beforehand since some dependencies of rivuletpy uses them in their setup scripts
-* `numpy>=1.8.0`
-* `scipy>=0.17.0`
-* `Cython>=0.25.1`
-* `tqdm-dev`
-* `libtiff-dev`
-* `SimpleITK`
+### Install from PyPi
 
-```
-(riv)$ conda install numpy scipy matplotlib cython tqdm 
-(riv)$ conda install -c conda-forge pylibtiff # Install pylibtiff for loading 3D tiff images
-(riv)$ conda install -c simpleitk simpleitk  # Install SimpleITK for the support of load mhd
+To install rivuletpy from PyPi simply activate your virtual environment and run:
+
+```bash
+pip install rivuletpy
 ```
 
-### 2. Install Up-to-date Rivuletpy from source
-Optionally you can install Rivuletpy from the source files
+### Install from GitHub
 
-```
-(riv)$ git clone https://github.com/RivuletStudio/rivuletpy.git
-(riv)$ cd rivuletpy
-(riv)$ python setup.py build
-(riv)$ pip3 install .
-```
+Optionally, you can use `pip` to install the latest version directly from GitHub:
+
+```bash
+pip install git+https://github.com/RivuletStudio/rivuletpy
+```  
 
 ## Test Installation
+
 In ./rivuletpy/
 `sh quicktest.sh`
 
 This will download a simple neuron image and perform a neuron tracing with rivulet2 algorithm. If you encountered any issues while installing Rivuletpy, you are welcome to raise an issue for the developers in the [issue tracker](https://github.com/RivuletStudio/rivuletpy/issues)
 
 ## Usage
-- Reconstruct single neuron file.
+
+* Reconstruct single neuron file.
 
 The script rtrace command will be installed
+
 ```bash
 $ rtrace --help
 usage: rtrace [-h] -f FILE [-o OUT] [-t THRESHOLD] [-z ZOOM_FACTOR]
@@ -160,22 +165,25 @@ optional arguments:
 ```
 
 Example Usecases with single neurons in a TIFF image
-```
-$ rtrace -f example.tif -t 10 # Simple like this. Reconstruct a neuron in example.tif with a background threshold of 10
-$ rtrace -f example.tif -t 10 --quality # Better results with longer running time
-$ rtrace -f example.tif -t 10 --quality -v # Open a 3D swc viewer after reconstruction 
+
+```bash
+rtrace -f example.tif -t 10 # Simple like this. Reconstruct a neuron in example.tif with a background threshold of 10
+rtrace -f example.tif -t 10 --quality # Better results with longer running time
+rtrace -f example.tif -t 10 --quality -v # Open a 3D swc viewer after reconstruction 
 ```
 
 Example Usecases with general tree structures in a mhd image
-```
-$ rtrace -f example.mhd -t 10 --tracing_resolution 1.5 --vtk # Perform the tracing under an isotropic resolution of 1.5mmx1.5mmx1.5mm and output a vtk output file under the world coordinates along side the swc.
-$ rtrace -f example.mhd -t 10 --tracing_resolution 1.5 --vtk --speed # Use the input image directly as the source of making speed image. Recommended if the input mhd is a probablity map of centerlines.
+
+```bash
+rtrace -f example.mhd -t 10 --tracing_resolution 1.5 --vtk # Perform the tracing under an isotropic resolution of 1.5mmx1.5mmx1.5mm and output a vtk output file under the world coordinates along side the swc.
+rtrace -f example.mhd -t 10 --tracing_resolution 1.5 --vtk --speed # Use the input image directly as the source of making speed image. Recommended if the input mhd is a probablity map of centerlines.
 ```
 
 Please note that Rivulet2 is powerful of handling the noises, a relatively low intensity threshold is preferred to include all the candidate voxels.
 
-- Compare a swc reconstruction against the manual ground truth
-```
+* Compare a swc reconstruction against the manual ground truth
+
+```bash
 $ compareswc --help
 usage: compareswc [-h] --target TARGET --groundtruth GROUNDTRUTH
                   [--sigma SIGMA]
@@ -193,27 +201,34 @@ optional arguments:
 $ compareswc --target r2_tracing.swc --groundtruth hand_tracing.swc
 0.9970 0.8946 0.9865 1 3
 ```
-The `compareswc` command outputs five numbers which are in order: 
+
+The `compareswc` command outputs five numbers which are in order:
 
 precision, recall, f1-score, No. connection error type A, No. connection error type B
 
 ## FAQ
+
 ### What if I see on Mac OS ```ImportError: Failed to find TIFF library. Make sure that libtiff is installed and its location is listed in PATH|LD_LIBRARY_PATH|..```
 
 Try
+
 ```
 brew install libtiff
 ```
 
 ### What if I see ```...version `GLIBCXX_3.4.21' not found...``` when I run `rtrace` under Anaconda?
+
 Try
+
 ```
 (riv)$ conda install libgcc # Upgrades the gcc in your conda environment to the newest
 ```
 
 ### What if I see ```Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.```?
+
 Try to get rid of the mkl in your conda, it has been reported to cause many issues
-```
+
+```bash
 (riv)$ conda install nomkl numpy scipy scikit-learn numexpr
 (riv)$ conda remove mkl mkl-service
 ```
