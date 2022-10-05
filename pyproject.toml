@@ -5,6 +5,13 @@ description = "Rivuletpy: a powerful tool to automatically trace single neurons 
 authors = ["RivuletStudio"]
 license = "BSD"
 readme = "README.md"
+include = [
+    {path = "rivuletpy/msfm/*.c", format="sdist"},
+    {path = "rivuletpy/msfm/*.h", format="sdist"}
+]
+
+[tool.poetry.build]
+script = "build.py"
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.11" 
@@ -21,5 +28,5 @@ pylibtiff = "^0.4.4"
 
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core", "wheel", "setuptools", "numpy", "Cython"]
 build-backend = "poetry.core.masonry.api"
