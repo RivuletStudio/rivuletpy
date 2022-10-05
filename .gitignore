@@ -15,6 +15,7 @@ build
 *.whl
 *.pytest_cache
 __pycache__
+*.lock
 
 
 # OS generated files #
