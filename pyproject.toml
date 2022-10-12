@@ -14,7 +14,7 @@ include = [
 script = "build.py"
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.11" 
+python = ">=3.8, <3.11" 
 numpy = "^1.23.3"
 scipy = "^1.9.1"
 Cython = "^0.29.32"
