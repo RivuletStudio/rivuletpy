@@ -12,6 +12,7 @@ data
 dist
 build
 .venv
+*.so
 *.whl
 *.pytest_cache
 __pycache__
