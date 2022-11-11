@@ -35,7 +35,7 @@ class SWC(object):
         Note: This swc is special with N X 8 shape. The 8-th column is the online confidence
         """
         if random_color:
-            rand_node_type = randrange(256)
+            rand_node_type = randrange(6, 257)
 
         new_branch = np.zeros((len(branch.pts), 8))
         id_start = 1 if self._data.shape[0] == 1 else self._data[:, 0].max() + 1
